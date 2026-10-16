@@ -11,3 +11,7 @@ Releases/
 *.db-shm
 *.db-wal
 *.db.bak
+
+# Local-only Claude session notes (kept on disk, not in git)
+plans/
+CLAUDE.md

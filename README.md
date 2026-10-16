@@ -117,4 +117,4 @@ Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regen
 - [x] **M5** YIN tuner with DSP tests; bend-accuracy mode
 - [ ] **M6** Velopack installers and release pipeline (a CI build/test matrix exists)
 
-Development notes, decisions and the task queue live in `plans/` (start with `plans/README.md`).
+Development notes for Claude sessions (`plans/`, `CLAUDE.md`) are kept locally and are not in this repository.
