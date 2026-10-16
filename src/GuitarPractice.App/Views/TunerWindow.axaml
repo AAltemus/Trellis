@@ -1,0 +1,155 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GuitarPractice.App.ViewModels"
+        xmlns:audio="using:GuitarPractice.Audio"
+        x:Class="GuitarPractice.App.Views.TunerWindow"
+        x:DataType="vm:TunerViewModel"
+        Title="Tuner"
+        Width="440" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.note">
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
+    <Style Selector="TextBlock.note.pitch">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="TextBlock.note.intune">
+      <Setter Property="Foreground" Value="#43A047" />
+    </Style>
+    <Style Selector="Border.needle">
+      <Setter Property="Background" Value="#E53935" />
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="Border.needle.pitch">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Border.needle.intune">
+      <Setter Property="Background" Value="#43A047" />
+    </Style>
+    <Style Selector="Border.chip">
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="Margin" Value="3" />
+      <Setter Property="Background" Value="#22808080" />
+    </Style>
+    <Style Selector="Border.chip.active">
+      <Setter Property="Background" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="20" Spacing="12">
+    <!-- Mode -->
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+      <RadioButton GroupName="mode" Content="Tuner" IsChecked="{Binding IsTunerMode}" />
+      <RadioButton GroupName="mode" Content="Bend trainer" IsChecked="{Binding IsBendMode}" />
+    </StackPanel>
+
+    <TextBlock Text="{Binding BendTitle}" HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold"
+               IsVisible="{Binding IsBendMode}" />
+
+    <!-- Note -->
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+      <TextBlock Classes="note" Classes.pitch="{Binding HasPitch}" Classes.intune="{Binding IsInTune}"
+                 Text="{Binding NoteText}" FontSize="96" FontWeight="SemiBold" />
+      <TextBlock Classes="note" Classes.pitch="{Binding HasPitch}" Classes.intune="{Binding IsInTune}"
+                 Text="{Binding OctaveText}" FontSize="32" VerticalAlignment="Bottom" Margin="4,0,0,18" />
+    </StackPanel>
+
+    <!-- Needle: ±50 cents across 340 px -->
+    <Grid HorizontalAlignment="Center" Width="344">
+      <Canvas Width="344" Height="54">
+        <Border Canvas.Left="2" Canvas.Top="26" Width="340" Height="2" Background="#55808080" />
+        <Border Canvas.Left="171" Canvas.Top="6" Width="2" Height="42" Background="#43A047" />
+        <TextBlock Canvas.Left="0" Canvas.Top="34" Text="−50" FontSize="11" Opacity="0.6" />
+        <TextBlock Canvas.Left="84" Canvas.Top="34" Text="−25" FontSize="11" Opacity="0.6" />
+        <TextBlock Canvas.Left="250" Canvas.Top="34" Text="+25" FontSize="11" Opacity="0.6" />
+        <TextBlock Canvas.Left="320" Canvas.Top="34" Text="+50" FontSize="11" Opacity="0.6" />
+        <Border Classes="needle" Classes.pitch="{Binding HasPitch}" Classes.intune="{Binding IsInTune}"
+                Canvas.Left="{Binding NeedleLeft}" Canvas.Top="2" Width="4" Height="50" CornerRadius="2" />
+      </Canvas>
+    </Grid>
+
+    <Grid ColumnDefinitions="*,*,*">
+      <TextBlock Text="{Binding CentsText}" FontSize="18" HorizontalAlignment="Left"
+                 FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+      <TextBlock Grid.Column="1" Text="{Binding HintText}" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+      <TextBlock Grid.Column="2" Text="{Binding HzText}" Classes="caption" HorizontalAlignment="Right" VerticalAlignment="Center" />
+    </Grid>
+
+    <!-- Bend progress: 0 = fretted note, 1 = target (bar runs to 125 %) -->
+    <StackPanel IsVisible="{Binding IsBendMode}" Spacing="2">
+      <ProgressBar Minimum="0" Maximum="1.25" Value="{Binding BendProgress}" Height="10" MinHeight="10" />
+      <Grid ColumnDefinitions="*,*">
+        <TextBlock Text="fretted" Classes="caption" Opacity="0.6" FontSize="11" />
+        <TextBlock Grid.Column="1" Text="target" Classes="caption" Opacity="0.6" FontSize="11" HorizontalAlignment="Right" Margin="0,0,56,0" />
+      </Grid>
+    </StackPanel>
+
+    <!-- Strings of the selected tuning, low to high -->
+    <ItemsControl ItemsSource="{Binding StringChips}" HorizontalAlignment="Center" IsVisible="{Binding IsTunerMode}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:StringChipViewModel">
+          <Border Classes="chip" Classes.active="{Binding IsActive}">
+            <TextBlock Text="{Binding Label}" FontSize="12" />
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- Settings -->
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+      <TextBlock Text="Tuning" VerticalAlignment="Center" IsVisible="{Binding IsTunerMode}" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding Tunings}" SelectedItem="{Binding SelectedTuning}" HorizontalAlignment="Stretch"
+                IsVisible="{Binding IsTunerMode}" />
+      <TextBlock Text="Bend" VerticalAlignment="Center" IsVisible="{Binding IsBendMode}" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding BendIntervals}" SelectedItem="{Binding SelectedBendInterval}" HorizontalAlignment="Stretch"
+                IsVisible="{Binding IsBendMode}" />
+
+      <TextBlock Grid.Row="1" Text="A4 =" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding A4}" Minimum="400" Maximum="480" Increment="1"
+                     FormatString="0 Hz" HorizontalAlignment="Left" Width="140" />
+
+      <TextBlock Grid.Row="2" Text="Input" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" HorizontalAlignment="Stretch">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="audio:AudioDeviceInfo">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+
+      <TextBlock Grid.Row="3" Text="Channel" VerticalAlignment="Center" IsVisible="{Binding IsStereoDevice}" />
+      <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
+                HorizontalAlignment="Stretch" IsVisible="{Binding IsStereoDevice}" />
+
+      <TextBlock Grid.Row="4" Text="Level" VerticalAlignment="Center" />
+      <ProgressBar Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Level}" Height="6" MinHeight="6" VerticalAlignment="Center" />
+    </Grid>
+
+    <!-- Scored bends -->
+    <Border IsVisible="{Binding IsBendMode}" Padding="12,8" CornerRadius="8" Background="#14808080">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Recent bends (average offset while held)" FontWeight="SemiBold" />
+        <ItemsControl ItemsSource="{Binding BendHistory}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock Text="{Binding}" FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" FontSize="13" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{Binding BendSummary}" Classes="caption" Opacity="0.8" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
+               IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    <TextBlock Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.7" />
+  </StackPanel>
+</Window>

@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "sync-db",
+      "detail": "Add an EF migration if the model changed (runs before every F5)",
+      "type": "shell",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-db.ps1",
+      "problemMatcher": "$msCompile",
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "bootstrap (first run)",
+      "type": "shell",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "reset database",
+      "detail": "Delete migrations + local DB and rebuild from the current model (loses practice history)",
+      "type": "shell",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1 -Reset",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "GuitarPractice.slnx", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "GuitarPractice.slnx"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

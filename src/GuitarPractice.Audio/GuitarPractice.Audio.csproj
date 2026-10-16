@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- M4/M5: PortAudio backend + DSP (YIN tuner, sample-accurate metronome) land here. -->
+  <PropertyGroup>
+    <RootNamespace>GuitarPractice.Audio</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GuitarPractice.Audio.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="PortAudioSharp2" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Guitar Practice",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/src/GuitarPractice.App/GuitarPractice.App.csproj",
+      "preLaunchTask": "sync-db"
+    }
+  ]
+}

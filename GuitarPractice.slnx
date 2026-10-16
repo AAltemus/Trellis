@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GuitarPractice.App/GuitarPractice.App.csproj" />
+    <Project Path="src/GuitarPractice.Audio/GuitarPractice.Audio.csproj" />
+    <Project Path="src/GuitarPractice.Domain/GuitarPractice.Domain.csproj" />
+    <Project Path="src/GuitarPractice.Infrastructure/GuitarPractice.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GuitarPractice.Audio.Tests/GuitarPractice.Audio.Tests.csproj" />
+    <Project Path="tests/GuitarPractice.Domain.Tests/GuitarPractice.Domain.Tests.csproj" />
+    <Project Path="tests/GuitarPractice.Infrastructure.Tests/GuitarPractice.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

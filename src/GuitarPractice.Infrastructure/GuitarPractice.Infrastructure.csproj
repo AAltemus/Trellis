@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>GuitarPractice.Infrastructure</RootNamespace>
+    <!-- Lets dotnet-ef use this class library as its own startup project. -->
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GuitarPractice.Infrastructure.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GuitarPractice.Domain\GuitarPractice.Domain.csproj" />
+  </ItemGroup>
+</Project>

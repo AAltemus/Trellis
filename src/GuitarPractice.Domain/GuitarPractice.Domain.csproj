@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Zero package dependencies on purpose: the planner stays pure and trivially testable. -->
+  <PropertyGroup>
+    <RootNamespace>GuitarPractice.Domain</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GuitarPractice.Domain.Tests" />
+  </ItemGroup>
+</Project>

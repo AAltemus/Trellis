@@ -1,0 +1,356 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GuitarPractice.App.ViewModels"
+        xmlns:dom="using:GuitarPractice.Domain"
+        xmlns:sys="using:System"
+        x:Class="GuitarPractice.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Guitar Practice"
+        Width="1440" Height="880" MinWidth="1024" MinHeight="640">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+L" Command="{Binding ToggleLockCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding OpenSaveDialogCommand}" />
+    <KeyBinding Gesture="Alt+Left" Command="{Binding ShowPreviousWeekCommand}" />
+    <KeyBinding Gesture="Alt+Right" Command="{Binding ShowNextWeekCommand}" />
+    <KeyBinding Gesture="Alt+Home" Command="{Binding ShowThisWeekCommand}" />
+    <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenMetronomeCommand}" />
+    <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
+  </Window.KeyBindings>
+
+  <Window.Styles>
+    <Style Selector="Border.day">
+      <Setter Property="Background" Value="#14808080" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.day.today">
+      <Setter Property="BorderBrush" Value="#40808080" />
+    </Style>
+    <Style Selector="Border.day.selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="Button.flat">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.entry.selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3360A5FA" />
+    </Style>
+    <Style Selector="Button.entry.done">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_File">
+        <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+      </MenuItem>
+      <MenuItem Header="_Week">
+        <MenuItem Header="_Previous week" Command="{Binding ShowPreviousWeekCommand}" InputGesture="Alt+Left" />
+        <MenuItem Header="Ne_xt week" Command="{Binding ShowNextWeekCommand}" InputGesture="Alt+Right" />
+        <MenuItem Header="_This week" Command="{Binding ShowThisWeekCommand}" InputGesture="Alt+Home" />
+        <Separator />
+        <MenuItem Header="{Binding LockMenuHeader}" Command="{Binding ToggleLockCommand}" InputGesture="Ctrl+L" />
+        <MenuItem Header="_Reshuffle" Command="{Binding ReshuffleCommand}" />
+        <Separator />
+        <MenuItem Header="_Save week as…" Command="{Binding OpenSaveDialogCommand}" InputGesture="Ctrl+S" />
+        <MenuItem Header="{Binding LoadMenuHeader}" ItemsSource="{Binding SavedWeeks}" IsEnabled="{Binding CanLoadIntoDisplayedWeek}">
+          <MenuItem.ItemContainerTheme>
+            <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:SavedWeekViewModel">
+              <Setter Property="Header" Value="{Binding Label}" />
+              <Setter Property="Command" Value="{Binding LoadCommand}" />
+            </ControlTheme>
+          </MenuItem.ItemContainerTheme>
+        </MenuItem>
+        <MenuItem Header="{Binding LoadNextMenuHeader}" ItemsSource="{Binding SavedWeeks}" IsEnabled="{Binding CanLoadIntoNextWeek}">
+          <MenuItem.ItemContainerTheme>
+            <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:SavedWeekViewModel">
+              <Setter Property="Header" Value="{Binding Label}" />
+              <Setter Property="Command" Value="{Binding LoadNextCommand}" />
+            </ControlTheme>
+          </MenuItem.ItemContainerTheme>
+        </MenuItem>
+        <MenuItem Header="_Clear next week" Command="{Binding ClearNextWeekCommand}" />
+        <Separator />
+        <MenuItem Header="_Delete saved week" ItemsSource="{Binding SavedWeeks}" IsEnabled="{Binding HasSavedWeeks}">
+          <MenuItem.ItemContainerTheme>
+            <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:SavedWeekViewModel">
+              <Setter Property="Header" Value="{Binding Name}" />
+              <Setter Property="Command" Value="{Binding DeleteCommand}" />
+            </ControlTheme>
+          </MenuItem.ItemContainerTheme>
+        </MenuItem>
+      </MenuItem>
+      <MenuItem Header="_Tools">
+        <MenuItem Header="_Metronome…" Command="{Binding OpenMetronomeCommand}" InputGesture="Ctrl+M" />
+        <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
+      </MenuItem>
+    </Menu>
+
+  <Grid ColumnDefinitions="420,*">
+
+    <!-- Routine + library -->
+    <Border Grid.Column="0" Padding="16,16,8,16" Background="#0C808080">
+      <ScrollViewer>
+        <StackPanel Spacing="10" Margin="0,0,8,0">
+          <TextBlock Text="My routine" FontSize="20" FontWeight="SemiBold" />
+
+          <TextBlock Text="Minutes per day" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="*,64">
+            <Slider Minimum="15" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+                    Value="{Binding DailyMinutes}" />
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right"
+                       Text="{Binding DailyMinutes, StringFormat='{}{0:0} min'}" />
+          </Grid>
+
+          <CheckBox IsChecked="{Binding PinnedTimeOnTopOfBudget}"
+                    Content="Add warmup time on top of daily practice time"
+                    ToolTip.Tip="Unchecked: warmup is taken out of each day's minutes. Checked: warmup is extra." />
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding DailyTotalSummary}" />
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Reshuffle week" Command="{Binding ReshuffleCommand}" />
+            <Button Content="{Binding LockButtonText}" Command="{Binding ToggleLockCommand}" />
+          </StackPanel>
+
+          <ItemsControl ItemsSource="{Binding Warnings}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="sys:String">
+                <TextBlock Classes="warning" Text="{Binding}" Margin="0,2" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <TextBlock Text="Library" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="Set a weight on any subcategory to add it to your routine. 0 removes it. Hover a name for practice notes." />
+
+          <ItemsControl ItemsSource="{Binding Categories}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:CategoryViewModel">
+                <Expander IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch" Margin="0,3">
+                  <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <Border Width="10" Height="10" CornerRadius="5" Background="{Binding Brush}" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                      <TextBlock Classes="caption" Text="{Binding Summary}" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Expander.Header>
+
+                  <StackPanel Spacing="4">
+                    <ItemsControl ItemsSource="{Binding Subcategories}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SubcategoryViewModel">
+                          <StackPanel Margin="0,4">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <StackPanel>
+                                <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" ToolTip.Tip="{Binding Notes}" />
+                                <TextBlock Classes="caption" Text="{Binding Detail}"
+                                           IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                              </StackPanel>
+                              <Button Grid.Column="1" Content="✕" Padding="8,2" VerticalAlignment="Top"
+                                      Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"
+                                      ToolTip.Tip="Remove from library" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,28" IsVisible="{Binding !IsPinned}">
+                              <Slider Minimum="0" Maximum="10" TickFrequency="1" IsSnapToTickEnabled="True"
+                                      Value="{Binding Weight}" />
+                              <TextBlock Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                         Text="{Binding WeightValue}" />
+                            </Grid>
+                            <CheckBox IsVisible="{Binding IsPinned}" IsChecked="{Binding IsIncluded}">
+                              <TextBlock Classes="caption" Text="{Binding PinnedLabel}" TextWrapping="Wrap" />
+                            </CheckBox>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Add a subcategory (exercise categories) -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsExercise}" Margin="0,6,0,0">
+                      <TextBox Watermark="New subcategory…" Text="{Binding NewSubcategoryName}" />
+                      <Button Grid.Column="1" Content="Add" Margin="6,0,0,0" Command="{Binding AddSubcategoryCommand}" />
+                    </Grid>
+
+                    <!-- Add a song (Songs category) -->
+                    <Border IsVisible="{Binding IsSongs}" Padding="8" CornerRadius="6" Background="#14808080" Margin="0,6,0,0">
+                      <StackPanel Spacing="6">
+                        <TextBlock Text="Add a song" FontWeight="SemiBold" />
+                        <TextBox Watermark="Title" Text="{Binding NewSongTitle}" />
+                        <TextBox Watermark="Artist" Text="{Binding NewSongArtist}" />
+                        <Grid ColumnDefinitions="*,*">
+                          <ComboBox ItemsSource="{Binding Tunings}" SelectedItem="{Binding NewSongTuning}"
+                                    HorizontalAlignment="Stretch" Margin="0,0,3,0">
+                            <ComboBox.ItemTemplate>
+                              <DataTemplate x:DataType="dom:Tuning">
+                                <TextBlock Text="{Binding Name}" />
+                              </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                          </ComboBox>
+                          <ComboBox Grid.Column="1" ItemsSource="{Binding SongStatuses}" SelectedItem="{Binding NewSongStatus}"
+                                    HorizontalAlignment="Stretch" Margin="3,0,0,0" />
+                        </Grid>
+                        <Button Content="Add song" HorizontalAlignment="Right" Command="{Binding AddSongCommand}" />
+                      </StackPanel>
+                    </Border>
+                  </StackPanel>
+                </Expander>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+            <TextBox Watermark="New category…" Text="{Binding NewCategoryName}" />
+            <Button Grid.Column="1" Content="Add category" Margin="6,0,0,0" Command="{Binding AddCategoryCommand}" />
+          </Grid>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Session runner + week -->
+    <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,Auto,*">
+
+      <Border Grid.Row="0" Margin="16,16,16,4" Padding="16" CornerRadius="10" Background="#14808080">
+        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+          <TextBlock Text="{Binding TimerTitle}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Grid.Row="1" Classes="caption" Text="{Binding TimerSubtitle}" TextWrapping="Wrap" />
+          <ProgressBar Grid.Row="2" Minimum="0" Maximum="1" Value="{Binding TimerProgress}"
+                       Margin="0,10,0,0" Height="6" MinHeight="6" />
+
+          <StackPanel Grid.Column="1" Grid.RowSpan="3" Margin="24,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding TimerRemaining}" FontSize="44" HorizontalAlignment="Right"
+                       FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+            <TextBlock Classes="caption" Text="{Binding DayRemaining}" HorizontalAlignment="Right"
+                       IsVisible="{Binding HasSelection}" />
+          </StackPanel>
+
+          <StackPanel Grid.Column="2" Grid.RowSpan="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="accent" MinWidth="84" Content="{Binding StartLabel}" Command="{Binding StartCommand}" />
+            <Button Content="Pause" Command="{Binding PauseCommand}" />
+            <Button Content="Stop" Command="{Binding StopCommand}"
+                    ToolTip.Tip="Finish this item now: keeps the time you practised and marks it done." />
+            <Button Content="Reset" Command="{Binding ResetCommand}"
+                    ToolTip.Tip="Clear the time logged for this item." />
+            <Button Content="🔔" Command="{Binding TestDingCommand}" ToolTip.Tip="Test the ding" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Week navigation -->
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="16,10,16,0">
+        <Button Content="◀" Command="{Binding ShowPreviousWeekCommand}" ToolTip.Tip="Previous week (Alt+Left)" />
+        <Button Content="▶" Command="{Binding ShowNextWeekCommand}" ToolTip.Tip="Next week (Alt+Right)" />
+        <TextBlock Text="{Binding WeekTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
+        <Button Content="Back to this week" Command="{Binding ShowThisWeekCommand}"
+                IsVisible="{Binding !IsViewingCurrentWeek}" ToolTip.Tip="Alt+Home" />
+      </StackPanel>
+
+      <Border Grid.Row="2" IsVisible="{Binding IsLocked}" Margin="16,8,16,0" Padding="12,8" CornerRadius="8" Background="#26FFB300">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Text="{Binding LockStatus}" FontWeight="SemiBold" />
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="The plan won't change. Weight and minute changes are still saved to your routine and apply when you unlock." />
+          </StackPanel>
+          <Button Grid.Column="1" Content="Unlock" Command="{Binding ToggleLockCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="3" IsVisible="{Binding ShowNextWeekStrip}" Margin="16,8,16,0" Padding="12,8" CornerRadius="8" Background="#2242A5F5">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding NextWeekStatus}" TextWrapping="Wrap" VerticalAlignment="Center" />
+          <Button Grid.Column="1" Content="Clear" Command="{Binding ClearNextWeekCommand}" VerticalAlignment="Center" Margin="12,0,0,0"
+                  ToolTip.Tip="Remove the plan queued for next week; it will be generated from your routine instead." />
+        </Grid>
+      </Border>
+
+      <ScrollViewer Grid.Row="4" Padding="12" HorizontalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Days}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="7" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:DayViewModel">
+              <Border Classes="day" Classes.today="{Binding IsToday}" Classes.selected="{Binding IsSelected}"
+                      Margin="4" Padding="8" CornerRadius="8" MinWidth="140">
+                <StackPanel Spacing="6">
+                  <Button Classes="flat" Command="{Binding SelectCommand}"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                          ToolTip.Tip="Start with this day's first unfinished item">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding Total}" FontSize="18" />
+                        <Border CornerRadius="4" Padding="4,1" Background="#33808080" VerticalAlignment="Center"
+                                IsVisible="{Binding PinnedBadge, Converter={x:Static ObjectConverters.IsNotNull}}">
+                          <TextBlock Text="{Binding PinnedBadge}" FontSize="11" />
+                        </Border>
+                      </StackPanel>
+                      <TextBlock Classes="caption" Text="{Binding RemainingLabel}" />
+                    </StackPanel>
+                  </Button>
+                  <ProgressBar Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="4" MinHeight="4"
+                               IsVisible="{Binding !IsRestDay}" />
+
+                  <ItemsControl ItemsSource="{Binding Entries}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:EntryViewModel">
+                        <Button Classes="flat entry" Classes.selected="{Binding IsSelected}" Classes.done="{Binding IsDone}"
+                                Command="{Binding SelectCommand}" Margin="0,2"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                          <Grid ColumnDefinitions="4,*">
+                            <Border Background="{Binding Brush}" CornerRadius="2" />
+                            <StackPanel Grid.Column="1" Margin="8,2,0,2">
+                              <TextBlock Text="{Binding Category}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                              <TextBlock Classes="caption" Text="{Binding Name}" TextWrapping="Wrap" />
+                              <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="▶" FontSize="11" VerticalAlignment="Center" IsVisible="{Binding IsRunning}"
+                                           Foreground="{DynamicResource SystemControlHighlightAccentBrush}" />
+                                <TextBlock Text="{Binding StatusLabel}" FontSize="12" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+  </DockPanel>
+
+  <!-- Save week dialog -->
+  <Border IsVisible="{Binding IsSaveDialogOpen}" Background="#99000000">
+    <Border Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="10"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Save week" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="Keeps this week's plan so you can load it into any later week from Week → Load saved week. Saving with an existing name replaces it." />
+        <TextBox Text="{Binding SaveWeekName}" Watermark="Name, e.g. Shred block">
+          <TextBox.KeyBindings>
+            <KeyBinding Gesture="Enter" Command="{Binding ConfirmSaveCommand}" />
+            <KeyBinding Gesture="Escape" Command="{Binding CancelSaveCommand}" />
+          </TextBox.KeyBindings>
+        </TextBox>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+          <Button Content="Cancel" Command="{Binding CancelSaveCommand}" />
+          <Button Classes="accent" Content="Save" Command="{Binding ConfirmSaveCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Border>
+  </Panel>
+</Window>
