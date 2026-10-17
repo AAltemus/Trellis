@@ -15,6 +15,7 @@
     <KeyBinding Gesture="Alt+Right" Command="{Binding ShowNextWeekCommand}" />
     <KeyBinding Gesture="Alt+Home" Command="{Binding ShowThisWeekCommand}" />
     <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenMetronomeCommand}" />
+    <KeyBinding Gesture="Escape" Command="{Binding CancelDeleteCommand}" />
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
   </Window.KeyBindings>
 
@@ -76,7 +77,7 @@
         </MenuItem>
         <MenuItem Header="_Clear next week" Command="{Binding ClearNextWeekCommand}" />
         <Separator />
-        <MenuItem Header="_Delete saved week" ItemsSource="{Binding SavedWeeks}" IsEnabled="{Binding HasSavedWeeks}">
+        <MenuItem Header="_Delete saved week…" ItemsSource="{Binding SavedWeeks}" IsEnabled="{Binding HasSavedWeeks}">
           <MenuItem.ItemContainerTheme>
             <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:SavedWeekViewModel">
               <Setter Property="Header" Value="{Binding Name}" />
@@ -100,12 +101,27 @@
           <TextBlock Text="My routine" FontSize="20" FontWeight="SemiBold" />
 
           <TextBlock Text="Minutes per day" FontWeight="SemiBold" />
-          <Grid ColumnDefinitions="*,64">
-            <Slider Minimum="15" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
-                    Value="{Binding DailyMinutes}" />
-            <TextBlock Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right"
-                       Text="{Binding DailyMinutes, StringFormat='{}{0:0} min'}" />
+          <Grid ColumnDefinitions="40,*,64" ToolTip.Tip="Sets every day to the same minutes">
+            <TextBlock Text="All" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="15" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+                    Value="{Binding EveryDayMinutes}" />
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                       Text="{Binding EveryDayMinutes, StringFormat='{}{0:0} min'}" />
           </Grid>
+          <Expander Header="Per weekday (0 = rest day)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <ItemsControl ItemsSource="{Binding DayBudgets}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DayBudgetViewModel">
+                  <Grid ColumnDefinitions="40,*,64" Margin="0,1">
+                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                    <Slider Grid.Column="1" Minimum="0" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+                            Value="{Binding Minutes}" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding MinutesText}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Expander>
 
           <CheckBox IsChecked="{Binding PinnedTimeOnTopOfBudget}"
                     Content="Add warmup time on top of daily practice time"
@@ -348,6 +364,21 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
           <Button Content="Cancel" Command="{Binding CancelSaveCommand}" />
           <Button Classes="accent" Content="Save" Command="{Binding ConfirmSaveCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Border>
+
+  <!-- Delete saved week confirmation -->
+  <Border IsVisible="{Binding IsDeleteConfirmOpen}" Background="#99000000">
+    <Border Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="10"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+      <StackPanel Spacing="12">
+        <TextBlock Text="Delete saved week" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding DeleteConfirmText}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+          <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+          <Button Content="Delete" Command="{Binding ConfirmDeleteCommand}" Foreground="White" Background="#C62828" />
         </StackPanel>
       </StackPanel>
     </Border>

@@ -210,11 +210,31 @@ public sealed partial class MainWindowViewModel
         Regenerate();
     }
 
-    internal void DeleteSavedWeek(SavedWeekViewModel week)
+    /// <summary>The saved week waiting for "Delete?" confirmation; null when the dialog is closed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeleteConfirmOpen), nameof(DeleteConfirmText))]
+    private SavedWeekViewModel? _pendingDelete;
+
+    public bool IsDeleteConfirmOpen => PendingDelete is not null;
+
+    public string DeleteConfirmText => PendingDelete is { } week
+        ? $"Delete the saved week “{week.Name}”? This can't be undone. Weeks you already loaded from it keep their copy."
+        : "";
+
+    /// <summary>Week → Delete saved week: asks first (overlay), deletes on Confirm.</summary>
+    internal void DeleteSavedWeek(SavedWeekViewModel week) => PendingDelete = week;
+
+    [RelayCommand]
+    private void ConfirmDelete()
     {
+        if (PendingDelete is not { } week) return;
+        PendingDelete = null;
         _weekStore.DeleteSaved(week.Id);
         RefreshSavedWeeks();
     }
+
+    [RelayCommand]
+    private void CancelDelete() => PendingDelete = null;
 
     private void RefreshSavedWeeks()
     {

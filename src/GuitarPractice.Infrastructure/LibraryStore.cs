@@ -94,17 +94,26 @@ public sealed class LibraryStore(IDbContextFactory<PracticeDbContext> contextFac
         db.SaveChanges();
     }
 
-    /// <summary>Same minutes every day for now; per-weekday budgets come with the full Routine builder.</summary>
-    public void SaveSettings(int routineId, int minutesPerDay, bool pinnedTimeOnTop)
+    /// <summary>The same minutes on every day.</summary>
+    public void SaveSettings(int routineId, int minutesPerDay, bool pinnedTimeOnTop) =>
+        SaveSettings(routineId, Enum.GetValues<DayOfWeek>().ToDictionary(d => d, _ => minutesPerDay), pinnedTimeOnTop);
+
+    /// <summary>
+    /// Minutes per weekday (0 = rest day) and the warmup budget mode. Days missing from
+    /// <paramref name="minutesByDay"/> keep their stored value; negative minutes are stored as 0.
+    /// </summary>
+    public void SaveSettings(int routineId, IReadOnlyDictionary<DayOfWeek, int> minutesByDay, bool pinnedTimeOnTop)
     {
+        ArgumentNullException.ThrowIfNull(minutesByDay);
         using var db = contextFactory.CreateDbContext();
         var routine = db.Routines.Include(r => r.DayBudgets).Single(r => r.Id == routineId);
         routine.PinnedTimeOnTopOfBudget = pinnedTimeOnTop;
-        foreach (var day in Enum.GetValues<DayOfWeek>())
+        foreach (var (day, minutes) in minutesByDay)
         {
+            var value = Math.Max(0, minutes);
             var budget = routine.DayBudgets.FirstOrDefault(b => b.Day == day);
-            if (budget is null) routine.DayBudgets.Add(new RoutineDayBudget { Day = day, Minutes = minutesPerDay });
-            else budget.Minutes = minutesPerDay;
+            if (budget is null) routine.DayBudgets.Add(new RoutineDayBudget { Day = day, Minutes = value });
+            else budget.Minutes = value;
         }
         db.SaveChanges();
     }

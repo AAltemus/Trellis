@@ -92,6 +92,38 @@ public sealed class LibraryStoreTests : IDisposable
     }
 
     [Fact]
+    public void Per_weekday_minutes_persist_including_rest_days()
+    {
+        var routine = _db.Library.GetOrCreateDefaultRoutine();
+        var week = new Dictionary<DayOfWeek, int>
+        {
+            [DayOfWeek.Monday] = 30, [DayOfWeek.Tuesday] = 45, [DayOfWeek.Wednesday] = 0, [DayOfWeek.Thursday] = 60,
+            [DayOfWeek.Friday] = 20, [DayOfWeek.Saturday] = 120, [DayOfWeek.Sunday] = -15,
+        };
+
+        _db.Library.SaveSettings(routine.Id, week, pinnedTimeOnTop: false);
+
+        var stored = _db.Library.GetOrCreateDefaultRoutine().DayBudgets.ToDictionary(b => b.Day, b => b.Minutes);
+        Assert.Equal(7, stored.Count);
+        Assert.Equal(0, stored[DayOfWeek.Wednesday]);   // rest day
+        Assert.Equal(0, stored[DayOfWeek.Sunday]);      // negative stored as 0
+        Assert.Equal(120, stored[DayOfWeek.Saturday]);
+        Assert.Equal(45, stored[DayOfWeek.Tuesday]);
+    }
+
+    [Fact]
+    public void Days_not_given_keep_their_minutes()
+    {
+        var routine = _db.Library.GetOrCreateDefaultRoutine();
+        _db.Library.SaveSettings(routine.Id, 50, pinnedTimeOnTop: false);
+        _db.Library.SaveSettings(routine.Id, new Dictionary<DayOfWeek, int> { [DayOfWeek.Friday] = 10 }, pinnedTimeOnTop: true);
+
+        var reloaded = _db.Library.GetOrCreateDefaultRoutine();
+        Assert.True(reloaded.PinnedTimeOnTopOfBudget);
+        Assert.All(reloaded.DayBudgets, b => Assert.Equal(b.Day == DayOfWeek.Friday ? 10 : 50, b.Minutes));
+    }
+
+    [Fact]
     public void AddSubcategory_stores_song_details()
     {
         var songs = _db.Library.LoadLibrary().Single(c => c.Kind == CategoryKind.Songs);

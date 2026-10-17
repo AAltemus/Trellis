@@ -32,9 +32,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<string> Warnings { get; } = [];
     public IReadOnlyList<Tuning> Tunings { get; }
 
+    /// <summary>Monday-first, like the week view.</summary>
+    public ObservableCollection<DayBudgetViewModel> DayBudgets { get; } = [];
+
+    /// <summary>Master slider: moving it sets every day to the same minutes.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DailyTotalSummary))]
-    private double _dailyMinutes = 60;
+    private double _everyDayMinutes = 60;
+
+    private bool _settingAllDays;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DailyTotalSummary))]
@@ -72,7 +77,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _seed = routine.PlanSeed == 0 ? 1 : routine.PlanSeed;
         var weights = routine.Items.ToDictionary(i => i.SubcategoryId, i => i.Weight);
 
-        DailyMinutes = routine.DayBudgets.Select(b => b.Minutes).DefaultIfEmpty(60).Max();
+        var stored = routine.DayBudgets.ToDictionary(b => b.Day, b => b.Minutes);
+        foreach (var day in MondayFirst)
+            DayBudgets.Add(new DayBudgetViewModel(this, day, stored.GetValueOrDefault(day, 60)));
+        EveryDayMinutes = stored.Values.Where(m => m > 0).DefaultIfEmpty(60).Max();
         PinnedTimeOnTopOfBudget = routine.PinnedTimeOnTopOfBudget;
 
         foreach (var category in store.LoadLibrary())
@@ -82,24 +90,62 @@ public sealed partial class MainWindowViewModel : ObservableObject
         Regenerate();
     }
 
-    private int Budget => (int)(Math.Round(DailyMinutes / 5) * 5);
+    private static readonly DayOfWeek[] MondayFirst =
+    [
+        DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+        DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday,
+    ];
+
+    private Dictionary<DayOfWeek, int> BudgetsByDay => DayBudgets.ToDictionary(d => d.Day, d => d.RoundedMinutes);
 
     private IEnumerable<SubcategoryViewModel> AllSubcategories => Categories.SelectMany(c => c.Subcategories);
 
     private int PinnedPerDay => AllSubcategories.Where(s => s.IsPinned && s.IsIncluded).Sum(s => s.PinnedMinutes);
 
-    public string DailyTotalSummary => PinnedTimeOnTopOfBudget
-        ? $"{Budget} min practice + {PinnedPerDay} min warmup = {Budget + PinnedPerDay} min/day"
-        : $"{Budget} min/day ({PinnedPerDay} warmup + {Math.Max(0, Budget - PinnedPerDay)} practice)";
+    /// <summary>"Week: 6 h 15 min over 6 days (warmup 5 min/day on top)". Rest days get no warmup either.</summary>
+    public string DailyTotalSummary
+    {
+        get
+        {
+            var practiceDays = DayBudgets.Count(d => d.RoundedMinutes > 0);
+            var total = DayBudgets.Sum(d => d.RoundedMinutes) + (PinnedTimeOnTopOfBudget ? PinnedPerDay * practiceDays : 0);
+            var week = total >= 60 ? $"{total / 60} h {total % 60:00} min" : $"{total} min";
+            var warmup = PinnedPerDay == 0 ? "no warmup"
+                : PinnedTimeOnTopOfBudget ? $"warmup {PinnedPerDay} min/day on top" : $"warmup {PinnedPerDay} min/day included";
+            return practiceDays == 0
+                ? "Every day is a rest day: set some minutes to get a plan."
+                : $"Week: {week} over {practiceDays} day{(practiceDays == 1 ? "" : "s")} ({warmup})";
+        }
+    }
 
-    partial void OnDailyMinutesChanged(double value) => SettingsChanged();
+    partial void OnEveryDayMinutesChanged(double value)
+    {
+        if (_loading) return;
+        _settingAllDays = true;
+        try
+        {
+            foreach (var day in DayBudgets) day.Minutes = value;
+        }
+        finally
+        {
+            _settingAllDays = false;
+        }
+        SettingsChanged();
+    }
+
+    internal void OnDayBudgetChanged(DayBudgetViewModel day)
+    {
+        if (_loading || _settingAllDays) return;
+        SettingsChanged();
+    }
 
     partial void OnPinnedTimeOnTopOfBudgetChanged(bool value) => SettingsChanged();
 
     private void SettingsChanged()
     {
         if (_loading) return;
-        _store.SaveSettings(_routineId, Budget, PinnedTimeOnTopOfBudget);
+        OnPropertyChanged(nameof(DailyTotalSummary));
+        _store.SaveSettings(_routineId, BudgetsByDay, PinnedTimeOnTopOfBudget);
         Regenerate();
     }
 
@@ -179,7 +225,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var byId = selected.ToDictionary(s => s.Id);
         var request = new PlanRequest(
             _weekStart,
-            Enum.GetValues<DayOfWeek>().ToDictionary(d => d, _ => Budget),
+            BudgetsByDay,
             selected.Select(s => s.ToSpec()).ToList(),
             new PlannerOptions(PinnedTimeOnTopOfBudget: PinnedTimeOnTopOfBudget),
             _seed);
