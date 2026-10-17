@@ -58,7 +58,15 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   accent on beat 1, volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
   - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
   - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.
-  - Keys: Space start/stop, ↑/↓ ±1, PgUp/PgDn ±5, T tap. Settings are remembered.
+  - *Sound*: the beep click or **drums** (kick, snare, closed hi-hat, synthesised). In drum mode a step grid shows one
+    column per step of the bar (beats per bar × subdivision) with a row per drum: click cells to put each drum where you
+    want it; the step being played is outlined. Built-in patterns (Basic rock, Four on the floor, 16th hats, Shuffle,
+    Waltz, Just hats) are a starting point; name your grid and **Save** it (same name updates it; built-in names are
+    reserved), **Clear** starts from empty, **Delete** removes a saved pattern (asks first). Changing beats or
+    subdivision resizes the grid, keeping the hits that still line up; picking a pattern sets the meter. Gap training
+    and the tempo trainer work the same with drums; the accent option applies to the click only.
+  - Keys: Space start/stop, ↑/↓ ±1, PgUp/PgDn ±5, T tap (not while typing in a box). Settings, the sound and the
+    current grid are remembered; saved patterns live in the database.
   - Opened with ♩ Metronome from the timer, a "Playing for: …" banner shows the linked item; ✕ unlinks it.
 - **Tuner…** (Ctrl+T): YIN pitch detection (±1 cent in tests), needle ±50 ¢, tunings from the library (Standard,
   Drop D, D Standard, Drop C, B Standard, 7-string) or chromatic, adjustable A4, input device/channel picker

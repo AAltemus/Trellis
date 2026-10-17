@@ -52,8 +52,10 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
 
         _loading = true;
         Apply((settingsStore.Get<MetronomeSettings>(SettingsKey) ?? new MetronomeSettings()).Normalized());
+        RefreshPatterns(MatchingPatternName());
         _loading = false;
         RebuildBeatLights();
+        RebuildDrumGrid();
     }
 
     // ---- Options ----
@@ -165,7 +167,9 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         TrainerEnabled,
         TrainerStepBpm,
         TrainerEveryBars,
-        (double)(TrainerTargetBpm ?? 160)).Normalized();
+        (double)(TrainerTargetBpm ?? 160),
+        SelectedSound?.Value ?? MetronomeSound.Click,
+        _pattern).Normalized();
 
     private void Apply(MetronomeSettings s)
     {
@@ -181,6 +185,12 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         TrainerStepBpm = s.TrainerStepBpm;
         TrainerEveryBars = s.TrainerEveryBars;
         TrainerTargetBpm = (decimal)s.TrainerTargetBpm;
+        SelectedSound = SoundOptions.FirstOrDefault(o => o.Value == s.Sound) ?? SoundOptions[0];
+        var pattern = s.Drums ?? DrumPattern.BasicRock;
+        _pattern = pattern.BeatsPerBar == s.BeatsPerBar && pattern.Subdivision == s.Subdivision
+            ? pattern
+            : pattern.Resize(s.BeatsPerBar, s.Subdivision);
+        PatternName = _pattern.Name;
     }
 
     partial void OnBpmChanged(double value)
@@ -197,6 +207,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     partial void OnBeatsPerBarChanged(int value)
     {
         RebuildBeatLights();
+        FitPatternToMeter();
         Publish();
     }
 
@@ -206,7 +217,11 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         Publish();
     }
 
-    partial void OnSelectedSubdivisionChanged(SubdivisionOption? value) => Publish();
+    partial void OnSelectedSubdivisionChanged(SubdivisionOption? value)
+    {
+        FitPatternToMeter();
+        Publish();
+    }
     partial void OnVolumeChanged(double value) => Publish();
     partial void OnGapEnabledChanged(bool value) => Publish();
     partial void OnGapPlayBarsChanged(int value) => Publish();
@@ -350,20 +365,26 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         ReportReached();
         IsMutedBar = false;
         foreach (var light in BeatLights) light.IsLit = false;
+        ClearNowStep();
     }
 
     /// <summary>UI thread, ~100 Hz: light the beat whose click is being heard now.</summary>
     private void PumpTicks()
     {
         if (_engine is null) return;
-        while (_engine.TryDequeueTick(out var tick))
-            if (tick.Kind != ClickKind.Subdivision) _pendingTicks.Enqueue(tick);
+        while (_engine.TryDequeueTick(out var tick)) _pendingTicks.Enqueue(tick);
 
         var now = Stopwatch.GetTimestamp();
         var latency = (long)(_output.OutputLatency.TotalSeconds * Stopwatch.Frequency);
-        MetronomeTick? due = null;
+        MetronomeTick? due = null;     // latest beat heard (lights)
+        MetronomeTick? dueStep = null; // latest tick of any kind heard (drum grid)
         while (_pendingTicks.TryPeek(out var next) && next.Timestamp + latency <= now)
-            due = _pendingTicks.Dequeue();
+        {
+            dueStep = _pendingTicks.Dequeue();
+            if (dueStep.Value.Kind != ClickKind.Subdivision) due = dueStep;
+        }
+        if (dueStep is { } step && IsDrums)
+            ShowNowStep(step.Beat * (SelectedSubdivision is { } sub ? (int)sub.Value : 1) + step.SubTick);
 
         if (due is { } beat)
         {

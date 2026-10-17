@@ -4,17 +4,10 @@
         x:Class="GuitarPractice.App.Views.MetronomeWindow"
         x:DataType="vm:MetronomeViewModel"
         Title="Metronome"
-        Width="540" SizeToContent="Height" CanResize="False"
+        Width="600" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner">
 
-  <Window.KeyBindings>
-    <KeyBinding Gesture="Space" Command="{Binding StartStopCommand}" />
-    <KeyBinding Gesture="Up" Command="{Binding AdjustBpmCommand}" CommandParameter="1" />
-    <KeyBinding Gesture="Down" Command="{Binding AdjustBpmCommand}" CommandParameter="-1" />
-    <KeyBinding Gesture="PageUp" Command="{Binding AdjustBpmCommand}" CommandParameter="5" />
-    <KeyBinding Gesture="PageDown" Command="{Binding AdjustBpmCommand}" CommandParameter="-5" />
-    <KeyBinding Gesture="T" Command="{Binding TapCommand}" />
-  </Window.KeyBindings>
+  <!-- Keys (Space, arrows, PgUp/PgDn, T) are handled in code-behind so they don't fire while typing in a text box. -->
 
   <Window.Styles>
     <!-- Keyboard shortcuts drive the window; focusable buttons would also react to Space. -->
@@ -42,6 +35,40 @@
     <Style Selector="Border.light.muted.lit">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="ToggleButton">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <!-- Drum grid -->
+    <Style Selector="ToggleButton.cell">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ToggleButton.hat:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1baf7a" />
+    </Style>
+    <Style Selector="ToggleButton.snare:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#eb6834" />
+    </Style>
+    <Style Selector="ToggleButton.kick:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2a78d6" />
+    </Style>
+    <Style Selector="Border.step">
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Border.step.now">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="TextBlock.drumlabel">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Padding" Value="0,3,0,0" />
     </Style>
     <Style Selector="WrapPanel.mode > :is(Control)">
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -122,8 +149,87 @@
         <TextBlock Grid.Column="1" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
       </Grid>
 
-      <CheckBox Grid.Row="3" Grid.ColumnSpan="2" Content="Accent beat 1" IsChecked="{Binding AccentFirstBeat}" />
+      <CheckBox Grid.Row="3" Grid.ColumnSpan="2" Content="Accent beat 1" IsChecked="{Binding AccentFirstBeat}"
+                IsVisible="{Binding !IsDrums}" />
     </Grid>
+
+    <!-- Sound: beep click or drums (kick / snare / closed hi-hat on a step grid, saved patterns) -->
+    <Border Padding="12,8" CornerRadius="8" Background="#14808080">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <TextBlock Text="Sound" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding SoundOptions}" SelectedItem="{Binding SelectedSound}"
+                    HorizontalAlignment="Stretch" />
+        </Grid>
+
+        <StackPanel Spacing="8" IsVisible="{Binding IsDrums}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <TextBlock Text="Pattern" VerticalAlignment="Center"
+                       ToolTip.Tip="Each column is one step of the bar (beats × subdivision). Changing beats or subdivision resizes the grid; picking a pattern sets them." />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Patterns}" SelectedItem="{Binding SelectedPattern}"
+                      PlaceholderText="(your edits: not saved yet)" HorizontalAlignment="Stretch" />
+          </Grid>
+
+          <Grid ColumnDefinitions="Auto,*">
+            <StackPanel Margin="0,20,8,0">
+              <TextBlock Classes="drumlabel" Text="Hi-hat" />
+              <TextBlock Classes="drumlabel" Text="Snare" />
+              <TextBlock Classes="drumlabel" Text="Kick" />
+            </StackPanel>
+            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding DrumBeats}" Margin="0,0,0,10">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DrumBeatViewModel">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Number}" Classes="caption" Height="18" Margin="4,0,0,0" />
+                      <ItemsControl ItemsSource="{Binding Steps}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:DrumStepViewModel">
+                            <Border Classes="step" Classes.now="{Binding IsNow}">
+                              <StackPanel Spacing="2">
+                                <ToggleButton Classes="cell hat" IsChecked="{Binding HiHat}" ToolTip.Tip="Closed hi-hat" />
+                                <ToggleButton Classes="cell snare" IsChecked="{Binding Snare}" ToolTip.Tip="Snare" />
+                                <ToggleButton Classes="cell kick" IsChecked="{Binding Kick}" ToolTip.Tip="Kick" />
+                              </StackPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+            <TextBox Text="{Binding PatternName}" Watermark="Name your pattern" MaxLength="40" />
+            <Button Grid.Column="1" Content="Save" Command="{Binding SavePatternCommand}"
+                    ToolTip.Tip="Save this grid under the name (same name: updates it)" />
+            <Button Grid.Column="2" Content="Clear" Command="{Binding ClearStepsCommand}"
+                    ToolTip.Tip="Empty the grid to build your own" />
+            <Button Grid.Column="3" Content="Delete" Command="{Binding DeletePatternCommand}"
+                    IsVisible="{Binding !IsConfirmingDelete}" ToolTip.Tip="Delete the selected saved pattern" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsConfirmingDelete}">
+              <Button Content="Delete it" Command="{Binding DeletePatternCommand}" Foreground="#E53935" />
+              <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Classes="caption" Text="{Binding PatternStatus}" TextWrapping="Wrap"
+                     IsVisible="{Binding PatternStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
 
     <!-- Practice modes -->
     <Border Padding="12,8" CornerRadius="8" Background="#14808080">

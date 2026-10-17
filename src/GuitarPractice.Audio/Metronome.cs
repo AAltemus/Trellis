@@ -25,6 +25,8 @@ public enum ClickKind
 /// Tempo trainer: +<see cref="TrainerStepBpm"/> every <see cref="TrainerEveryBars"/> bars, never past
 /// <see cref="TrainerTargetBpm"/>; <see cref="Bpm"/> is the starting tempo. Both count whole bars from Start (or from
 /// the bar after their own settings, or Bpm, last changed).
+/// Sound: the beep click, or the drum pattern <see cref="Drums"/> (null = <see cref="DrumPattern.BasicRock"/>); in drum mode
+/// the accent setting is not used (the pattern is the accent).
 /// </summary>
 public sealed record MetronomeSettings(
     double Bpm = 120,
@@ -38,7 +40,9 @@ public sealed record MetronomeSettings(
     bool TrainerEnabled = false,
     double TrainerStepBpm = 2,
     int TrainerEveryBars = 4,
-    double TrainerTargetBpm = 160)
+    double TrainerTargetBpm = 160,
+    MetronomeSound Sound = MetronomeSound.Click,
+    DrumPattern? Drums = null)
 {
     public const double MinBpm = 20;
     public const double MaxBpm = 400;
@@ -63,6 +67,8 @@ public sealed record MetronomeSettings(
         TrainerStepBpm = double.IsFinite(TrainerStepBpm) ? Math.Clamp(TrainerStepBpm, 0.5, MaxTrainerStepBpm) : 2,
         TrainerEveryBars = Math.Clamp(TrainerEveryBars, 1, MaxTrainerEveryBars),
         TrainerTargetBpm = double.IsFinite(TrainerTargetBpm) ? Math.Clamp(TrainerTargetBpm, MinBpm, MaxBpm) : 160,
+        Sound = Enum.IsDefined(Sound) ? Sound : MetronomeSound.Click,
+        Drums = Drums?.Normalized(),
     };
 }
 
@@ -87,6 +93,9 @@ public sealed class MetronomeEngine
     private readonly float[] _accentClick;
     private readonly float[] _beatClick;
     private readonly float[] _subdivisionClick;
+    private readonly float[] _kick;
+    private readonly float[] _snare;
+    private readonly float[] _hiHat;
     private readonly SpscRing<MetronomeTick> _ticks = new(256);
 
     private MetronomeSettings _settings;
@@ -104,9 +113,12 @@ public sealed class MetronomeEngine
     private long _bar;
     private int _beat;
     private int _subTick;
-    private float[]? _click;
-    private int _clickPos;
-    private float _clickGain;
+    // Voices: a click lasts 35 ms (shorter than the fastest tick), but drum tails ring under the next hits.
+    private const int MaxVoices = 8;
+    private readonly float[]?[] _voice = new float[MaxVoices][];
+    private readonly int[] _voicePos = new int[MaxVoices];
+    private readonly float[] _voiceGain = new float[MaxVoices];
+    private int _nextVoice;
     private float _softClipNorm;  // 1/tanh(gain) when gain > 1, else 0 (linear)
 
     // Gap training / tempo trainer state (audio thread). A config change restarts the count at the next bar.
@@ -129,6 +141,9 @@ public sealed class MetronomeEngine
         _accentClick = ClickSynth.Click(sampleRate, 1500, 1.0f);
         _beatClick = ClickSynth.Click(sampleRate, 1000, 0.9f);
         _subdivisionClick = ClickSynth.Click(sampleRate, 800, 0.55f);
+        _kick = DrumSynth.Kick(sampleRate);
+        _snare = DrumSynth.Snare(sampleRate);
+        _hiHat = DrumSynth.HiHat(sampleRate);
     }
 
     public int SampleRate { get; }
@@ -169,7 +184,7 @@ public sealed class MetronomeEngine
             _bar = 0;
             _beat = 0;
             _subTick = 0;
-            _click = null;
+            Array.Clear(_voice);
             _gapKey = default;
             _trainerKey = default;
         }
@@ -186,13 +201,14 @@ public sealed class MetronomeEngine
             while (_sample + Epsilon >= _nextTick) Fire(i, bufferTimestamp);
 
             var value = 0f;
-            if (_click is { } click)
+            for (var v = 0; v < MaxVoices; v++)
             {
-                value = click[_clickPos++] * _clickGain;
-                if (_softClipNorm > 0) value = MathF.Tanh(value) * _softClipNorm; // peak stays ≤ 1, body gets louder
-                if (_clickPos == click.Length) _click = null;
+                if (_voice[v] is not { } sound) continue;
+                value += sound[_voicePos[v]++] * _voiceGain[v];
+                if (_voicePos[v] == sound.Length) _voice[v] = null;
             }
-            output[i] = value;
+            if (_softClipNorm > 0) value = MathF.Tanh(value) * _softClipNorm; // peak stays ≤ 1, body gets louder
+            output[i] = Math.Clamp(value, -1f, 1f);                           // overlapping drums can sum past full scale
             _sample++;
         }
     }
@@ -212,14 +228,25 @@ public sealed class MetronomeEngine
             : _beat == 0 && s.AccentFirstBeat ? ClickKind.Accent
             : ClickKind.Beat;
 
-        _click = _mutedBar ? null : kind switch
+        if (!_mutedBar)
         {
-            ClickKind.Accent => _accentClick,
-            ClickKind.Beat => _beatClick,
-            _ => _subdivisionClick,
-        };
-        _clickPos = 0;
-        _clickGain = s.Volume;
+            if (s.Sound == MetronomeSound.Drums)
+            {
+                var hits = (s.Drums ?? DrumPattern.BasicRock).At(_beat, _subTick, ticksPerBeat);
+                if ((hits & DrumHits.Kick) != 0) Trigger(_kick, s.Volume);
+                if ((hits & DrumHits.Snare) != 0) Trigger(_snare, s.Volume);
+                if ((hits & DrumHits.HiHat) != 0) Trigger(_hiHat, s.Volume);
+            }
+            else
+            {
+                Trigger(kind switch
+                {
+                    ClickKind.Accent => _accentClick,
+                    ClickKind.Beat => _beatClick,
+                    _ => _subdivisionClick,
+                }, s.Volume);
+            }
+        }
         _softClipNorm = s.Volume > 1f ? 1f / MathF.Tanh(s.Volume) : 0f;
 
         var timestamp = bufferTimestamp + offsetInBuffer * Stopwatch.Frequency / SampleRate;
@@ -244,6 +271,20 @@ public sealed class MetronomeEngine
                 _bar++;
             }
         }
+    }
+
+    /// <summary>Starts a sound in a free voice (all busy: replaces the oldest started).</summary>
+    private void Trigger(float[] sound, float gain)
+    {
+        var slot = Array.IndexOf(_voice, null);
+        if (slot < 0)
+        {
+            slot = _nextVoice;
+            _nextVoice = (_nextVoice + 1) % MaxVoices;
+        }
+        _voice[slot] = sound;
+        _voicePos[slot] = 0;
+        _voiceGain[slot] = gain;
     }
 
     /// <summary>Counts whole bars for gap training and the tempo trainer; sets _mutedBar and _effectiveBpm.</summary>
