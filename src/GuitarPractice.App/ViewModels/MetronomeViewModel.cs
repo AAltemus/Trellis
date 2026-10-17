@@ -86,7 +86,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     private bool _accentFirstBeat = true;
 
     [ObservableProperty]
-    private double _volume = 80;
+    private double _volume = 100; // percent, 0–200
 
     [ObservableProperty]
     private bool _gapEnabled;

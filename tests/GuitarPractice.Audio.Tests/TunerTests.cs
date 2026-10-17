@@ -175,7 +175,7 @@ public class TunerEngineTests
 
         var state = Run(engine, input, YinPitchDetectorTests.Sine(110, 48_000, 24_000, amp: 0.0005)); // ≈ −69 dBFS
         Assert.Null(state.Reading);
-        Assert.True(state.LevelDb < engine.GateDb);
+        Assert.True(state.LevelDb < engine.GateOpenDb);
     }
 
     [Fact]

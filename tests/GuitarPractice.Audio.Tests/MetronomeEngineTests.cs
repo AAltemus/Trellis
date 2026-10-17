@@ -159,11 +159,44 @@ public class MetronomeEngineTests
         Assert.Equal(loud.Max(Math.Abs) * 0.25f, quiet.Max(Math.Abs), 4);
     }
 
+    private static double Db(ReadOnlySpan<float> x)
+    {
+        double sum = 0;
+        foreach (var v in x) sum += v * v;
+        return 10 * Math.Log10(sum / x.Length);
+    }
+
+    [Fact]
+    public void Clicks_carry_much_more_energy_than_the_original_design()
+    {
+        // The original click: 15 ms pure sine, 4 ms decay, beat peak 0.75 at the old default volume 0.8.
+        var old = new float[(int)(Rate * 0.035)];
+        for (var i = 0; i < (int)(Rate * 0.015); i++)
+            old[i] = (float)(0.8 * 0.75 * Math.Exp(-i / (double)Rate / 0.004) * Math.Sin(2 * Math.PI * 1000 * i / Rate));
+
+        var engine = Started(new MetronomeSettings(Bpm: 60, AccentFirstBeat: false)); // default volume, beat click
+        var now = Render(engine, old.Length);
+
+        var gain = Db(now) - Db(old);
+        Assert.True(gain > 7, $"only {gain:0.0} dB louder"); // measured +7.6 dB
+    }
+
+    [Fact]
+    public void Volume_above_100_percent_is_louder_without_exceeding_full_scale()
+    {
+        var normal = Render(Started(new MetronomeSettings(Volume: 1f)), 2_000);
+        var boosted = Render(Started(new MetronomeSettings(Volume: 2f)), 2_000);
+
+        Assert.True(boosted.Max(Math.Abs) <= 1f);
+        Assert.True(Db(boosted) - Db(normal) > 3, // measured +3.9 dB
+            $"boost added only {Db(boosted) - Db(normal):0.0} dB");
+    }
+
     [Fact]
     public void Settings_are_clamped()
     {
         var s = new MetronomeSettings(Bpm: 5000, BeatsPerBar: 0, Volume: 3f, Subdivision: (Subdivision)9).Normalized();
-        Assert.Equal((MetronomeSettings.MaxBpm, 1, 1f, Subdivision.Quarters), (s.Bpm, s.BeatsPerBar, s.Volume, s.Subdivision));
+        Assert.Equal((MetronomeSettings.MaxBpm, 1, MetronomeSettings.MaxVolume, Subdivision.Quarters), (s.Bpm, s.BeatsPerBar, s.Volume, s.Subdivision));
         Assert.Equal(MetronomeSettings.MinBpm, new MetronomeSettings(Bpm: 1).Normalized().Bpm);
         Assert.Equal(120, new MetronomeSettings(Bpm: double.NaN).Normalized().Bpm);
     }

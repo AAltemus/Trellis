@@ -20,7 +20,7 @@ public sealed class TunerSmoother
 {
     public const int MedianFrames = 5;
     public const int StableFrames = 3;
-    public const int HoldFrames = 8;          // ~170 ms at 47 frames/s
+    public const int HoldFrames = 12;         // ~250–280 ms at 43–47 frames/s
     private const double CentsSmoothing = 0.35;
 
     private readonly double[] _recent = new double[MedianFrames];
@@ -135,23 +135,37 @@ public sealed class TunerSmoother
     }
 }
 
-/// <summary>RBJ-cookbook biquad high-pass (Direct Form I). Removes rumble and DC before pitch detection.</summary>
-internal sealed class HighPassFilter
+/// <summary>RBJ-cookbook biquad (Direct Form I), high-pass or low-pass.</summary>
+internal sealed class Biquad
 {
     private readonly double _b0, _b1, _b2, _a1, _a2;
     private double _x1, _x2, _y1, _y2;
 
-    public HighPassFilter(int sampleRate, double cutoffHz, double q = 0.7071)
+    private Biquad(double b0, double b1, double b2, double a0, double a1, double a2)
     {
-        var w0 = 2 * Math.PI * cutoffHz / sampleRate;
-        var cos = Math.Cos(w0);
-        var alpha = Math.Sin(w0) / (2 * q);
-        var a0 = 1 + alpha;
-        _b0 = (1 + cos) / 2 / a0;
-        _b1 = -(1 + cos) / a0;
-        _b2 = (1 + cos) / 2 / a0;
-        _a1 = -2 * cos / a0;
-        _a2 = (1 - alpha) / a0;
+        _b0 = b0 / a0;
+        _b1 = b1 / a0;
+        _b2 = b2 / a0;
+        _a1 = a1 / a0;
+        _a2 = a2 / a0;
+    }
+
+    public static Biquad HighPass(int sampleRate, double cutoffHz, double q = 0.7071)
+    {
+        var (cos, alpha) = Prewarp(sampleRate, cutoffHz, q);
+        return new Biquad((1 + cos) / 2, -(1 + cos), (1 + cos) / 2, 1 + alpha, -2 * cos, 1 - alpha);
+    }
+
+    public static Biquad LowPass(int sampleRate, double cutoffHz, double q = 0.7071)
+    {
+        var (cos, alpha) = Prewarp(sampleRate, cutoffHz, q);
+        return new Biquad((1 - cos) / 2, 1 - cos, (1 - cos) / 2, 1 + alpha, -2 * cos, 1 - alpha);
+    }
+
+    private static (double Cos, double Alpha) Prewarp(int sampleRate, double cutoffHz, double q)
+    {
+        var w0 = 2 * Math.PI * Math.Min(cutoffHz, sampleRate * 0.45) / sampleRate;
+        return (Math.Cos(w0), Math.Sin(w0) / (2 * q));
     }
 
     public float Process(float x)
@@ -166,7 +180,8 @@ internal sealed class HighPassFilter
 }
 
 /// <summary>
-/// Tuner pipeline: capture callback (high-pass 40 Hz → lock-free ring, nothing else on the audio thread) → analysis
+/// Tuner pipeline: capture callback (band-pass: 40 Hz high-pass + 4th-order 1.8 kHz low-pass → lock-free ring, nothing
+/// else on the audio thread) → analysis
 /// thread every 1024 new samples (~43–47 frames/s): latest window → RMS gate → YIN → <see cref="TunerSmoother"/> →
 /// <see cref="State"/>. The UI polls <see cref="State"/>.
 /// </summary>
@@ -178,15 +193,22 @@ public sealed class TunerEngine : IDisposable
     private readonly IAudioInput _input;
     private readonly bool _backgroundAnalysis;
     private readonly float[] _ring = new float[RingSize];
+    private const int RawSize = 1 << 20; // ~22–24 s of the unfiltered input, for "save recording" diagnostics
+    private readonly float[] _raw = new float[RawSize];
     private readonly AudioCaptureCallback _captureCallback;
     private float[] _window = [];
-    private HighPassFilter? _highPass;
+    private Biquad? _highPass;
+    private Biquad? _lowPass1;
+    private Biquad? _lowPass2;
     private YinPitchDetector? _detector;
     private long _written;      // samples written by the capture thread
     private long _analyzedAt;   // _written at the last analysis
     private Thread? _thread;
     private volatile bool _stopping;
     private TunerState _state = new(null, double.NegativeInfinity);
+    private bool _gateOpen;
+    private double _gatePeakDb;
+    private double _previousLevelDb = double.NegativeInfinity;
 
     /// <param name="backgroundAnalysis">False for tests: call <see cref="ProcessPending"/> yourself.</param>
     public TunerEngine(IAudioInput input, bool backgroundAnalysis = true)
@@ -199,8 +221,22 @@ public sealed class TunerEngine : IDisposable
 
     public TunerSmoother Smoother { get; } = new();
 
-    /// <summary>RMS below this (dBFS) counts as silence. −54 dBFS suits a DI'd guitar on a quiet interface.</summary>
-    public double GateDb { get; set; } = -54;
+    /// <summary>
+    /// Noise gate with hysteresis: opens when the RMS reaches <see cref="GateOpenDb"/>, then stays open while the note
+    /// rings until it falls <see cref="GateRangeDb"/> below that note's peak or below <see cref="GateCloseDb"/>, whichever
+    /// is higher. A jump of more than 6 dB (a new pluck) restarts the peak. Keeps decaying notes and bends reading at
+    /// modest interface gain, while idle hiss and hum (typically −70 dBFS or lower) never open it.
+    /// </summary>
+    public double GateOpenDb { get; set; } = -60;
+
+    /// <inheritdoc cref="GateOpenDb"/>
+    public double GateCloseDb { get; set; } = -76;
+
+    /// <inheritdoc cref="GateOpenDb"/>
+    public double GateRangeDb { get; set; } = 40;
+
+    /// <summary>True while the gate is open (a note is considered to be sounding).</summary>
+    public bool IsGateOpen => Volatile.Read(ref _gateOpen);
 
     public TunerState State => Volatile.Read(ref _state);
 
@@ -214,10 +250,17 @@ public sealed class TunerEngine : IDisposable
         SampleRate = _input.GetPreferredSampleRate(deviceId);
         _detector = new YinPitchDetector(SampleRate);
         _window = new float[_detector.RequiredSamples];
-        _highPass = new HighPassFilter(SampleRate, 40);
+        // The low-pass keeps every guitar fundamental (detection tops out at 1.5 kHz) but removes most broadband
+        // interface noise, which otherwise biases YIN sharp near the end of a note (measured: up to +87 ¢ at ~10 dB
+        // SNR without it, ≤ 3 ¢ with it).
+        _lowPass1 = Biquad.LowPass(SampleRate, 1_800);
+        _lowPass2 = Biquad.LowPass(SampleRate, 1_800);
+        _highPass = Biquad.HighPass(SampleRate, 40);
         Volatile.Write(ref _written, 0);
         _analyzedAt = 0;
         Smoother.Reset();
+        _gateOpen = false;
+        _previousLevelDb = double.NegativeInfinity;
         Volatile.Write(ref _state, new TunerState(null, double.NegativeInfinity));
 
         _input.Start(new AudioStreamOptions(deviceId, SampleRate, 512, channel), _captureCallback);
@@ -240,6 +283,22 @@ public sealed class TunerEngine : IDisposable
 
     public void Dispose() => Stop();
 
+    /// <summary>
+    /// Writes the last <paramref name="seconds"/> of the raw (unfiltered) input as a 16-bit mono WAV, for replaying a
+    /// real guitar through the pipeline offline. Returns the number of samples written. Safe to call while running.
+    /// </summary>
+    public int SaveRecording(string path, double seconds = 20)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var written = Volatile.Read(ref _written);
+        var count = (int)Math.Min(Math.Min(written, RawSize - 8_192), Math.Max(0, seconds) * SampleRate);
+        var samples = new float[count];
+        var start = written - count;
+        for (var i = 0; i < count; i++) samples[i] = _raw[(start + i) & (RawSize - 1)];
+        File.WriteAllBytes(path, ToneSynth.ToWav(samples, SampleRate));
+        return count;
+    }
+
     /// <summary>Analyzes once if a hop's worth of new audio has arrived. Returns true when it did.</summary>
     public bool ProcessPending()
     {
@@ -258,19 +317,43 @@ public sealed class TunerEngine : IDisposable
         var rms = Math.Sqrt(sumSquares / _window.Length);
         var levelDb = rms > 0 ? 20 * Math.Log10(rms) : double.NegativeInfinity;
 
-        var estimate = levelDb < GateDb ? PitchEstimate.None : detector.Detect(_window);
+        UpdateGate(levelDb);
+        var estimate = _gateOpen ? detector.Detect(_window) : PitchEstimate.None;
         var reading = Smoother.Add(estimate);
         Volatile.Write(ref _state, new TunerState(reading, levelDb));
         return true;
     }
 
+    private void UpdateGate(double levelDb)
+    {
+        var onset = levelDb > _previousLevelDb + 6;
+        _previousLevelDb = levelDb;
+        if (!_gateOpen)
+        {
+            if (levelDb >= GateOpenDb)
+            {
+                Volatile.Write(ref _gateOpen, true);
+                _gatePeakDb = levelDb;
+            }
+            return;
+        }
+
+        _gatePeakDb = onset ? levelDb : Math.Max(_gatePeakDb, levelDb);
+        if (levelDb < Math.Max(GateCloseDb, _gatePeakDb - GateRangeDb)) Volatile.Write(ref _gateOpen, false);
+    }
+
     private void OnCapture(ReadOnlySpan<float> samples)
     {
         var highPass = _highPass;
-        if (highPass is null) return;
+        var lowPass1 = _lowPass1;
+        var lowPass2 = _lowPass2;
+        if (highPass is null || lowPass1 is null || lowPass2 is null) return;
         var written = _written;
         foreach (var x in samples)
-            _ring[written++ & (RingSize - 1)] = highPass.Process(x);
+        {
+            _raw[written & (RawSize - 1)] = x;
+            _ring[written++ & (RingSize - 1)] = lowPass2.Process(lowPass1.Process(highPass.Process(x)));
+        }
         Volatile.Write(ref _written, written);
     }
 

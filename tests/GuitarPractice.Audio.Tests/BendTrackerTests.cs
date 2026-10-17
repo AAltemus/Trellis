@@ -80,11 +80,12 @@ public class BendTrackerTests
     {
         Play(G3, TimeSpan.FromMilliseconds(100));
         Play(G3 + 1.9, TimeSpan.FromMilliseconds(400)); // −10 ¢ (jumped straight there)
-        var stop = Play(null, Frame);
+        var stop = Play(null, TimeSpan.FromMilliseconds(500)); // longer than GapTolerance
         var attempt = Completed(stop);
         Assert.InRange(attempt.AverageCents, -10.5, -9.5);
-        Assert.Equal(BendPhase.Idle, stop[0].Phase);
-        Assert.Null(stop[0].ReferenceMidi);
+        Assert.Equal(BendPhase.Holding, stop[0].Phase);  // a brief gap keeps the last state on screen...
+        Assert.Equal(BendPhase.Idle, stop[^1].Phase);    // ...then it resets
+        Assert.Null(stop[^1].ReferenceMidi);
     }
 
     [Fact]
@@ -98,7 +99,7 @@ public class BendTrackerTests
             _now += Frame;
         }
         Assert.All(states, s => Assert.Equal(BendPhase.Holding, s.Phase));
-        Assert.InRange(Completed(Play(null, Frame)).AverageCents, 1, 7);
+        Assert.InRange(Completed(Play(null, TimeSpan.FromMilliseconds(500))).AverageCents, 1, 7);
     }
 
     [Fact]
@@ -140,8 +141,26 @@ public class BendTrackerTests
     {
         Play(G3, Frame);
         Assert.Equal(G3 - 2, Play(G3 - 2, Frame)[0].ReferenceMidi); // moved down two frets
-        Play(null, Frame);
+        Play(null, TimeSpan.FromMilliseconds(500));
         Assert.Equal(G3 + 5, Play(G3 + 5, Frame)[0].ReferenceMidi); // new note after silence
+    }
+
+    [Fact]
+    public void Short_dropouts_mid_bend_keep_the_reference_and_pause_the_hold()
+    {
+        Play(G3, TimeSpan.FromMilliseconds(200));
+        var all = new List<BendState>();
+        all.AddRange(Play(G3 + 1, TimeSpan.FromMilliseconds(60)));
+        all.AddRange(Play(null, TimeSpan.FromMilliseconds(120)));          // pitch track blinks out mid-bend
+        all.AddRange(Play(G3 + 2.03, TimeSpan.FromMilliseconds(400)));
+        all.AddRange(Play(null, TimeSpan.FromMilliseconds(200)));          // and again while holding
+        all.AddRange(Play(G3 + 2.03, TimeSpan.FromMilliseconds(400)));
+        all.AddRange(Play(G3, TimeSpan.FromMilliseconds(100)));            // release
+
+        Assert.All(all, s => Assert.Equal(G3, s.ReferenceMidi));           // never re-referenced to the bent pitch
+        var attempt = Completed(all);
+        Assert.InRange(attempt.AverageCents, 2.5, 3.5);
+        Assert.InRange(attempt.Held.TotalMilliseconds, 740, 820);         // the gaps don't count as held
     }
 
     [Theory]

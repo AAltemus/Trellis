@@ -31,7 +31,7 @@ public sealed record MetronomeSettings(
     int BeatsPerBar = 4,
     Subdivision Subdivision = Subdivision.Quarters,
     bool AccentFirstBeat = true,
-    float Volume = 0.8f,
+    float Volume = 1.0f,
     bool GapEnabled = false,
     int GapPlayBars = 3,
     int GapMuteBars = 1,
@@ -43,6 +43,9 @@ public sealed record MetronomeSettings(
     public const double MinBpm = 20;
     public const double MaxBpm = 400;
     public const int MaxBeatsPerBar = 16;
+
+    /// <summary>Volume is linear up to 1; above that (up to 2 = 200 %) a soft limiter makes clicks louder without clipping.</summary>
+    public const float MaxVolume = 2f;
     public const int MaxGapBars = 16;
     public const int MaxTrainerEveryBars = 64;
     public const double MaxTrainerStepBpm = 20;
@@ -54,7 +57,7 @@ public sealed record MetronomeSettings(
         Bpm = double.IsFinite(Bpm) ? Math.Clamp(Bpm, MinBpm, MaxBpm) : 120,
         BeatsPerBar = Math.Clamp(BeatsPerBar, 1, MaxBeatsPerBar),
         Subdivision = Enum.IsDefined(Subdivision) ? Subdivision : Subdivision.Quarters,
-        Volume = float.IsFinite(Volume) ? Math.Clamp(Volume, 0f, 1f) : 0.8f,
+        Volume = float.IsFinite(Volume) ? Math.Clamp(Volume, 0f, MaxVolume) : 1f,
         GapPlayBars = Math.Clamp(GapPlayBars, 1, MaxGapBars),
         GapMuteBars = Math.Clamp(GapMuteBars, 1, MaxGapBars),
         TrainerStepBpm = double.IsFinite(TrainerStepBpm) ? Math.Clamp(TrainerStepBpm, 0.5, MaxTrainerStepBpm) : 2,
@@ -104,6 +107,7 @@ public sealed class MetronomeEngine
     private float[]? _click;
     private int _clickPos;
     private float _clickGain;
+    private float _softClipNorm;  // 1/tanh(gain) when gain > 1, else 0 (linear)
 
     // Gap training / tempo trainer state (audio thread). A config change restarts the count at the next bar.
     private GapKey _gapKey;
@@ -123,8 +127,8 @@ public sealed class MetronomeEngine
         SampleRate = sampleRate;
         _settings = (settings ?? new MetronomeSettings()).Normalized();
         _accentClick = ClickSynth.Click(sampleRate, 1500, 1.0f);
-        _beatClick = ClickSynth.Click(sampleRate, 1000, 0.75f);
-        _subdivisionClick = ClickSynth.Click(sampleRate, 800, 0.4f);
+        _beatClick = ClickSynth.Click(sampleRate, 1000, 0.9f);
+        _subdivisionClick = ClickSynth.Click(sampleRate, 800, 0.55f);
     }
 
     public int SampleRate { get; }
@@ -185,6 +189,7 @@ public sealed class MetronomeEngine
             if (_click is { } click)
             {
                 value = click[_clickPos++] * _clickGain;
+                if (_softClipNorm > 0) value = MathF.Tanh(value) * _softClipNorm; // peak stays ≤ 1, body gets louder
                 if (_clickPos == click.Length) _click = null;
             }
             output[i] = value;
@@ -215,6 +220,7 @@ public sealed class MetronomeEngine
         };
         _clickPos = 0;
         _clickGain = s.Volume;
+        _softClipNorm = s.Volume > 1f ? 1f / MathF.Tanh(s.Volume) : 0f;
 
         var timestamp = bufferTimestamp + offsetInBuffer * Stopwatch.Frequency / SampleRate;
         _ticks.TryEnqueue(new MetronomeTick(_sample, timestamp, _bar, _beat, _subTick, kind, _effectiveBpm, _mutedBar)); // full → UI is behind; drop
@@ -267,10 +273,15 @@ public sealed class MetronomeEngine
     }
 }
 
-/// <summary>Short decaying-sine clicks, pre-rendered once so the audio thread only copies samples.</summary>
+/// <summary>
+/// Decaying-tone clicks with a little 2nd/3rd harmonic (brighter, cuts through a guitar), pre-rendered once so the audio
+/// thread only copies samples. 35 ms with a 12 ms decay: +7.6 dB more energy than the original 15 ms / 4 ms pure-sine
+/// click at default volume, +11.5 dB at 200 % (measured in tests; user: "the metronome should be louder"). 35 ms still
+/// fits between 16ths at 400 BPM (37.5 ms).
+/// </summary>
 internal static class ClickSynth
 {
-    public static float[] Click(int sampleRate, double hz, float peak, double seconds = 0.015)
+    public static float[] Click(int sampleRate, double hz, float peak, double seconds = 0.035)
     {
         var n = (int)(sampleRate * seconds);
         var attack = Math.Max(1, (int)(0.0005 * sampleRate)); // 0.5 ms: crisp, but no DC step
@@ -279,11 +290,18 @@ internal static class ClickSynth
         for (var i = 0; i < n; i++)
         {
             var t = (double)i / sampleRate;
-            var envelope = Math.Exp(-t / 0.004);
+            var envelope = Math.Exp(-t / 0.012);
             if (i < attack) envelope *= (double)i / attack;
             if (i >= n - release) envelope *= (double)(n - 1 - i) / release;
-            data[i] = (float)(peak * envelope * Math.Sin(2 * Math.PI * hz * t));
+            var phase = 2 * Math.PI * hz * t;
+            data[i] = (float)(envelope * (Math.Sin(phase) + 0.35 * Math.Sin(2 * phase) + 0.2 * Math.Sin(3 * phase)));
         }
+
+        // Normalise so the loudest sample is exactly `peak`.
+        var max = 0f;
+        foreach (var v in data) max = Math.Max(max, Math.Abs(v));
+        if (max > 0)
+            for (var i = 0; i < n; i++) data[i] = data[i] / max * peak;
         return data;
     }
 }

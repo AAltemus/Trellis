@@ -103,7 +103,11 @@
                 SelectedItem="{Binding SelectedSubdivision}" HorizontalAlignment="Stretch" />
 
       <TextBlock Grid.Row="2" Text="Volume" VerticalAlignment="Center" />
-      <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding Volume}" />
+      <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,52">
+        <Slider Minimum="0" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding Volume}"
+                ToolTip.Tip="Above 100 % a soft limiter makes the click louder without distorting." />
+        <TextBlock Grid.Column="1" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
 
       <CheckBox Grid.Row="3" Grid.ColumnSpan="2" Content="Accent beat 1" IsChecked="{Binding AccentFirstBeat}" />
     </Grid>

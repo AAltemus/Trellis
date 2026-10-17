@@ -130,7 +130,10 @@
                 HorizontalAlignment="Stretch" IsVisible="{Binding IsStereoDevice}" />
 
       <TextBlock Grid.Row="4" Text="Level" VerticalAlignment="Center" />
-      <ProgressBar Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Level}" Height="6" MinHeight="6" VerticalAlignment="Center" />
+      <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,Auto">
+        <ProgressBar Minimum="0" Maximum="1" Value="{Binding Level}" Height="6" MinHeight="6" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding LevelText}" Classes="caption" Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="120" />
+      </Grid>
     </Grid>
 
     <!-- Scored bends -->
@@ -150,6 +153,10 @@
 
     <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
                IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-    <TextBlock Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.7" />
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.7" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Save last 20 s" Command="{Binding SaveRecordingCommand}" Margin="8,0,0,0" FontSize="12"
+              ToolTip.Tip="Saves the raw input as a WAV (in your app data folder) so a tuning or bend problem can be analysed." />
+    </Grid>
   </StackPanel>
 </Window>

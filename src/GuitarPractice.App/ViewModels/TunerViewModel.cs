@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GuitarPractice.Audio;
 using GuitarPractice.Infrastructure;
+using GuitarPractice.Infrastructure.Persistence;
 
 namespace GuitarPractice.App.ViewModels;
 
@@ -172,6 +174,10 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private double _level;
 
+    /// <summary>"−42 dBFS · gate open"; helps judge interface gain (aim for peaks around −20 to −10 dBFS).</summary>
+    [ObservableProperty]
+    private string _levelText = "";
+
     [ObservableProperty]
     private string _status = "";
 
@@ -250,6 +256,9 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
     {
         var state = _engine.State;
         Level = double.IsFinite(state.LevelDb) ? Math.Clamp((state.LevelDb + 80) / 80, 0, 1) : 0;
+        LevelText = double.IsFinite(state.LevelDb)
+            ? $"{state.LevelDb:0} dBFS{(_engine.IsGateOpen ? " · listening" : "")}"
+            : "no signal";
         if (IsBendMode)
         {
             RefreshBend(state);
@@ -265,7 +274,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
             NoteText = "–";
             OctaveText = "";
             CentsText = "";
-            HzText = state.LevelDb > _engine.GateDb ? "Listening…" : "Play a single string";
+            HzText = _engine.IsGateOpen ? "Listening…" : "Play a single string";
             HintText = "";
             NeedleLeft = NeedleHalfWidth;
             return;
@@ -334,6 +343,26 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
         _bendErrors.Insert(0, Math.Abs(attempt.AverageCents));
         if (_bendErrors.Count > BendHistoryLength) _bendErrors.RemoveAt(_bendErrors.Count - 1);
         BendSummary = $"Average error over the last {_bendErrors.Count}: {_bendErrors.Average():0} ¢";
+    }
+
+    /// <summary>Saves the last 20 s of raw input as a WAV so a problem can be replayed through the pipeline offline.</summary>
+    [RelayCommand]
+    private void SaveRecording()
+    {
+        try
+        {
+            var directory = Path.Combine(AppPaths.DataDirectory, "diagnostics");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, $"tuner-{DateTime.Now:yyyyMMdd-HHmmss}.wav");
+            var samples = _engine.SaveRecording(path);
+            Status = $"Saved {samples / (double)Math.Max(1, _engine.SampleRate):0.0} s to {path}";
+        }
+#pragma warning disable CA1031 // A failed diagnostic save is reported, never fatal.
+        catch (Exception ex)
+        {
+            Error = $"Couldn't save the recording: {ex.Message}";
+        }
+#pragma warning restore CA1031
     }
 
     private static TuningOption ToOption(Domain.Tuning t)

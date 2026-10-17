@@ -35,16 +35,21 @@ public sealed record BendState(
 /// recorded; the score is its time-weighted average with the first and last <see cref="EdgeTrim"/> dropped (that's the
 /// glide into and out of the window, not where the bend settled; vibrato in between counts). When the bend leaves that window (release, overbend) or the note stops, a hold of at least
 /// <see cref="MinimumHold"/> is reported once as <see cref="BendState.Completed"/>. Dropping more than half a semitone
-/// below the reference counts as a new fretted note (re-reference). Pure: the caller supplies time.
+/// below the reference counts as a new fretted note (re-reference). Short dropouts (under <see cref="GapTolerance"/>)
+/// keep the reference and pause the hold instead of ending it, since a real string's pitch track blinks out for a frame or
+/// two during a fast bend or as it decays. Pure: the caller supplies time.
 /// </summary>
 public sealed class BendTracker
 {
     public static readonly TimeSpan MinimumHold = TimeSpan.FromMilliseconds(150);
     public static readonly TimeSpan EdgeTrim = TimeSpan.FromMilliseconds(80);
+    public static readonly TimeSpan GapTolerance = TimeSpan.FromMilliseconds(400);
+    private static readonly TimeSpan MaxFrameGap = TimeSpan.FromMilliseconds(100); // longer gaps add no hold time
     private const double HoldWindowCents = 50;
 
     private int? _reference;
-    private TimeSpan? _lastTime;
+    private TimeSpan? _lastVoiced;
+    private BendState? _lastState;
     private readonly List<(double Cents, double Seconds)> _hold = [];
     private TimeSpan _held;
     private int _interval = 2;
@@ -65,7 +70,8 @@ public sealed class BendTracker
     public void Reset()
     {
         _reference = null;
-        _lastTime = null;
+        _lastVoiced = null;
+        _lastState = null;
         ResetHold();
     }
 
@@ -73,15 +79,22 @@ public sealed class BendTracker
     /// <param name="now">Monotonic time of this reading.</param>
     public BendState Update(double? hz, TimeSpan now)
     {
-        var dt = _lastTime is { } last && now > last ? now - last : TimeSpan.Zero;
-        _lastTime = now;
-
         if (hz is not > 0)
         {
+            // A brief dropout: keep showing the last state, keep the reference, pause the hold.
+            if (_reference is not null && _lastVoiced is { } voiced && now - voiced < GapTolerance && _lastState is { } shown)
+                return shown with { Completed = null };
+
             var finished = FinishHold();
             _reference = null;
+            _lastVoiced = null;
+            _lastState = null;
             return new BendState(BendPhase.Idle, null, null, 0, 0, finished);
         }
+
+        var dt = _lastVoiced is { } last && now > last ? now - last : TimeSpan.Zero;
+        if (dt > MaxFrameGap) dt = TimeSpan.Zero;
+        _lastVoiced = now;
 
         var midi = Pitch.MidiFromFrequency(hz.Value, A4);
         BendAttempt? completed = null;
@@ -111,7 +124,9 @@ public sealed class BendTracker
                 : BendPhase.Bending;
         }
 
-        return new BendState(phase, reference, target, centsFromTarget, progress, completed);
+        var state = new BendState(phase, reference, target, centsFromTarget, progress, completed);
+        _lastState = state;
+        return state;
     }
 
     private BendAttempt? FinishHold()
