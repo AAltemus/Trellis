@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GuitarPractice.App.ViewModels"
+             x:Class="GuitarPractice.App.Controls.ExerciseLinesEditor"
+             x:DataType="vm:ExerciseLinesViewModel">
+  <StackPanel Spacing="4">
+    <ItemsControl ItemsSource="{Binding Lines}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:ExerciseLineViewModel">
+          <Grid ColumnDefinitions="*,150,120,Auto" ColumnSpacing="6" Margin="0,1">
+            <AutoCompleteBox Text="{Binding Name}" ItemsSource="{Binding Suggestions}" FilterMode="ContainsOrdinal"
+                             MinimumPrefixLength="0" Watermark="Exercise, e.g. 3nps scale"
+                             ToolTip.Tip="What you played; names you used before in this block are suggested" />
+            <NumericUpDown Grid.Column="1" Value="{Binding Bpm}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
+                           Watermark="BPM" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding NoteValues}" SelectedItem="{Binding NoteValue}"
+                      HorizontalAlignment="Stretch" ToolTip.Tip="What the BPM counts: 120 in 16ths is twice as fast as 120 in 8ths" />
+            <Button Grid.Column="3" Content="✕" Command="{Binding RemoveCommand}" Padding="8,2" ToolTip.Tip="Remove this exercise" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <Button Content="+ Add exercise" Command="{Binding AddCommand}" HorizontalAlignment="Left" FontSize="12" Padding="8,2" />
+  </StackPanel>
+</UserControl>

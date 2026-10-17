@@ -191,6 +191,37 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GuitarPractice.Domain.ExerciseTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(108)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SubcategoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TargetBpm")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubcategoryId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("ExerciseTargets", t =>
+                        {
+                            t.HasCheckConstraint("CK_ExerciseTarget_Bpm", "TargetBpm >= 1 AND TargetBpm <= 400");
+                        });
+                });
+
             modelBuilder.Entity("GuitarPractice.Domain.PlanDay", b =>
                 {
                     b.Property<int>("Id")
@@ -299,9 +330,6 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("BpmReached")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
@@ -327,9 +355,42 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ProgressEntries", t =>
                         {
-                            t.HasCheckConstraint("CK_ProgressEntry_Bpm", "BpmReached IS NULL OR (BpmReached >= 1 AND BpmReached <= 400)");
-
                             t.HasCheckConstraint("CK_ProgressEntry_Rating", "Rating IS NULL OR (Rating >= 1 AND Rating <= 5)");
+                        });
+                });
+
+            modelBuilder.Entity("GuitarPractice.Domain.ProgressExercise", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Bpm")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("NoteValue")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProgressEntryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProgressEntryId", "SortOrder");
+
+                    b.ToTable("ProgressExercises", t =>
+                        {
+                            t.HasCheckConstraint("CK_ProgressExercise_Bpm", "Bpm IS NULL OR (Bpm >= 1 AND Bpm <= 400)");
+
+                            t.HasCheckConstraint("CK_ProgressExercise_NoteValue", "NoteValue IS NULL OR (NoteValue >= 1 AND NoteValue <= 4)");
                         });
                 });
 
@@ -1697,6 +1758,17 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                     b.ToTable("WeeklyPlans");
                 });
 
+            modelBuilder.Entity("GuitarPractice.Domain.ExerciseTarget", b =>
+                {
+                    b.HasOne("GuitarPractice.Domain.Subcategory", "Subcategory")
+                        .WithMany()
+                        .HasForeignKey("SubcategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Subcategory");
+                });
+
             modelBuilder.Entity("GuitarPractice.Domain.PlanDay", b =>
                 {
                     b.HasOne("GuitarPractice.Domain.WeeklyPlan", "WeeklyPlan")
@@ -1747,6 +1819,17 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Subcategory");
+                });
+
+            modelBuilder.Entity("GuitarPractice.Domain.ProgressExercise", b =>
+                {
+                    b.HasOne("GuitarPractice.Domain.ProgressEntry", "ProgressEntry")
+                        .WithMany("Exercises")
+                        .HasForeignKey("ProgressEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProgressEntry");
                 });
 
             modelBuilder.Entity("GuitarPractice.Domain.RoutineDayBudget", b =>
@@ -1815,6 +1898,11 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("GuitarPractice.Domain.PlanDay", b =>
                 {
                     b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("GuitarPractice.Domain.ProgressEntry", b =>
+                {
+                    b.Navigation("Exercises");
                 });
 
             modelBuilder.Entity("GuitarPractice.Domain.Routine", b =>

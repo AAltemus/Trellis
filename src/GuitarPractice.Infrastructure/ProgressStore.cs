@@ -6,38 +6,49 @@ using Microsoft.EntityFrameworkCore;
 namespace GuitarPractice.Infrastructure;
 
 /// <summary>
-/// Per-exercise, per-day progress log (BPM reached, 1–5 rating, notes) and history joined with practised time.
-/// Synchronous, like the other stores.
+/// Per-block, per-day progress log (the exercises played with BPM and note value, a 1–5 rating, notes) and history
+/// joined with practised time. Synchronous, like the other stores.
 /// </summary>
 public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFactory, TimeProvider clock)
 {
     /// <summary>Raised (on the caller's thread) after <see cref="Save"/> with the subcategory id, so open views refresh.</summary>
     public event EventHandler<int>? Changed;
 
+    /// <summary>The day's entry with its exercises (in logged order), or null.</summary>
     public ProgressEntry? Get(DateOnly date, int subcategoryId)
     {
         using var db = contextFactory.CreateDbContext();
-        return db.ProgressEntries.AsNoTracking().SingleOrDefault(e => e.Date == date && e.SubcategoryId == subcategoryId);
+        return db.ProgressEntries.AsNoTracking()
+            .Include(e => e.Exercises.OrderBy(x => x.SortOrder))
+            .SingleOrDefault(e => e.Date == date && e.SubcategoryId == subcategoryId);
     }
 
     /// <summary>
-    /// Upserts the day's entry. Out-of-range values are dropped (BPM 1–400, rating 1–5), notes are trimmed and capped at
-    /// <see cref="ProgressEntry.MaxNotesLength"/>; an entry with nothing left is deleted.
+    /// Replaces the day's entry. Exercise lines are cleaned: names trimmed and capped at
+    /// <see cref="ProgressExercise.MaxNameLength"/>, out-of-range BPMs dropped (1–400), lines with neither a name nor a
+    /// BPM removed. Rating outside 1–5 is dropped; notes are trimmed and capped. An entry with nothing left is deleted.
     /// </summary>
-    public void Save(DateOnly date, int subcategoryId, int? bpm, int? rating, string? notes)
+    public void Save(DateOnly date, int subcategoryId, IEnumerable<ExerciseLog> exercises, int? rating, string? notes)
     {
-        bpm = bpm is >= ProgressEntry.MinBpm and <= ProgressEntry.MaxBpm ? bpm : null;
+        ArgumentNullException.ThrowIfNull(exercises);
+        var lines = exercises
+            .Select(x => new ExerciseLog(
+                Clean(x.Name, ProgressExercise.MaxNameLength) ?? "",
+                x.Bpm is >= ProgressExercise.MinBpm and <= ProgressExercise.MaxBpm ? x.Bpm : null,
+                x.NoteValue is { } v && Enum.IsDefined(v) ? v : null))
+            .Where(x => x.Name.Length > 0 || x.Bpm is not null)
+            .ToList();
         rating = rating is >= 1 and <= 5 ? rating : null;
-        notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-        if (notes is { Length: > ProgressEntry.MaxNotesLength }) notes = notes[..ProgressEntry.MaxNotesLength];
+        notes = Clean(notes, ProgressEntry.MaxNotesLength);
 
         using var db = contextFactory.CreateDbContext();
-        var entry = db.ProgressEntries.SingleOrDefault(e => e.Date == date && e.SubcategoryId == subcategoryId);
-        if (bpm is null && rating is null && notes is null)
+        var entry = db.ProgressEntries.Include(e => e.Exercises)
+            .SingleOrDefault(e => e.Date == date && e.SubcategoryId == subcategoryId);
+        if (lines.Count == 0 && rating is null && notes is null)
         {
             if (entry is not null)
             {
-                db.ProgressEntries.Remove(entry);
+                db.ProgressEntries.Remove(entry); // exercises cascade
                 db.SaveChanges();
                 Changed?.Invoke(this, subcategoryId);
             }
@@ -49,7 +60,10 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
             entry = new ProgressEntry { Date = date, SubcategoryId = subcategoryId };
             db.ProgressEntries.Add(entry);
         }
-        entry.BpmReached = bpm;
+        db.ProgressExercises.RemoveRange(entry.Exercises);
+        entry.Exercises.Clear();
+        for (var i = 0; i < lines.Count; i++)
+            entry.Exercises.Add(new ProgressExercise { Name = lines[i].Name, Bpm = lines[i].Bpm, NoteValue = lines[i].NoteValue, SortOrder = i });
         entry.Rating = rating;
         entry.Notes = notes;
         entry.UpdatedAt = clock.GetUtcNow();
@@ -57,7 +71,7 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
         Changed?.Invoke(this, subcategoryId);
     }
 
-    /// <summary>Every day with practice time and/or a progress entry for the exercise, oldest first.</summary>
+    /// <summary>Every day with practice time and/or a progress entry for the block, oldest first.</summary>
     public IReadOnlyList<ProgressDay> History(int subcategoryId)
     {
         using var db = contextFactory.CreateDbContext();
@@ -66,7 +80,9 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
             .Select(l => new { l.Date, l.ElapsedSeconds })
             .ToDictionary(l => l.Date, l => l.ElapsedSeconds);
         var entries = db.ProgressEntries.AsNoTracking()
+            .Include(e => e.Exercises)
             .Where(e => e.SubcategoryId == subcategoryId)
+            .AsSplitQuery()
             .ToDictionary(e => e.Date);
 
         return seconds.Keys.Union(entries.Keys)
@@ -74,9 +90,73 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
             .Select(date =>
             {
                 entries.TryGetValue(date, out var e);
-                return new ProgressDay(date, seconds.GetValueOrDefault(date), e?.BpmReached, e?.Rating, e?.Notes);
+                var lines = e?.Exercises.OrderBy(x => x.SortOrder).Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue)).ToList() ?? [];
+                return new ProgressDay(date, seconds.GetValueOrDefault(date), lines, e?.Rating, e?.Notes);
             })
             .ToList();
+    }
+
+    /// <summary>Exercise names used in this block, most recently used first (for suggestions).</summary>
+    public IReadOnlyList<string> ExerciseNames(int subcategoryId)
+    {
+        using var db = contextFactory.CreateDbContext();
+        return db.ProgressExercises.AsNoTracking()
+            .Where(x => x.ProgressEntry.SubcategoryId == subcategoryId && x.Name != "")
+            .Select(x => new { x.Name, x.ProgressEntry.Date })
+            .AsEnumerable()
+            .GroupBy(x => x.Name.ToUpperInvariant())
+            .OrderByDescending(g => g.Max(x => x.Date))
+            .Select(g => g.OrderByDescending(x => x.Date).First().Name)
+            .ToList();
+    }
+
+    /// <summary>The block's target BPM (Subcategory.TargetBpm, seeded for built-ins, editable).</summary>
+    public int? BlockTarget(int subcategoryId)
+    {
+        using var db = contextFactory.CreateDbContext();
+        return db.Subcategories.AsNoTracking().Where(s => s.Id == subcategoryId).Select(s => s.TargetBpm).SingleOrDefault();
+    }
+
+    /// <summary>Sets (or with null / out of range, clears) the block's target. Raises <see cref="Changed"/>.</summary>
+    public void SetBlockTarget(int subcategoryId, int? targetBpm)
+    {
+        using var db = contextFactory.CreateDbContext();
+        var subcategory = db.Subcategories.Single(s => s.Id == subcategoryId);
+        subcategory.TargetBpm = targetBpm is >= ProgressExercise.MinBpm and <= ProgressExercise.MaxBpm ? targetBpm : null;
+        db.SaveChanges();
+        Changed?.Invoke(this, subcategoryId);
+    }
+
+    /// <summary>The user's own exercise targets in a block, by <see cref="ProgressStats.ExerciseKey"/>.</summary>
+    public IReadOnlyDictionary<string, int> Targets(int subcategoryId)
+    {
+        using var db = contextFactory.CreateDbContext();
+        return db.ExerciseTargets.AsNoTracking().Where(t => t.SubcategoryId == subcategoryId).ToDictionary(t => t.Key, t => t.TargetBpm);
+    }
+
+    /// <summary>Sets (or with null / out of range, removes) an exercise's own target. Raises <see cref="Changed"/>.</summary>
+    public void SetTarget(int subcategoryId, string? name, NoteValue? noteValue, int? targetBpm)
+    {
+        var key = ProgressStats.ExerciseKey(name, noteValue);
+        using var db = contextFactory.CreateDbContext();
+        var row = db.ExerciseTargets.SingleOrDefault(t => t.SubcategoryId == subcategoryId && t.Key == key);
+        if (targetBpm is not (>= ProgressExercise.MinBpm and <= ProgressExercise.MaxBpm))
+        {
+            if (row is null) return;
+            db.ExerciseTargets.Remove(row);
+        }
+        else
+        {
+            if (row is null)
+            {
+                row = new ExerciseTarget { SubcategoryId = subcategoryId, Key = key };
+                db.ExerciseTargets.Add(row);
+            }
+            row.TargetBpm = targetBpm.Value;
+            row.UpdatedAt = clock.GetUtcNow();
+        }
+        db.SaveChanges();
+        Changed?.Invoke(this, subcategoryId);
     }
 
     /// <summary>Subcategories that have any practice time or progress entry.</summary>
@@ -86,5 +166,12 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
         return db.PracticeLogs.AsNoTracking().Where(l => l.ElapsedSeconds > 0).Select(l => l.SubcategoryId)
             .Union(db.ProgressEntries.AsNoTracking().Select(e => e.SubcategoryId))
             .ToHashSet();
+    }
+
+    private static string? Clean(string? text, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        text = text.Trim();
+        return text.Length > maxLength ? text[..maxLength] : text;
     }
 }

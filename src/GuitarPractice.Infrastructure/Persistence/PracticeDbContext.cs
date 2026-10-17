@@ -18,6 +18,8 @@ public sealed class PracticeDbContext(DbContextOptions<PracticeDbContext> option
     public DbSet<PracticeLog> PracticeLogs => Set<PracticeLog>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<ProgressEntry> ProgressEntries => Set<ProgressEntry>();
+    public DbSet<ProgressExercise> ProgressExercises => Set<ProgressExercise>();
+    public DbSet<ExerciseTarget> ExerciseTargets => Set<ExerciseTarget>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

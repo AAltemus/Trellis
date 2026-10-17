@@ -3,6 +3,7 @@
         xmlns:vm="using:GuitarPractice.App.ViewModels"
         xmlns:dom="using:GuitarPractice.Domain"
         xmlns:sys="using:System"
+        xmlns:c="using:GuitarPractice.App.Controls"
         x:Class="GuitarPractice.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Guitar Practice"
@@ -146,7 +147,12 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
 
-          <TextBlock Text="Library" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+          <!-- Library tree (collapsible; state remembered) -->
+          <Expander IsExpanded="{Binding IsLibraryExpanded}" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Expander.Header>
+              <TextBlock Text="Library" FontSize="16" FontWeight="SemiBold" />
+            </Expander.Header>
+            <StackPanel Spacing="10">
           <TextBlock Classes="caption" TextWrapping="Wrap"
                      Text="Set a weight on any subcategory to add it to your routine. 0 removes it. Hover a name for practice notes." />
 
@@ -229,6 +235,8 @@
             <TextBox Watermark="New category…" Text="{Binding NewCategoryName}" />
             <Button Grid.Column="1" Content="Add category" Margin="6,0,0,0" Command="{Binding AddCategoryCommand}" />
           </Grid>
+            </StackPanel>
+          </Expander>
         </StackPanel>
       </ScrollViewer>
     </Border>
@@ -260,24 +268,28 @@
             <Button Content="🔔" Command="{Binding TestDingCommand}" ToolTip.Tip="Test the ding" />
           </StackPanel>
 
-          <!-- Progress log for the selected item's exercise and day -->
-          <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Margin="0,14,0,0" Spacing="4" IsVisible="{Binding HasSelection}">
-            <Grid ColumnDefinitions="Auto,110,130,*,Auto,Auto" ColumnSpacing="8">
-              <TextBlock Text="{Binding LogTitle}" FontWeight="SemiBold" VerticalAlignment="Center" />
-              <NumericUpDown Grid.Column="1" Value="{Binding LogBpm}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
-                             Watermark="{Binding LogBpmWatermark}" ToolTip.Tip="BPM you played cleanly today" />
-              <ComboBox Grid.Column="2" ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding LogRating}"
-                        HorizontalAlignment="Stretch" ToolTip.Tip="How it went, 1 (rough) to 5 (clean)" />
-              <TextBox Grid.Column="3" Text="{Binding LogNotes}" Watermark="Notes for this day" />
-              <Button Grid.Column="4" Content="Save log" Command="{Binding SaveLogCommand}" />
-              <Button Grid.Column="5" Content="Progress…" Command="{Binding OpenProgressCommand}"
-                      ToolTip.Tip="History and charts for this exercise (Ctrl+P)" />
-            </Grid>
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <TextBlock Classes="caption" Text="{Binding ProgressHint}" Opacity="0.8" />
-              <TextBlock Classes="caption" Text="{Binding LogStatus}" Foreground="#43A047" />
+          <!-- Progress log for the selected item's block and day (collapsible; state remembered) -->
+          <Expander Grid.Row="3" Grid.ColumnSpan="3" Margin="0,12,0,0" IsVisible="{Binding HasSelection}"
+                    IsExpanded="{Binding IsLogExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Expander.Header>
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Text="{Binding LogTitle}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Classes="caption" Text="{Binding ProgressHint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="caption" Text="{Binding LogStatus}" Foreground="#43A047" VerticalAlignment="Center" />
+              </StackPanel>
+            </Expander.Header>
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="130,*,Auto,Auto" ColumnSpacing="8">
+                <ComboBox ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding LogRating}"
+                          HorizontalAlignment="Stretch" ToolTip.Tip="How the block went, 1 (rough) to 5 (clean)" />
+                <TextBox Grid.Column="1" Text="{Binding LogNotes}" Watermark="Notes for this block" />
+                <Button Grid.Column="2" Content="Save log" Command="{Binding SaveLogCommand}" />
+                <Button Grid.Column="3" Content="Progress…" Command="{Binding OpenProgressCommand}"
+                        ToolTip.Tip="History and charts for this block (Ctrl+P)" />
+              </Grid>
+              <c:ExerciseLinesEditor DataContext="{Binding LogExercises}" />
             </StackPanel>
-          </StackPanel>
+          </Expander>
         </Grid>
       </Border>
 

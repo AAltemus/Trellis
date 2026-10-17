@@ -12,5 +12,10 @@
       <Setter Property="Foreground" Value="#E65100" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
+    <!-- Fluent gives horizontal progress bars MinWidth 200 (measured); in narrower slots (Progress target bars, day cards,
+         the recorder meter) they overflowed into neighbouring controls. Let them size to their layout slot. -->
+    <Style Selector="ProgressBar:horizontal">
+      <Setter Property="MinWidth" Value="0" />
+    </Style>
   </Application.Styles>
 </Application>

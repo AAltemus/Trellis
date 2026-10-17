@@ -10,14 +10,17 @@ using GuitarPractice.Infrastructure;
 
 namespace GuitarPractice.App.ViewModels;
 
-/// <summary>An exercise in the Progress list.</summary>
+/// <summary>A block (subcategory) in the Progress list.</summary>
 public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string category) : ObservableObject
 {
     public int Id { get; } = subcategory.Id;
     public string Name { get; } = subcategory.DisplayName;
     public string Category { get; } = category;
     public int? StartBpm { get; } = subcategory.StartBpm;
-    public int? TargetBpm { get; } = subcategory.TargetBpm;
+
+    /// <summary>The block's target; editable in the Progress window.</summary>
+    [ObservableProperty]
+    private int? _targetBpm = subcategory.TargetBpm;
 
     [ObservableProperty]
     private string _summary = "";
@@ -26,19 +29,49 @@ public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string
     private DateOnly? _lastActivity;
 }
 
+/// <summary>One exercise within the selected block, with its own (editable) target; empty = use the block target.</summary>
+public sealed partial class ExerciseSummaryRow(ExerciseProgress progress, string detail, int? blockTarget) : ObservableObject
+{
+    public string Name { get; } = progress.Name;
+    public NoteValue? NoteValue { get; } = progress.NoteValue;
+    public int Slot { get; } = progress.Slot;
+    public bool IsCharted { get; } = progress.Slot < ProgressChart.MaxSeries;
+    public string Label { get; } = progress.Label;
+    public string Detail { get; } = detail;
+    public double TargetFraction { get; } = progress.TargetFraction ?? 0;
+    public bool HasTarget { get; } = progress.TargetFraction is not null;
+
+    /// <summary>The value as loaded, to tell whether it changed.</summary>
+    public int? OriginalTarget { get; } = progress.HasOwnTarget ? progress.TargetBpm : null;
+
+    [ObservableProperty]
+    private decimal? _ownTarget = progress.HasOwnTarget ? progress.TargetBpm : null;
+
+    public string TargetWatermark { get; } = blockTarget is int b ? $"block {b}" : "target";
+}
+
 /// <summary>A day in the history table.</summary>
-public sealed record DayRowViewModel(DateOnly Date, int Seconds, int? Bpm, int? Rating, string? Notes)
+public sealed record DayRowViewModel(DateOnly Date, int Seconds, IReadOnlyList<ExerciseLog> Exercises, int? Rating, string? Notes)
 {
     public string DateText => Date.ToString("ddd MMM d, yyyy", CultureInfo.InvariantCulture);
     public string TimeText => Seconds > 0 ? PracticeProgress.Format(Seconds) : "–";
-    public string BpmText => Bpm?.ToString(CultureInfo.InvariantCulture) ?? "–";
+    public string ExercisesText => Exercises.Count == 0 ? "–" : string.Join("; ", Exercises.Select(Describe));
     public string RatingText => Rating is int r ? $"{r}/5" : "–";
     public string NotesText => Notes ?? "";
+
+    private static string Describe(ExerciseLog x)
+    {
+        var name = string.IsNullOrEmpty(x.Name) ? "(unnamed)" : x.Name;
+        var tempo = x.Bpm is int b ? $" {b}" : "";
+        var value = x.NoteValue is { } v ? $" {ProgressStats.NoteValueName(v)}" : "";
+        return name + tempo + value;
+    }
 }
 
 /// <summary>
-/// Tools → Progress: per-exercise history (practice time from the timer + logged BPM, rating, notes), headline stats,
-/// a BPM chart and a minutes chart (separate single-axis charts), and an editor for any day.
+/// Tools → Progress: per-block history (practice time from the timer + the exercises played with BPM and note value,
+/// rating, notes), per-exercise stats, a BPM chart with one line per exercise (the block's first four exercises, in
+/// fixed colour slots), a minutes chart, and an editor for any day.
 /// </summary>
 public sealed partial class ProgressViewModel : ObservableObject, IDisposable
 {
@@ -80,22 +113,20 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private ExerciseRowViewModel? _selectedExercise;
 
-    // ---- Selected exercise ----
+    // ---- Selected block ----
 
     [ObservableProperty]
     private string _title = "";
 
     [ObservableProperty]
-    private string _bestText = "";
-
-    [ObservableProperty]
     private string _targetText = "";
 
+    /// <summary>Editable block target (empty = none).</summary>
     [ObservableProperty]
-    private double _targetFraction;
+    private decimal? _blockTarget;
 
     [ObservableProperty]
-    private bool _hasTarget;
+    private string _targetStatus = "";
 
     [ObservableProperty]
     private string _streakText = "";
@@ -106,8 +137,13 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _ratingText = "";
 
+    public ObservableCollection<ExerciseSummaryRow> ExerciseSummaries { get; } = [];
+
     [ObservableProperty]
-    private IReadOnlyList<ChartPoint> _bpmPoints = [];
+    private bool _hasUnchartedExercises;
+
+    [ObservableProperty]
+    private IReadOnlyList<ChartSeries> _bpmSeries = [];
 
     [ObservableProperty]
     private IReadOnlyList<ChartPoint> _minutePoints = [];
@@ -131,12 +167,11 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
 
     // ---- Editor ----
 
+    public ExerciseLinesViewModel EditExercises { get; } = new();
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveEntryCommand), nameof(ClearEntryCommand))]
     private DateTime? _editDate;
-
-    [ObservableProperty]
-    private decimal? _editBpm;
 
     [ObservableProperty]
     private RatingOption? _editRating = RatingOption.All[0];
@@ -151,7 +186,7 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
 
     // ---- Behaviour ----
 
-    /// <summary>Selects an exercise (e.g. the one selected in the timer), showing it even if it has no history yet.</summary>
+    /// <summary>Selects a block (e.g. the one selected on the board), showing it even if it has no history yet.</summary>
     public void Select(int? subcategoryId)
     {
         if (subcategoryId is not int id) return;
@@ -177,6 +212,26 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
 
     partial void OnEditDateChanged(DateTime? value) => LoadEditor();
 
+    /// <summary>Saves the block target and every exercise target that changed.</summary>
+    [RelayCommand]
+    private void SaveTargets()
+    {
+        if (SelectedExercise is not { } block) return;
+        var blockTarget = BlockTarget is { } b ? (int)Math.Round(b) : (int?)null;
+        if (blockTarget != block.TargetBpm)
+        {
+            _store.SetBlockTarget(block.Id, blockTarget);
+            block.TargetBpm = blockTarget is >= 1 and <= 400 ? blockTarget : null;
+        }
+        foreach (var row in ExerciseSummaries.ToList())
+        {
+            var own = row.OwnTarget is { } o ? (int)Math.Round(o) : (int?)null;
+            if (own != row.OriginalTarget) _store.SetTarget(block.Id, row.Name, row.NoteValue, own);
+        }
+        LoadExercise(selectDate: EditDate is { } d ? DateOnly.FromDateTime(d) : Today);
+        TargetStatus = "Targets saved ✓";
+    }
+
     [RelayCommand]
     private void Refresh() => LoadExercise(selectDate: EditDate is { } d ? DateOnly.FromDateTime(d) : Today);
 
@@ -185,16 +240,16 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private void SaveEntry()
     {
-        if (SelectedExercise is not { } exercise || EditDate is not { } date) return;
-        _store.Save(DateOnly.FromDateTime(date), exercise.Id, EditBpm is { } b ? (int)Math.Round(b) : null, EditRating?.Value, EditNotes);
+        if (SelectedExercise is not { } block || EditDate is not { } date) return;
+        _store.Save(DateOnly.FromDateTime(date), block.Id, EditExercises.ToLogs(), EditRating?.Value, EditNotes);
         EditStatus = "Saved ✓"; // the store's Changed event reloads the view
     }
 
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private void ClearEntry()
     {
-        if (SelectedExercise is not { } exercise || EditDate is not { } date) return;
-        _store.Save(DateOnly.FromDateTime(date), exercise.Id, null, null, null);
+        if (SelectedExercise is not { } block || EditDate is not { } date) return;
+        _store.Save(DateOnly.FromDateTime(date), block.Id, [], null, null);
         EditStatus = "Cleared (practice time, if any, stays)";
     }
 
@@ -215,7 +270,6 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
             UpdateRowSummary(row);
             Exercises.Add(row);
         }
-        // Most recently practised first; never-practised (routine items) after, in library order.
         var ordered = Exercises.OrderByDescending(r => r.LastActivity ?? DateOnly.MinValue).ToList();
         Exercises.Clear();
         foreach (var row in ordered) Exercises.Add(row);
@@ -224,11 +278,11 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     private void UpdateRowSummary(ExerciseRowViewModel row)
     {
         var history = _store.History(row.Id);
-        var s = ProgressStats.Summarize(history, row.StartBpm, row.TargetBpm, Today);
+        var s = ProgressStats.Summarize(history, row.StartBpm, row.TargetBpm, Today, _store.Targets(row.Id));
         row.LastActivity = history.Where(d => d.HasActivity && d.Date <= Today).Select(d => (DateOnly?)d.Date).LastOrDefault();
         var parts = new List<string>();
         if (row.LastActivity is DateOnly last) parts.Add(last == Today ? "today" : $"{(Today.DayNumber - last.DayNumber)} d ago");
-        if (s.BestBpm is int best) parts.Add($"best {best}");
+        if (s.Exercises.Count > 0) parts.Add($"{s.Exercises.Count} exercise{(s.Exercises.Count == 1 ? "" : "s")}");
         if (s.MinutesLast28Days > 0) parts.Add($"{s.MinutesLast28Days} min/4 wk");
         row.Summary = parts.Count > 0 ? string.Join(" · ", parts) : "no history yet";
     }
@@ -236,46 +290,63 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     private void LoadExercise(DateOnly selectDate, bool keepStatus = false)
     {
         DayRows.Clear();
+        ExerciseSummaries.Clear();
         ChartTo = Today;
         ChartFrom = Today.AddDays(-(ChartDays - 1));
-        if (SelectedExercise is not { } exercise)
+        if (SelectedExercise is not { } block)
         {
             _history = [];
-            Title = "Pick an exercise";
-            BpmPoints = [];
+            Title = "Pick a block";
+            BpmSeries = [];
             MinutePoints = [];
             EditDate = null;
             return;
         }
 
-        _history = _store.History(exercise.Id);
+        _history = _store.History(block.Id);
         // Chart window: from a few days before the first activity, at least 4 weeks and at most 90 days.
         var first = _history.Where(d => d.HasActivity).Select(d => (DateOnly?)d.Date).FirstOrDefault() ?? Today;
         var span = Math.Clamp(Today.DayNumber - first.DayNumber + 4, 28, ChartDays);
         ChartFrom = Today.AddDays(-(span - 1));
-        var s = ProgressStats.Summarize(_history, exercise.StartBpm, exercise.TargetBpm, Today);
-        Title = $"{exercise.Name} · {exercise.Category}";
-        BestText = s.BestBpm is int best ? $"{best} BPM" : "–";
-        HasTarget = exercise.TargetBpm is not null;
-        TargetFraction = s.TargetFraction ?? 0;
-        TargetText = exercise.TargetBpm is int target
-            ? $"target {target} BPM{(exercise.StartBpm is int start ? $" (from {start})" : "")}{(s.TargetFraction is double f ? $" · {f:P0} there" : "")}"
-            : "no target BPM";
+
+        var s = ProgressStats.Summarize(_history, block.StartBpm, block.TargetBpm, Today, _store.Targets(block.Id));
+        Title = $"{block.Name} · {block.Category}";
+        BlockTarget = block.TargetBpm;
+        TargetStatus = "";
+        TargetText = block.StartBpm is int start ? $"BPM (start {start}); exercises without their own target use it" : "BPM; exercises without their own target use it";
         StreakText = s.Streak > 0 ? $"{s.Streak} day{(s.Streak == 1 ? "" : "s")}" : "–";
         MinutesText = $"{s.MinutesThisWeek} min this week · {s.MinutesLast28Days} min in 4 weeks · {s.DaysPractised} days total";
         RatingText = s.RecentRating is double r ? $"{r:0.0}/5 (last {Math.Min(ProgressStats.RecentRatings, _history.Count(d => d.Rating is not null))})" : "–";
 
-        TargetBpm = exercise.TargetBpm;
-        TargetLabel = exercise.TargetBpm is int t ? $"target {t}" : null;
-        BpmPoints = _history.Where(d => d.Bpm is not null)
-            .Select(d => new ChartPoint(d.Date, d.Bpm!.Value, $"{d.Date:ddd MMM d}: {d.Bpm} BPM{(d.Rating is int rr ? $" · {rr}/5" : "")}"))
+        foreach (var e in s.Exercises)
+        {
+            var detail = new List<string>();
+            if (e.BestBpm is int best) detail.Add($"best {best}");
+            if (e.LatestBpm is int latest && latest != e.BestBpm) detail.Add($"latest {latest}");
+            if (e.TargetFraction is double f) detail.Add($"{f:P0} of {e.TargetBpm}{(e.HasOwnTarget ? "" : " (block)")}");
+            detail.Add($"logged {e.TimesLogged}×, last {e.LastDate:MMM d}");
+            ExerciseSummaries.Add(new ExerciseSummaryRow(e, string.Join(" · ", detail), block.TargetBpm));
+        }
+        HasUnchartedExercises = s.Exercises.Count > ProgressChart.MaxSeries;
+
+        // Block target line (neutral) only while some charted exercise still uses it; own targets are drawn per line.
+        var usesBlock = s.Exercises.Any(e => e.Slot < ProgressChart.MaxSeries && !e.HasOwnTarget) || s.Exercises.Count == 0;
+        TargetBpm = usesBlock ? block.TargetBpm : null;
+        TargetLabel = usesBlock && block.TargetBpm is int t ? $"block target {t}" : null;
+        // Colour follows the exercise: slot = order first logged in this block; the first four get lines.
+        BpmSeries = s.Exercises
+            .Where(e => e.Slot < ProgressChart.MaxSeries && e.BpmHistory.Count > 0)
+            .Select(e => new ChartSeries(e.Label, e.Slot, e.BpmHistory
+                .Select(h => new ChartPoint(h.Date, h.Bpm,
+                    $"{e.Label}: {h.Bpm} BPM on {h.Date:ddd MMM d}{(e.TargetBpm is int tb ? $" (target {tb})" : "")}"))
+                .ToList(), e.HasOwnTarget ? e.TargetBpm : null))
             .ToList();
         MinutePoints = _history.Where(d => d.SecondsPractised > 0)
             .Select(d => new ChartPoint(d.Date, d.SecondsPractised / 60.0, $"{d.Date:ddd MMM d}: {PracticeProgress.Format(d.SecondsPractised)} practised"))
             .ToList();
 
         foreach (var d in _history.Where(d => d.HasActivity).OrderByDescending(d => d.Date))
-            DayRows.Add(new DayRowViewModel(d.Date, d.SecondsPractised, d.Bpm, d.Rating, d.Notes));
+            DayRows.Add(new DayRowViewModel(d.Date, d.SecondsPractised, d.Exercises, d.Rating, d.Notes));
 
         var status = EditStatus;
         EditDate = selectDate.ToDateTime(TimeOnly.MinValue);
@@ -288,15 +359,16 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     private void LoadEditor()
     {
         EditStatus = "";
-        if (SelectedExercise is not { } exercise || EditDate is not { } date)
+        if (SelectedExercise is not { } block || EditDate is not { } date)
         {
-            EditBpm = null;
+            EditExercises.Load([]);
             EditRating = RatingOption.All[0];
             EditNotes = "";
             return;
         }
-        var entry = _store.Get(DateOnly.FromDateTime(date), exercise.Id);
-        EditBpm = entry?.BpmReached;
+        var entry = _store.Get(DateOnly.FromDateTime(date), block.Id);
+        EditExercises.SetSuggestions(_store.ExerciseNames(block.Id));
+        EditExercises.Load(entry?.Exercises.Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue)) ?? []);
         EditRating = RatingOption.All.FirstOrDefault(r => r.Value == entry?.Rating) ?? RatingOption.All[0];
         EditNotes = entry?.Notes ?? "";
     }

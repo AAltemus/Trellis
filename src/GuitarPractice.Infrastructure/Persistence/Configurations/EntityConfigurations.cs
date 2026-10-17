@@ -129,10 +129,33 @@ internal sealed class ProgressEntryConfiguration : IEntityTypeConfiguration<Prog
         b.HasOne(e => e.Subcategory).WithMany().HasForeignKey(e => e.SubcategoryId).OnDelete(DeleteBehavior.Restrict);
         b.Property(e => e.Notes).HasMaxLength(ProgressEntry.MaxNotesLength);
         b.Ignore(e => e.IsEmpty);
+        b.HasMany(e => e.Exercises).WithOne(x => x.ProgressEntry).HasForeignKey(x => x.ProgressEntryId).OnDelete(DeleteBehavior.Cascade);
+        b.ToTable(t => t.HasCheckConstraint("CK_ProgressEntry_Rating", "Rating IS NULL OR (Rating >= 1 AND Rating <= 5)"));
+    }
+}
+
+internal sealed class ExerciseTargetConfiguration : IEntityTypeConfiguration<ExerciseTarget>
+{
+    public void Configure(EntityTypeBuilder<ExerciseTarget> b)
+    {
+        b.HasIndex(x => new { x.SubcategoryId, x.Key }).IsUnique();
+        b.HasOne(x => x.Subcategory).WithMany().HasForeignKey(x => x.SubcategoryId).OnDelete(DeleteBehavior.Restrict);
+        b.Property(x => x.Key).HasMaxLength(ProgressExercise.MaxNameLength + 8);
+        b.ToTable(t => t.HasCheckConstraint("CK_ExerciseTarget_Bpm", "TargetBpm >= 1 AND TargetBpm <= 400"));
+    }
+}
+
+internal sealed class ProgressExerciseConfiguration : IEntityTypeConfiguration<ProgressExercise>
+{
+    public void Configure(EntityTypeBuilder<ProgressExercise> b)
+    {
+        b.HasIndex(x => new { x.ProgressEntryId, x.SortOrder });
+        b.Property(x => x.Name).HasMaxLength(ProgressExercise.MaxNameLength).IsRequired();
+        b.Property(x => x.NoteValue).HasConversion<int?>();
         b.ToTable(t =>
         {
-            t.HasCheckConstraint("CK_ProgressEntry_Rating", "Rating IS NULL OR (Rating >= 1 AND Rating <= 5)");
-            t.HasCheckConstraint("CK_ProgressEntry_Bpm", "BpmReached IS NULL OR (BpmReached >= 1 AND BpmReached <= 400)");
+            t.HasCheckConstraint("CK_ProgressExercise_Bpm", "Bpm IS NULL OR (Bpm >= 1 AND Bpm <= 400)");
+            t.HasCheckConstraint("CK_ProgressExercise_NoteValue", "NoteValue IS NULL OR (NoteValue >= 1 AND NoteValue <= 4)");
         });
     }
 }

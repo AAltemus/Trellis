@@ -22,6 +22,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly TimeProvider _clock;
     private readonly IToolWindows _tools;
     private readonly ProgressStore _progressStore;
+    private readonly SettingsStore _settingsStore;
     private readonly int _routineId;
     private readonly bool _loading;
     private DateOnly _weekStart; // the displayed week (see MainWindowViewModel.Navigation.cs)
@@ -52,7 +53,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         LibraryStore store, PracticeLogStore logStore, WeekStore weekStore, INotificationSound sound, TimeProvider clock,
-        IToolWindows tools, ProgressStore progressStore)
+        IToolWindows tools, ProgressStore progressStore, SettingsStore settingsStore)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(logStore);
@@ -60,6 +61,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(progressStore);
+        ArgumentNullException.ThrowIfNull(settingsStore);
         _store = store;
         _logStore = logStore;
         _weekStore = weekStore;
@@ -67,8 +69,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _clock = clock;
         _tools = tools;
         _progressStore = progressStore;
+        _settingsStore = settingsStore;
+        LoadLayout();
         // Entries saved from the Progress window update the timer panel's summary line.
-        _progressStore.Changed += (_, id) => { if (Current?.Key.SubcategoryId == id) RefreshProgressHint(); };
+        _progressStore.Changed += (_, id) => OnProgressChangedElsewhere(id);
         _loading = true;
 
         _weekStart = CurrentWeekStart;
