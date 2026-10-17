@@ -1,13 +1,15 @@
 # Guitar Practice
 
 Cross-platform desktop app (Windows / macOS / Linux) that turns a weighted selection of practice tasks
-into a weekly plan, with a tuner and metronome. C# / .NET 10, Avalonia 11, EF Core + SQLite.
+into a weekly plan, with a metronome, tuner, recorder and progress tracking. C# / .NET 10, Avalonia 11, EF Core + SQLite.
 
 ## Library model
 
 `Category` (Legato, Rhythm, Songs…) → `Subcategory` (the weighted, schedulable unit).
 
 - A routine stores one weight (1–10) per selected subcategory; the planner turns weights into minutes.
+- Practice minutes are set per weekday (0 = rest day), with an "All" slider to set every day at once. The library
+  tree is collapsible.
 - Warmup subcategories are pinned to the start of each day: they're on/off, not weighted.
 - **Songs** is a category of kind `Songs`. Its subcategories are songs with artist, tuning and status
   (Learning / Polishing / Maintaining) and are weighted and scheduled like any drill.
@@ -25,6 +27,8 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 - Practised time is stored per (date, subcategory) in `PracticeLogs`, saved every 15 s while running, so it survives
   reshuffles, weight changes, locking and restarts (loading a saved week into a week clears it, see below). The seed
   is saved too, so the plan doesn't move between launches.
+- **Log for the day** (collapsible section under the timer): the exercises you played in the block, each with BPM and
+  note value (names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
 
 ## Weeks (Week menu)
 
@@ -39,6 +43,7 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   **Load saved week into next week** does the same for the coming week; a notice shows what's queued and
   **Clear next week** removes it.
 - Overwrite protection: you can't load into a locked week (the menu says "unlock … first"). Unlock, then load.
+- **Delete saved week…** asks for confirmation first.
 - Loading starts the week fresh: practised time logged on that week's dates is cleared. Locking, unlocking, saving
   and deleting never touch practised time.
 
@@ -54,6 +59,18 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   (pick your interface's guitar input; the system default may be a webcam mic). Settings are remembered.
   - *Bend trainer*: play a fretted note, bend it ½ / 1 / 1½ / 2 steps; the needle shows cents from the target and each
     held bend is scored (average offset while held, glide in/out excluded).
+  - Level readout in dBFS and **Save last 20 s** (raw input as WAV, for troubleshooting).
+- **Recorder…** (Ctrl+R): record takes from your input, play them back on a waveform (click to jump, drag to select a
+  loop), loop an A–B region seamlessly with an optional 4-click count-in, rename/delete takes. Takes are WAV files in
+  `%LOCALAPPDATA%\GuitarPractice\recordings`. To hear yourself while playing along, use your interface's direct
+  monitoring (the app doesn't route the live input to the output).
+- **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best
+  and latest BPM and progress toward its target. Set your own targets per exercise, or a block target as the fallback.
+  A BPM chart with a line per exercise (up to four) and dashed target lines, a minutes-per-day chart, and a day table
+  you can edit for any date. While it's open it follows the block you select in the week.
+
+The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
+
 ## First run
 
 Requires the .NET 10 SDK.
@@ -111,10 +128,11 @@ Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regen
 ## Milestones
 
 - [x] **M1** Domain model, planner and property tests; solution scaffold
-- [~] **M2** Library and routine editing (categories, subcategories, songs, weights) — per-weekday budgets in the UI still open
+- [x] **M2** Library and routine editing (categories, subcategories, songs, weights, per-weekday minutes)
 - [~] **M3** Week view and session runner, week lock/save/load/navigation — drag between days not built
 - [x] **M4** PortAudio backend and sample-accurate metronome (gap training, tempo trainer) — macOS packaging/mic entitlement not proven yet
 - [x] **M5** YIN tuner with DSP tests; bend-accuracy mode
+- [x] Recorder (record, playback, A–B loop with count-in) and progress tracking (per-day BPM, rating, notes; charts)
 - [ ] **M6** Velopack installers and release pipeline (a CI build/test matrix exists)
 
 Development notes for Claude sessions (`plans/`, `CLAUDE.md`) are kept locally and are not in this repository.
