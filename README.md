@@ -29,6 +29,11 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   is saved too, so the plan doesn't move between launches.
 - **Log for the day** (collapsible section under the timer): the exercises you played in the block, each with BPM and
   note value (names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
+- **♩ Metronome** (Tools → Practice with metronome, Ctrl+Shift+M): opens the metronome for the selected item and starts
+  it. It picks the exercise (the first named line in the log, else the one you logged last), starts at the tempo typed
+  on that line or your latest logged tempo for it (else the block's start BPM), uses its note value as the subdivision
+  and its target (own, else the block's) as the tempo trainer's target. On Stop the tempo reached is written into the
+  log strip (same exercise line, else a new one); press Save log to keep it.
 
 ## Weeks (Week menu)
 
@@ -54,6 +59,7 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
   - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.
   - Keys: Space start/stop, ↑/↓ ±1, PgUp/PgDn ±5, T tap. Settings are remembered.
+  - Opened with ♩ Metronome from the timer, a "Playing for: …" banner shows the linked item; ✕ unlinks it.
 - **Tuner…** (Ctrl+T): YIN pitch detection (±1 cent in tests), needle ±50 ¢, tunings from the library (Standard,
   Drop D, D Standard, Drop C, B Standard, 7-string) or chromatic, adjustable A4, input device/channel picker
   (pick your interface's guitar input; the system default may be a webcam mic). Settings are remembered.

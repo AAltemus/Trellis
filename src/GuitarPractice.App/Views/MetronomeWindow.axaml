@@ -50,6 +50,19 @@
   </Window.Styles>
 
   <StackPanel Margin="20" Spacing="14">
+    <!-- Practice with metronome: the item this is playing for; the tempo reached goes to its log on Stop -->
+    <Border IsVisible="{Binding IsLinked}" Padding="10,6" CornerRadius="6" Background="#14808080">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="{Binding LinkTitle, StringFormat='Playing for: {0}'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Classes="caption" Text="{Binding LinkStatus}" TextWrapping="Wrap"
+                     IsVisible="{Binding LinkStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="✕" Command="{Binding UnlinkCommand}" VerticalAlignment="Center"
+                ToolTip.Tip="Stop linking: the tempo reached won't be added to the log" />
+      </Grid>
+    </Border>
+
     <!-- Tempo -->
     <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
       <Button Content="−5" Command="{Binding AdjustBpmCommand}" CommandParameter="-5" MinWidth="44" />

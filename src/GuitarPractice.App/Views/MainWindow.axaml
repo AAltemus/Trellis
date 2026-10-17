@@ -16,6 +16,7 @@
     <KeyBinding Gesture="Alt+Right" Command="{Binding ShowNextWeekCommand}" />
     <KeyBinding Gesture="Alt+Home" Command="{Binding ShowThisWeekCommand}" />
     <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenMetronomeCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+M" Command="{Binding PracticeWithMetronomeCommand}" />
     <KeyBinding Gesture="Escape" Command="{Binding CancelDeleteCommand}" />
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
     <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
@@ -91,6 +92,7 @@
       </MenuItem>
       <MenuItem Header="_Tools">
         <MenuItem Header="_Metronome…" Command="{Binding OpenMetronomeCommand}" InputGesture="Ctrl+M" />
+        <MenuItem Header="Practice with m_etronome" Command="{Binding PracticeWithMetronomeCommand}" InputGesture="Ctrl+Shift+M" />
         <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
         <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
         <Separator />
@@ -265,6 +267,8 @@
                     ToolTip.Tip="Finish this item now: keeps the time you practised and marks it done." />
             <Button Content="Reset" Command="{Binding ResetCommand}"
                     ToolTip.Tip="Clear the time logged for this item." />
+            <Button Content="♩ Metronome" Command="{Binding PracticeWithMetronomeCommand}"
+                    ToolTip.Tip="Practice this item with the metronome (Ctrl+Shift+M): starts at your last logged tempo for the exercise, in its note value, with its target for the trainer. On Stop the tempo reached goes into the log below." />
             <Button Content="🔔" Command="{Binding TestDingCommand}" ToolTip.Tip="Test the ding" />
           </StackPanel>
 

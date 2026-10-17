@@ -10,7 +10,8 @@ namespace GuitarPractice.App;
 /// <summary>Opens the Tools-menu windows. One instance of each; asking again brings it to the front.</summary>
 public interface IToolWindows
 {
-    void ShowMetronome();
+    /// <summary>Opens the metronome; with a <paramref name="link"/>, plays for that practice item.</summary>
+    void ShowMetronome(MetronomeLink? link = null);
     void ShowTuner();
     void ShowRecorder();
 
@@ -25,7 +26,11 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
 {
     private readonly Dictionary<Type, Window> _open = [];
 
-    public void ShowMetronome() => _ = Show<MetronomeWindow, MetronomeViewModel>();
+    public void ShowMetronome(MetronomeLink? link = null)
+    {
+        var window = Show<MetronomeWindow, MetronomeViewModel>();
+        if (link is not null) (window.DataContext as MetronomeViewModel)?.Link(link);
+    }
 
     public void ShowTuner() => _ = Show<TunerWindow, TunerViewModel>();
 

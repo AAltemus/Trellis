@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GuitarPractice.Audio;
 using GuitarPractice.Domain.Practice;
 
 namespace GuitarPractice.App.ViewModels;
@@ -55,6 +56,7 @@ public sealed partial class MainWindowViewModel
     private void LoadProgressLog()
     {
         SaveLogCommand.NotifyCanExecuteChanged();
+        PracticeWithMetronomeCommand.NotifyCanExecuteChanged();
         OpenProgressCommand.NotifyCanExecuteChanged();
         if (Current is not { } entry)
         {
@@ -142,4 +144,38 @@ public sealed partial class MainWindowViewModel
 
     [RelayCommand]
     private void OpenProgress() => _tools.ShowProgress(Current?.Key.SubcategoryId);
+
+    /// <summary>
+    /// Opens the metronome for the selected item (see <see cref="PracticeTempo.Plan"/> for the exercise and tempos) and
+    /// starts it. When it stops, the tempo reached goes into this item's log strip (not saved: Save log keeps it).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void PracticeWithMetronome()
+    {
+        if (Current is not { } entry) return;
+        var id = entry.Key.SubcategoryId;
+        var blockTarget = _progressStore.BlockTarget(id);
+        var summary = ProgressStats.Summarize(_progressStore.History(id), CurrentExercise?.StartBpm, blockTarget, Today,
+            _progressStore.Targets(id));
+        var plan = PracticeTempo.Plan(summary, LogExercises.ToLogs(), CurrentExercise?.StartBpm, blockTarget);
+
+        var title = entry.Name;
+        if (plan.ExerciseName is { } name) title += $" · {name}";
+        if (plan.NoteValue is { } value) title += $" · {ProgressStats.NoteValueName(value)}";
+        var key = entry.Key;
+        _tools.ShowMetronome(new MetronomeLink(title, plan.StartBpm, plan.TargetBpm, (Subdivision?)plan.NoteValue,
+            bpm => OnMetronomeReached(key, entry.Name, plan, bpm)));
+    }
+
+    private string OnMetronomeReached(Infrastructure.PracticeKey key, string itemName, TempoPlan plan, int bpm)
+    {
+        if (_logKey != key)
+            return $"Reached {bpm} BPM: not added (select {itemName} on {key.Date:ddd} in the week to log it)";
+
+        var (lines, _) = PracticeTempo.RecordReached(LogExercises.ToLogs(), plan.ExerciseName, plan.NoteValue, bpm);
+        LogExercises.Load(lines);
+        IsLogExpanded = true;
+        LogStatus = $"Metronome: {bpm} BPM added; Save log to keep it";
+        return $"Reached {bpm} BPM → in the log for {key.Date:ddd} (Save log there to keep it)";
+    }
 }

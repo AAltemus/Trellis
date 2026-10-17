@@ -15,6 +15,12 @@ public sealed record SubdivisionOption(Subdivision Value, string Label)
 }
 
 /// <summary>
+/// "Practice with metronome": the practice item the metronome is playing for. <see cref="Reached"/> gets the tempo heard
+/// last when playback stops and returns a line for the metronome window ("152 BPM → in the log").
+/// </summary>
+public sealed record MetronomeLink(string Title, int? StartBpm, int? TargetBpm, Subdivision? Subdivision, Func<int, string> Reached);
+
+/// <summary>
 /// Tools → Metronome. All timing (including gap training and the tempo trainer) lives in <see cref="MetronomeEngine"/>
 /// on the audio thread; this view model publishes settings, remembers them between sessions, and turns the engine's
 /// tick reports into beat lights, offset by the output latency so a light flashes when its click is heard.
@@ -216,6 +222,62 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         if (_engine is not null) _engine.Settings = Settings;
     }
 
+    // ---- Link to a practice item ----
+
+    private MetronomeLink? _link;
+
+    /// <summary>"Playing for: Alternate picking · Trills · 16ths", or null when not linked.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLinked))]
+    private string? _linkTitle;
+
+    /// <summary>What happened to the last tempo reached ("152 BPM → in the log").</summary>
+    [ObservableProperty]
+    private string? _linkStatus;
+
+    public bool IsLinked => LinkTitle is not null;
+
+    /// <summary>
+    /// Plays for a practice item: its start tempo, note value and target (as the trainer's target; whether the trainer
+    /// ramps stays the user's choice), then starts. A link that was playing is stopped first, so it gets its tempo.
+    /// </summary>
+    public void Link(MetronomeLink link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        if (IsPlaying) StopPlayback();
+        _link = link;
+        LinkTitle = link.Title;
+        LinkStatus = link.TargetBpm is int t ? $"Target {t} BPM (the trainer ramps toward it when on)" : null;
+        if (link.StartBpm is int start) Bpm = start;
+        if (link.Subdivision is { } sub) SelectedSubdivision = SubdivisionOptions.First(o => o.Value == sub);
+        if (link.TargetBpm is int target) TrainerTargetBpm = target;
+        StartPlayback();
+    }
+
+    [RelayCommand]
+    private void Unlink()
+    {
+        _link = null;
+        LinkTitle = null;
+        LinkStatus = null;
+    }
+
+    private void ReportReached()
+    {
+        if (_link is null || CurrentBpm <= 0) return; // nothing heard yet
+        var bpm = (int)Math.Round(CurrentBpm);
+        try
+        {
+            LinkStatus = _link.Reached(bpm);
+        }
+#pragma warning disable CA1031 // Logging the tempo must never break the metronome.
+        catch (Exception ex)
+        {
+            LinkStatus = $"Reached {bpm} BPM (couldn't add it to the log: {ex.Message})";
+        }
+#pragma warning restore CA1031
+    }
+
     // ---- Commands ----
 
     [RelayCommand]
@@ -285,6 +347,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         _output.Stop();
         _uiTimer.Stop();
         IsPlaying = false;
+        ReportReached();
         IsMutedBar = false;
         foreach (var light in BeatLights) light.IsLit = false;
     }
