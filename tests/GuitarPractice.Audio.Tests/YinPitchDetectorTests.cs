@@ -105,10 +105,7 @@ public class YinPitchDetectorTests
     {
         var detector = new YinPitchDetector(48_000);
         var x = Sine(110, 48_000, detector.RequiredSamples);
-        detector.Detect(x);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 20; i++) detector.Detect(x);
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        Allocations.AssertNone(() => detector.Detect(x), iterations: 20, warmUp: 100);
     }
 
     [Theory]

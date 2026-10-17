@@ -20,6 +20,7 @@
     <KeyBinding Gesture="Escape" Command="{Binding CancelDeleteCommand}" />
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
     <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
+    <KeyBinding Gesture="Ctrl+E" Command="{Binding OpenEarTrainerCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProgressCommand}" />
   </Window.KeyBindings>
 
@@ -95,6 +96,7 @@
         <MenuItem Header="Practice with m_etronome" Command="{Binding PracticeWithMetronomeCommand}" InputGesture="Ctrl+Shift+M" />
         <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
         <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
+        <MenuItem Header="_Ear Trainer…" Command="{Binding OpenEarTrainerCommand}" InputGesture="Ctrl+E" />
         <Separator />
         <MenuItem Header="_Progress…" Command="{Binding OpenProgressCommand}" InputGesture="Ctrl+P" />
       </MenuItem>

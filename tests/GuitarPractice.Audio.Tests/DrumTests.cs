@@ -118,16 +118,11 @@ public class DrumTests
         var engine = new MetronomeEngine(Rate, Drums(Pattern("KSH H KSH H", beats: 1, sub: Subdivision.Sixteenths), bpm: 400));
         engine.Start();
         var buffer = new float[256];
-        engine.Render(buffer);
-        while (engine.TryDequeueTick(out _)) { }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 2_000; i++)
+        Allocations.AssertNone(() =>
         {
             engine.Render(buffer);
             while (engine.TryDequeueTick(out _)) { }
-        }
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        });
     }
 
     [Fact]

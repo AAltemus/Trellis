@@ -78,6 +78,16 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   loop), loop an A–B region seamlessly with an optional 4-click count-in, rename/delete takes. Takes are WAV files in
   `%LOCALAPPDATA%\GuitarPractice\recordings`. To hear yourself while playing along, use your interface's direct
   monitoring (the app doesn't route the live input to the output).
+- **Ear Trainer…** (Ctrl+E): hear an interval or a chord, pick what it was, get scored. Choose the key (any of 12
+  tonics, major or natural minor) and tick exactly what to practise: the 12 intervals (m2 … P8; ascending, descending,
+  together or mixed; from the key's root or from any note of the key) or the key's diatonic chords (I … vii° triads
+  and Imaj7 … viiø7 sevenths). A chord question is just that chord: name it by degree and quality, e.g. in C
+  major "ii · Dm (minor)", the 2 chord, a minor chord (K plays the key chord if you want a reference). Intervals can
+  play the key chord first. Only the first answer to each question scores; after answering, click any answer to hear
+  it for comparison. Score, streak and
+  per-item results for the round, plus all-time accuracy per item (kept between sessions; chords per mode, so V7 in
+  any major key counts together). Keys: Enter/N next, Space/R replay, K key chord, 1–9/0 answer. Notes are a
+  synthesised plucked string, in tune to ±2 cents.
 - **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best
   and latest BPM and progress toward its target. Set your own targets per exercise, or a block target as the fallback.
   A BPM chart with a line per exercise (up to four) and dashed target lines, a minutes-per-day chart, and a day table

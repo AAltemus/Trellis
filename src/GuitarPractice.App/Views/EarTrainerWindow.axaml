@@ -1,0 +1,196 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GuitarPractice.App.ViewModels"
+        x:Class="GuitarPractice.App.Views.EarTrainerWindow"
+        x:DataType="vm:EarTrainerViewModel"
+        Title="Ear Trainer"
+        Width="720" Height="760" MinWidth="560" MinHeight="520"
+        WindowStartupLocation="CenterOwner">
+
+  <!-- Keys (Enter/N next, Space/R replay, K key, 1–9/0 answers) are handled in code-behind. -->
+
+  <Window.Styles>
+    <Style Selector="Button, ToggleButton, CheckBox, RadioButton">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Button.answer">
+      <Setter Property="MinWidth" Value="96" />
+      <Setter Property="MinHeight" Value="52" />
+      <Setter Property="Margin" Value="0,0,8,8" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.answer.correct">
+      <Setter Property="Background" Value="#1baf7a" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.answer.wrong">
+      <Setter Property="Background" Value="#d84a3a" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="TextBlock.good">
+      <Setter Property="Foreground" Value="#1a9c6c" />
+    </Style>
+    <Style Selector="TextBlock.bad">
+      <Setter Property="Foreground" Value="#d84a3a" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Opacity" Value="0.7" />
+    </Style>
+  </Window.Styles>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="20" Spacing="14">
+
+      <!-- What to practise -->
+      <Border Padding="12,10" CornerRadius="8" Background="#14808080">
+        <StackPanel Spacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Practise" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <ComboBox ItemsSource="{Binding ModeOptions}" SelectedItem="{Binding SelectedMode}" Width="130" />
+            <TextBlock Text="in" VerticalAlignment="Center" Margin="4,0" />
+            <ComboBox ItemsSource="{Binding TonicOptions}" SelectedItem="{Binding SelectedTonic}" Width="100" />
+            <ComboBox ItemsSource="{Binding KeyModeOptions}" SelectedItem="{Binding SelectedKeyMode}" Width="170" />
+          </StackPanel>
+
+          <!-- Intervals -->
+          <StackPanel Spacing="8" IsVisible="{Binding IsIntervals}">
+            <ItemsControl ItemsSource="{Binding IntervalChoices}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Classes="choices" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EarChoiceViewModel">
+                  <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" ToolTip.Tip="{Binding ToolTip}"
+                            MinWidth="0" Margin="0,0,18,2" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+              <ComboBox ItemsSource="{Binding DirectionOptions}" SelectedItem="{Binding SelectedDirection}" HorizontalAlignment="Stretch" />
+              <ComboBox Grid.Column="1" ItemsSource="{Binding RootOptions}" SelectedItem="{Binding SelectedRoot}" HorizontalAlignment="Stretch" />
+            </Grid>
+          </StackPanel>
+
+          <!-- Chords -->
+          <StackPanel Spacing="4" IsVisible="{Binding IsChords}">
+            <TextBlock Classes="caption" Text="Triads" />
+            <ItemsControl ItemsSource="{Binding TriadChoices}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Classes="choices" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EarChoiceViewModel">
+                  <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" ToolTip.Tip="{Binding ToolTip}"
+                            MinWidth="0" Margin="0,0,18,2" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="caption" Text="Seventh chords" Margin="0,4,0,0" />
+            <ItemsControl ItemsSource="{Binding SeventhChoices}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Classes="choices" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:EarChoiceViewModel">
+                  <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" ToolTip.Tip="{Binding ToolTip}"
+                            MinWidth="0" Margin="0,0,18,2" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <WrapPanel>
+            <CheckBox Content="Play the key chord first" IsChecked="{Binding PlayKeyFirst}" Margin="0,0,18,0"
+                      IsVisible="{Binding IsIntervals}"
+                      ToolTip.Tip="Sets the key in your ear (I or i) before each interval. Chord questions are just the chord; press K or 🔑 Key to hear the key." />
+            <CheckBox Content="Next question after a right answer" IsChecked="{Binding AutoNext}" Margin="0,0,18,0" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Volume" VerticalAlignment="Center" />
+              <Slider Minimum="0" Maximum="100" Width="120" Value="{Binding Volume}" />
+            </StackPanel>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Question -->
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+          <TextBlock Text="{Binding Prompt}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <Button Grid.Column="1" Content="🔑 Key" Command="{Binding PlayKeyCommand}" ToolTip.Tip="Hear the key chord again (K)" />
+          <Button Grid.Column="2" Content="↻ Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Hear the question again (Space or R)" />
+          <Button Grid.Column="3" Classes="accent" Content="{Binding NextText}" Command="{Binding NextCommand}" MinWidth="96"
+                  ToolTip.Tip="Enter or N" />
+        </Grid>
+
+        <ItemsControl ItemsSource="{Binding Answers}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:EarAnswerViewModel">
+              <Button Classes="answer" Classes.correct="{Binding IsCorrect}" Classes.wrong="{Binding IsWrong}"
+                      Command="{Binding ChooseCommand}" ToolTip.Tip="{Binding ToolTip}">
+                <StackPanel>
+                  <TextBlock Text="{Binding Label}" HorizontalAlignment="Center" />
+                  <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.8" HorizontalAlignment="Center" />
+                  <TextBlock Text="{Binding NumberText}" FontSize="10" Opacity="0.6" HorizontalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="{Binding Feedback}" FontSize="15" TextWrapping="Wrap"
+                   Classes.good="{Binding FeedbackIsGood}" Classes.bad="{Binding !FeedbackIsGood}"
+                   IsVisible="{Binding Feedback, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
+                   IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      </StackPanel>
+
+      <!-- Score -->
+      <Border Padding="12,10" CornerRadius="8" Background="#14808080">
+        <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding ScoreText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Reset all-time" Command="{Binding ResetAllTimeCommand}"
+                    IsVisible="{Binding !IsConfirmingReset}" ToolTip.Tip="Forget every all-time result (asks first)" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsConfirmingReset}">
+              <TextBlock Text="Forget all results?" VerticalAlignment="Center" />
+              <Button Content="Reset" Command="{Binding ResetAllTimeCommand}" Foreground="#E53935" />
+              <Button Content="Cancel" Command="{Binding CancelResetCommand}" />
+            </StackPanel>
+          </Grid>
+          <Grid ColumnDefinitions="110,90,*,130" Opacity="0.7">
+            <TextBlock Classes="caption" Text="" />
+            <TextBlock Grid.Column="1" Classes="caption" Text="This round" />
+            <TextBlock Grid.Column="3" Classes="caption" Text="All time" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding ScoreRows}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:EarScoreRow">
+                <Grid ColumnDefinitions="110,90,*,130" Height="24">
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{Binding Session}" VerticalAlignment="Center" />
+                  <ProgressBar Grid.Column="2" Minimum="0" Maximum="1" Value="{Binding Accuracy}" Height="6" MinHeight="6"
+                               Margin="0,0,12,0" VerticalAlignment="Center" IsVisible="{Binding HasAllTime}" />
+                  <TextBlock Grid.Column="3" Text="{Binding AllTime}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

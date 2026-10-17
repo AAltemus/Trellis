@@ -299,16 +299,11 @@ public class MetronomeEngineTests
             Bpm: 300, Subdivision: Subdivision.Sixteenths,
             GapEnabled: true, GapPlayBars: 1, GapMuteBars: 1, TrainerEnabled: true, TrainerEveryBars: 1, TrainerTargetBpm: 400));
         var buffer = new float[256];
-        engine.Render(buffer); // warm up (JIT)
-        while (engine.TryDequeueTick(out _)) { }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 2_000; i++)
+        Allocations.AssertNone(() =>
         {
             engine.Render(buffer);
             while (engine.TryDequeueTick(out _)) { }
-        }
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        });
     }
 
     [Fact]

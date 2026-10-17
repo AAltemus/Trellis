@@ -328,9 +328,6 @@ public class LoopPlayerTests
         player.Load(take);
         player.Play();
         var buffer = new float[256];
-        player.Render(buffer);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 2_000; i++) player.Render(buffer);
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        Allocations.AssertNone(() => player.Render(buffer));
     }
 }
