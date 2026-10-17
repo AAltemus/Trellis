@@ -1,0 +1,125 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GuitarPractice.App.ViewModels"
+        xmlns:c="using:GuitarPractice.App.Controls"
+        x:Class="GuitarPractice.App.Views.ProgressWindow"
+        x:DataType="vm:ProgressViewModel"
+        Title="Progress"
+        Width="1080" Height="760" MinWidth="820" MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.stat">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Opacity" Value="0.7" />
+    </Style>
+    <Style Selector="TextBlock.charttitle">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="300,16,*" Margin="16">
+    <!-- Exercises -->
+    <DockPanel Grid.Column="0">
+      <TextBlock DockPanel.Dock="Top" Text="Exercises" FontWeight="SemiBold" Margin="0,0,0,6" />
+      <CheckBox DockPanel.Dock="Bottom" Content="Show all exercises" IsChecked="{Binding ShowAllExercises}" Margin="0,8,0,0"
+                ToolTip.Tip="Otherwise: what's in your routine plus anything with history" />
+      <ListBox ItemsSource="{Binding Exercises}" SelectedItem="{Binding SelectedExercise}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ExerciseRowViewModel">
+            <StackPanel>
+              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding Category}" FontSize="11" Opacity="0.6" />
+              <TextBlock Text="{Binding Summary}" FontSize="12" Opacity="0.8" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <!-- Selected exercise -->
+    <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*,Auto">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}"
+                ToolTip.Tip="Re-read practice time (the timer saves it while you practise)" />
+        <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+      </DockPanel>
+
+      <!-- Headline numbers -->
+      <WrapPanel Grid.Row="1" Margin="0,10,0,10">
+        <StackPanel Margin="0,0,32,0">
+          <TextBlock Text="Best tempo" Classes="label" />
+          <TextBlock Text="{Binding BestText}" Classes="stat" />
+          <TextBlock Text="{Binding TargetText}" Classes="label" />
+          <ProgressBar Minimum="0" Maximum="1" Value="{Binding TargetFraction}" Width="200" Height="6" MinHeight="6"
+                       HorizontalAlignment="Left" Margin="0,4,0,0" IsVisible="{Binding HasTarget}" />
+        </StackPanel>
+        <StackPanel Margin="0,0,32,0">
+          <TextBlock Text="Streak" Classes="label" />
+          <TextBlock Text="{Binding StreakText}" Classes="stat" />
+        </StackPanel>
+        <StackPanel Margin="0,0,32,0">
+          <TextBlock Text="Recent rating" Classes="label" />
+          <TextBlock Text="{Binding RatingText}" Classes="stat" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Practice time" Classes="label" />
+          <TextBlock Text="{Binding MinutesText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="320" />
+        </StackPanel>
+      </WrapPanel>
+
+      <!-- Charts (two single-axis charts, last 90 days) + day table -->
+      <Grid Grid.Row="2" RowDefinitions="Auto,150,Auto,110,Auto,*">
+        <TextBlock Text="Tempo reached (BPM), last 90 days" Classes="charttitle" />
+        <c:ProgressChart Grid.Row="1" Kind="Line" Points="{Binding BpmPoints}" ReferenceValue="{Binding TargetBpm}"
+                         ReferenceLabel="{Binding TargetLabel}" From="{Binding ChartFrom}" To="{Binding ChartTo}"
+                         EmptyText="Log a BPM to see your tempo over time" />
+        <TextBlock Grid.Row="2" Text="Minutes practised per day, last 90 days" Classes="charttitle" Margin="0,10,0,4" />
+        <c:ProgressChart Grid.Row="3" Kind="Bars" Points="{Binding MinutePoints}" From="{Binding ChartFrom}" To="{Binding ChartTo}"
+                         EmptyText="Practice time appears here when you use the timer" />
+        <Grid Grid.Row="4" ColumnDefinitions="150,70,60,60,*" Margin="8,12,8,4">
+          <TextBlock Text="Day" Classes="label" />
+          <TextBlock Grid.Column="1" Text="Time" Classes="label" />
+          <TextBlock Grid.Column="2" Text="BPM" Classes="label" />
+          <TextBlock Grid.Column="3" Text="Rating" Classes="label" />
+          <TextBlock Grid.Column="4" Text="Notes" Classes="label" />
+        </Grid>
+        <ListBox Grid.Row="5" ItemsSource="{Binding DayRows}" SelectedItem="{Binding SelectedDay}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:DayRowViewModel">
+              <Grid ColumnDefinitions="150,70,60,60,*">
+                <TextBlock Text="{Binding DateText}" />
+                <TextBlock Grid.Column="1" Text="{Binding TimeText}" />
+                <TextBlock Grid.Column="2" Text="{Binding BpmText}" />
+                <TextBlock Grid.Column="3" Text="{Binding RatingText}" />
+                <TextBlock Grid.Column="4" Text="{Binding NotesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding NotesText}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+
+      <!-- Editor: log or fix any day -->
+      <Border Grid.Row="3" Margin="0,10,0,0" Padding="12" CornerRadius="8" Background="#14808080">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Log a day (pick a row above or any date)" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="170,110,130,*,Auto,Auto" ColumnSpacing="8">
+            <CalendarDatePicker SelectedDate="{Binding EditDate}" HorizontalAlignment="Stretch" />
+            <NumericUpDown Grid.Column="1" Value="{Binding EditBpm}" Minimum="1" Maximum="400" Increment="1" FormatString="0" Watermark="BPM" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding EditRating}" HorizontalAlignment="Stretch" />
+            <TextBox Grid.Column="3" Text="{Binding EditNotes}" Watermark="Notes" />
+            <Button Grid.Column="4" Content="Save" Command="{Binding SaveEntryCommand}" />
+            <Button Grid.Column="5" Content="Clear" Command="{Binding ClearEntryCommand}"
+                    ToolTip.Tip="Remove the BPM, rating and notes for this day (practice time is kept)" />
+          </Grid>
+          <TextBlock Text="{Binding EditStatus}" Foreground="#43A047" FontSize="12" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

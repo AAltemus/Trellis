@@ -120,6 +120,23 @@ internal sealed class PracticeLogConfiguration : IEntityTypeConfiguration<Practi
     }
 }
 
+internal sealed class ProgressEntryConfiguration : IEntityTypeConfiguration<ProgressEntry>
+{
+    public void Configure(EntityTypeBuilder<ProgressEntry> b)
+    {
+        b.HasIndex(e => new { e.Date, e.SubcategoryId }).IsUnique();
+        b.HasIndex(e => e.SubcategoryId);
+        b.HasOne(e => e.Subcategory).WithMany().HasForeignKey(e => e.SubcategoryId).OnDelete(DeleteBehavior.Restrict);
+        b.Property(e => e.Notes).HasMaxLength(ProgressEntry.MaxNotesLength);
+        b.Ignore(e => e.IsEmpty);
+        b.ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_ProgressEntry_Rating", "Rating IS NULL OR (Rating >= 1 AND Rating <= 5)");
+            t.HasCheckConstraint("CK_ProgressEntry_Bpm", "BpmReached IS NULL OR (BpmReached >= 1 AND BpmReached <= 400)");
+        });
+    }
+}
+
 internal sealed class AppSettingConfiguration : IEntityTypeConfiguration<AppSetting>
 {
     public void Configure(EntityTypeBuilder<AppSetting> b)

@@ -18,6 +18,7 @@
     <KeyBinding Gesture="Escape" Command="{Binding CancelDeleteCommand}" />
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
     <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProgressCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
@@ -91,6 +92,8 @@
         <MenuItem Header="_Metronome…" Command="{Binding OpenMetronomeCommand}" InputGesture="Ctrl+M" />
         <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
         <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
+        <Separator />
+        <MenuItem Header="_Progress…" Command="{Binding OpenProgressCommand}" InputGesture="Ctrl+P" />
       </MenuItem>
     </Menu>
 
@@ -234,7 +237,7 @@
     <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,Auto,*">
 
       <Border Grid.Row="0" Margin="16,16,16,4" Padding="16" CornerRadius="10" Background="#14808080">
-        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
           <TextBlock Text="{Binding TimerTitle}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
           <TextBlock Grid.Row="1" Classes="caption" Text="{Binding TimerSubtitle}" TextWrapping="Wrap" />
           <ProgressBar Grid.Row="2" Minimum="0" Maximum="1" Value="{Binding TimerProgress}"
@@ -255,6 +258,25 @@
             <Button Content="Reset" Command="{Binding ResetCommand}"
                     ToolTip.Tip="Clear the time logged for this item." />
             <Button Content="🔔" Command="{Binding TestDingCommand}" ToolTip.Tip="Test the ding" />
+          </StackPanel>
+
+          <!-- Progress log for the selected item's exercise and day -->
+          <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Margin="0,14,0,0" Spacing="4" IsVisible="{Binding HasSelection}">
+            <Grid ColumnDefinitions="Auto,110,130,*,Auto,Auto" ColumnSpacing="8">
+              <TextBlock Text="{Binding LogTitle}" FontWeight="SemiBold" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Column="1" Value="{Binding LogBpm}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
+                             Watermark="{Binding LogBpmWatermark}" ToolTip.Tip="BPM you played cleanly today" />
+              <ComboBox Grid.Column="2" ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding LogRating}"
+                        HorizontalAlignment="Stretch" ToolTip.Tip="How it went, 1 (rough) to 5 (clean)" />
+              <TextBox Grid.Column="3" Text="{Binding LogNotes}" Watermark="Notes for this day" />
+              <Button Grid.Column="4" Content="Save log" Command="{Binding SaveLogCommand}" />
+              <Button Grid.Column="5" Content="Progress…" Command="{Binding OpenProgressCommand}"
+                      ToolTip.Tip="History and charts for this exercise (Ctrl+P)" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Classes="caption" Text="{Binding ProgressHint}" Opacity="0.8" />
+              <TextBlock Classes="caption" Text="{Binding LogStatus}" Foreground="#43A047" />
+            </StackPanel>
           </StackPanel>
         </Grid>
       </Border>

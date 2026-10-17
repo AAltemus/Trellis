@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddSingleton<PracticeLogStore>();
         services.AddSingleton<WeekStore>();
         services.AddSingleton<SettingsStore>();
+        services.AddSingleton<ProgressStore>();
         services.AddSingleton(TimeProvider.System);
         return services;
     }

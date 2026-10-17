@@ -293,6 +293,46 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("GuitarPractice.Domain.ProgressEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("BpmReached")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SubcategoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubcategoryId");
+
+                    b.HasIndex("Date", "SubcategoryId")
+                        .IsUnique();
+
+                    b.ToTable("ProgressEntries", t =>
+                        {
+                            t.HasCheckConstraint("CK_ProgressEntry_Bpm", "BpmReached IS NULL OR (BpmReached >= 1 AND BpmReached <= 400)");
+
+                            t.HasCheckConstraint("CK_ProgressEntry_Rating", "Rating IS NULL OR (Rating >= 1 AND Rating <= 5)");
+                        });
+                });
+
             modelBuilder.Entity("GuitarPractice.Domain.Routine", b =>
                 {
                     b.Property<int>("Id")
@@ -1688,6 +1728,17 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("GuitarPractice.Domain.PracticeLog", b =>
+                {
+                    b.HasOne("GuitarPractice.Domain.Subcategory", "Subcategory")
+                        .WithMany()
+                        .HasForeignKey("SubcategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Subcategory");
+                });
+
+            modelBuilder.Entity("GuitarPractice.Domain.ProgressEntry", b =>
                 {
                     b.HasOne("GuitarPractice.Domain.Subcategory", "Subcategory")
                         .WithMany()

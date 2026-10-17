@@ -85,6 +85,7 @@ public sealed partial class MainWindowViewModel
 
         _selectedKey = newValue?.Key;
         RefreshTimer();
+        LoadProgressLog();
     }
 
     /// <summary>After the week regenerates, point the session at the new view model for the same (date, item).</summary>

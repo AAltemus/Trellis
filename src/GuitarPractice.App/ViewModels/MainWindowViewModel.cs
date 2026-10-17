@@ -21,6 +21,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly INotificationSound _sound;
     private readonly TimeProvider _clock;
     private readonly IToolWindows _tools;
+    private readonly ProgressStore _progressStore;
     private readonly int _routineId;
     private readonly bool _loading;
     private DateOnly _weekStart; // the displayed week (see MainWindowViewModel.Navigation.cs)
@@ -51,19 +52,23 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         LibraryStore store, PracticeLogStore logStore, WeekStore weekStore, INotificationSound sound, TimeProvider clock,
-        IToolWindows tools)
+        IToolWindows tools, ProgressStore progressStore)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(logStore);
         ArgumentNullException.ThrowIfNull(weekStore);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(tools);
+        ArgumentNullException.ThrowIfNull(progressStore);
         _store = store;
         _logStore = logStore;
         _weekStore = weekStore;
         _sound = sound;
         _clock = clock;
         _tools = tools;
+        _progressStore = progressStore;
+        // Entries saved from the Progress window update the timer panel's summary line.
+        _progressStore.Changed += (_, id) => { if (Current?.Key.SubcategoryId == id) RefreshProgressHint(); };
         _loading = true;
 
         _weekStart = CurrentWeekStart;
@@ -379,6 +384,8 @@ public sealed partial class SubcategoryViewModel : ObservableObject
     public CategoryViewModel Owner { get; }
     public int Id => _entity.Id;
     public string DisplayName => _entity.DisplayName;
+    public int? StartBpm => _entity.StartBpm;
+    public int? TargetBpm => _entity.TargetBpm;
     public string? Notes => _entity.Notes;
     public string? Detail { get; }
     public bool IsPinned => _entity.Pin != PinMode.None;

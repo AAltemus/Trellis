@@ -13,26 +13,44 @@ public interface IToolWindows
     void ShowMetronome();
     void ShowTuner();
     void ShowRecorder();
+
+    /// <summary>Opens Progress, selecting <paramref name="subcategoryId"/> when given.</summary>
+    void ShowProgress(int? subcategoryId = null);
+
+    /// <summary>If the Progress window is open, switch it to this exercise (never opens it; board → Progress only).</summary>
+    void FollowInProgress(int subcategoryId);
 }
 
 internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
 {
     private readonly Dictionary<Type, Window> _open = [];
 
-    public void ShowMetronome() => Show<MetronomeWindow, MetronomeViewModel>();
+    public void ShowMetronome() => _ = Show<MetronomeWindow, MetronomeViewModel>();
 
-    public void ShowTuner() => Show<TunerWindow, TunerViewModel>();
+    public void ShowTuner() => _ = Show<TunerWindow, TunerViewModel>();
 
-    public void ShowRecorder() => Show<RecorderWindow, RecorderViewModel>();
+    public void ShowRecorder() => _ = Show<RecorderWindow, RecorderViewModel>();
 
-    private void Show<TWindow, TViewModel>()
+    public void ShowProgress(int? subcategoryId = null)
+    {
+        var window = Show<ProgressWindow, ProgressViewModel>();
+        (window.DataContext as ProgressViewModel)?.Select(subcategoryId);
+    }
+
+    public void FollowInProgress(int subcategoryId)
+    {
+        if (_open.TryGetValue(typeof(ProgressWindow), out var window))
+            (window.DataContext as ProgressViewModel)?.Select(subcategoryId);
+    }
+
+    private Window Show<TWindow, TViewModel>()
         where TWindow : Window, new()
         where TViewModel : notnull
     {
         if (_open.TryGetValue(typeof(TWindow), out var existing))
         {
             existing.Activate();
-            return;
+            return existing;
         }
 
         var window = new TWindow { DataContext = services.GetRequiredService<TViewModel>() };
@@ -44,5 +62,6 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
             window.Show(owner);
         else
             window.Show();
+        return window;
     }
 }
