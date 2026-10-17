@@ -12,6 +12,7 @@ public interface IToolWindows
 {
     void ShowMetronome();
     void ShowTuner();
+    void ShowRecorder();
 }
 
 internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
@@ -21,6 +22,8 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
     public void ShowMetronome() => Show<MetronomeWindow, MetronomeViewModel>();
 
     public void ShowTuner() => Show<TunerWindow, TunerViewModel>();
+
+    public void ShowRecorder() => Show<RecorderWindow, RecorderViewModel>();
 
     private void Show<TWindow, TViewModel>()
         where TWindow : Window, new()

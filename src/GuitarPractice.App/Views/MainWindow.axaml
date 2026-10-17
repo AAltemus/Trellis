@@ -17,6 +17,7 @@
     <KeyBinding Gesture="Ctrl+M" Command="{Binding OpenMetronomeCommand}" />
     <KeyBinding Gesture="Escape" Command="{Binding CancelDeleteCommand}" />
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
@@ -89,6 +90,7 @@
       <MenuItem Header="_Tools">
         <MenuItem Header="_Metronome…" Command="{Binding OpenMetronomeCommand}" InputGesture="Ctrl+M" />
         <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
+        <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
       </MenuItem>
     </Menu>
 

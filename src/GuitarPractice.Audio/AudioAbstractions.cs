@@ -47,6 +47,23 @@ public interface IAudioOutput : IDisposable
     void Stop();
 }
 
+/// <summary>
+/// Creates audio streams. Each tool window owns (and disposes) its own input/output, so the metronome, tuner and
+/// recorder can run at the same time without stopping each other's streams.
+/// </summary>
+public interface IAudioDevices
+{
+    IAudioInput CreateInput();
+    IAudioOutput CreateOutput();
+}
+
+/// <summary>PortAudio-backed <see cref="IAudioDevices"/>.</summary>
+public sealed class PortAudioDevices : IAudioDevices
+{
+    public IAudioInput CreateInput() => new PortAudioInput();
+    public IAudioOutput CreateOutput() => new PortAudioOutput();
+}
+
 /// <summary>Pitch math shared by the tuner and the bend-accuracy mode.</summary>
 public static class Pitch
 {

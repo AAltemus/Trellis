@@ -167,6 +167,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void OpenTuner() => _tools.ShowTuner();
 
+    [RelayCommand]
+    private void OpenRecorder() => _tools.ShowRecorder();
+
     private bool CanAddCategory() => !string.IsNullOrWhiteSpace(NewCategoryName);
 
     [RelayCommand(CanExecute = nameof(CanAddCategory))]

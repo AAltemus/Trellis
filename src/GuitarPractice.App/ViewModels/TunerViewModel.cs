@@ -51,11 +51,12 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
     private readonly BendTracker _bend = new();
     private readonly List<double> _bendErrors = [];
 
-    public TunerViewModel(IAudioInput input, LibraryStore library, SettingsStore settingsStore)
+    public TunerViewModel(IAudioDevices devices, LibraryStore library, SettingsStore settingsStore)
     {
-        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(devices);
         ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(settingsStore);
+        var input = devices.CreateInput(); // owned: disposed with the window
         _input = input;
         _settingsStore = settingsStore;
         _engine = new TunerEngine(input);
@@ -377,6 +378,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
     {
         _poll.Stop();
         _engine.Dispose();
+        _input.Dispose();
         try
         {
             _settingsStore.Set(SettingsKey, new TunerSettings(

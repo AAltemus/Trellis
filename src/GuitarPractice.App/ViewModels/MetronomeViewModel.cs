@@ -35,11 +35,11 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     private MetronomeEngine? _engine;
     private long _flashOffAt;
 
-    public MetronomeViewModel(IAudioOutput output, SettingsStore settingsStore)
+    public MetronomeViewModel(IAudioDevices devices, SettingsStore settingsStore)
     {
-        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(devices);
         ArgumentNullException.ThrowIfNull(settingsStore);
-        _output = output;
+        _output = devices.CreateOutput(); // owned: disposed with the window
         _settingsStore = settingsStore;
         _uiTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(10), DispatcherPriority.Render, (_, _) => PumpTicks());
         _uiTimer.Stop(); // that constructor starts the timer; it only runs while playing
@@ -346,6 +346,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         if (IsPlaying) StopPlayback();
         _uiTimer.Stop();
         SaveSettings();
+        _output.Dispose();
     }
 }
 
