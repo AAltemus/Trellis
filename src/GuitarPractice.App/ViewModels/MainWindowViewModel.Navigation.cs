@@ -15,6 +15,9 @@ public sealed partial class MainWindowViewModel
     /// <summary>The real current week (recomputed each call, so it follows the clock across midnight/Monday).</summary>
     private DateOnly CurrentWeekStart => WeekMath.StartOfWeek(Today);
 
+    /// <summary>Where the week board starts scrolled on open so today is in view (0 = left, 1 = right).</summary>
+    public double TodayScrollFraction => WeekMath.BoardScrollFraction(Today.DayOfWeek);
+
     private int WeekOffset => (_weekStart.DayNumber - CurrentWeekStart.DayNumber) / 7;
 
     public bool IsViewingCurrentWeek => WeekOffset == 0;

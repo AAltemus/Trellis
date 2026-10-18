@@ -120,4 +120,18 @@ public static class WeekMath
         var diff = ((int)date.DayOfWeek - (int)firstDay + 7) % 7;
         return date.AddDays(-diff);
     }
+
+    /// <summary>
+    /// How far to scroll the Monday–Sunday week board (0 = left edge, 1 = right edge) so that the given day is in
+    /// view when the app opens: Monday 0, Tuesday 0.2, … Friday 0.8, Saturday and Sunday 1 (user request, 2026-10-18).
+    /// </summary>
+    public static double BoardScrollFraction(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => 0,
+        DayOfWeek.Tuesday => 0.2,
+        DayOfWeek.Wednesday => 0.4,
+        DayOfWeek.Thursday => 0.6,
+        DayOfWeek.Friday => 0.8,
+        _ => 1,
+    };
 }

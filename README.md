@@ -193,7 +193,12 @@ Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regen
 - [~] **M3** Week view and session runner, week lock/save/load/navigation — drag between days not built
 - [x] **M4** PortAudio backend and sample-accurate metronome (gap training, tempo trainer) — macOS packaging/mic entitlement not proven yet
 - [x] **M5** YIN tuner with DSP tests; bend-accuracy mode
-- [x] Recorder (record, playback, A–B loop with count-in) and progress tracking (per-day BPM, rating, notes; charts)
+- [x] Recorder (record, playback, A–B loop with count-in) and progress tracking (exercises per block with BPM and note
+  value, own targets, rating, notes; charts; remove an exercise keeping its history)
+- [x] Metronome drums (kick/snare/hat step grid, saved patterns); practice-with-metronome for the selected item
+- [x] Ear trainer (intervals and diatonic chords in a chosen key, scored)
+- [x] MIDI player for playing along (Guitar Pro exports, speed, mute/solo, bar loops, count-in, linked to practice items)
+- [x] Trellis name and icon; Settings (Light/Dark theme); windows remember their size and position
 - [ ] **M6** Velopack installers and release pipeline (a CI build/test matrix exists)
 
 Development notes for Claude sessions (`plans/`, `CLAUDE.md`) are kept locally and are not in this repository.

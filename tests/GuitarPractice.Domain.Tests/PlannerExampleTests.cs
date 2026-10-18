@@ -217,4 +217,15 @@ public class PlannerExampleTests
             Assert.Equal(Monday, WeekMath.StartOfWeek(Monday.AddDays(i)));
         Assert.Equal(Monday.AddDays(-1), WeekMath.StartOfWeek(Monday, DayOfWeek.Sunday));
     }
+
+    [Theory]
+    [InlineData(DayOfWeek.Monday, 0)]
+    [InlineData(DayOfWeek.Tuesday, 0.2)]
+    [InlineData(DayOfWeek.Wednesday, 0.4)]
+    [InlineData(DayOfWeek.Thursday, 0.6)]
+    [InlineData(DayOfWeek.Friday, 0.8)]
+    [InlineData(DayOfWeek.Saturday, 1)]
+    [InlineData(DayOfWeek.Sunday, 1)]
+    public void Board_scroll_fraction_follows_the_weekday(DayOfWeek day, double expected) =>
+        Assert.Equal(expected, WeekMath.BoardScrollFraction(day));
 }

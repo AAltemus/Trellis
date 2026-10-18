@@ -371,7 +371,7 @@
         </Grid>
       </Border>
 
-      <ScrollViewer Grid.Row="4" Padding="12" HorizontalScrollBarVisibility="Auto">
+      <ScrollViewer x:Name="WeekBoard" Grid.Row="4" Padding="12" HorizontalScrollBarVisibility="Auto">
         <ItemsControl ItemsSource="{Binding Days}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
