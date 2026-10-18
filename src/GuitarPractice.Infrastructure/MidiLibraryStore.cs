@@ -135,8 +135,7 @@ public sealed class MidiLibraryStore(SettingsStore settings, string? directory =
     /// <summary>Drops characters Windows doesn't allow in file names ("AC/DC" → "ACDC") and trims; keeps the rest as typed.</summary>
     public static string CleanName(string? name)
     {
-        var invalid = System.IO.Path.GetInvalidFileNameChars();
-        var clean = new string((name ?? "").Where(c => !invalid.Contains(c)).ToArray()).Trim().TrimEnd('.');
+        var clean = new string((name ?? "").Where(c => !FileNames.IsInvalid(c)).ToArray()).Trim().TrimEnd('.');
         return clean.Length > 120 ? clean[..120].TrimEnd() : clean;
     }
 

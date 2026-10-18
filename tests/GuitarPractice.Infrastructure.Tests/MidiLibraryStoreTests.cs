@@ -113,6 +113,10 @@ public sealed class MidiLibraryStoreTests : IDisposable
     public void Clean_names()
     {
         Assert.Equal("acdc", MidiLibraryStore.CleanName(" ac/dc "));
+        Assert.Equal("Riff verse", MidiLibraryStore.CleanName("Riff: verse?"));               // Windows' rules on every OS
+        Assert.Equal("abcdefgh", MidiLibraryStore.CleanName("a\\b:c*d?e\"f<g>h|\t"));
+        Assert.All("\\/:*?\"<>|\0\n", c => Assert.True(FileNames.IsInvalid(c)));
+        Assert.All("aZ09 -_.,()'&!é", c => Assert.False(FileNames.IsInvalid(c)));
         Assert.Equal("song", MidiLibraryStore.CleanName("song..."));
         Assert.Equal("", MidiLibraryStore.CleanName(null));
         Assert.Equal(120, MidiLibraryStore.CleanName(new string('x', 300)).Length);

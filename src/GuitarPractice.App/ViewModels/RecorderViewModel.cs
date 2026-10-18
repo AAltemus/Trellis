@@ -324,7 +324,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private void Rename()
     {
         if (SelectedTake is not { } take) return;
-        var name = string.Concat(RenameText.Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        var name = string.Concat(RenameText.Trim().Select(c => FileNames.IsInvalid(c) ? '_' : c)); // same rule on every OS
         try
         {
             var target = UniquePath(name);
