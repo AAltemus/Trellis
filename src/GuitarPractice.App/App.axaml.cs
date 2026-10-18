@@ -25,10 +25,12 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
+            var main = new MainWindow
             {
                 DataContext = _host.Services.GetRequiredService<MainWindowViewModel>(),
             };
+            _host.Services.GetRequiredService<WindowPlacementService>().Attach(main, "main"); // reopen at the last size and place
+            desktop.MainWindow = main;
             desktop.Exit += (_, _) => _host.Dispose();
         }
 

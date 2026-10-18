@@ -62,6 +62,7 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
         }
 
         var window = new TWindow { DataContext = services.GetRequiredService<TViewModel>() };
+        services.GetRequiredService<WindowPlacementService>().Attach(window, typeof(TWindow).Name); // last size and place
         window.Closed += (_, _) => _open.Remove(typeof(TWindow));
         _open[typeof(TWindow)] = window;
 

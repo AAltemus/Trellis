@@ -102,6 +102,10 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
 
+Every window reopens where you left it: the main window, Progress, Recorder and Ear Trainer at their last size and
+position (and maximized if they were); the Metronome and Tuner, which size themselves, at their last position. If a saved
+spot is no longer on any screen (e.g. a monitor was unplugged), the window opens centred, shrunk to fit if needed.
+
 ## First run
 
 Requires the .NET 10 SDK.
