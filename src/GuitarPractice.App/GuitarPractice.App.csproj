@@ -25,6 +25,10 @@
     <AvaloniaResource Include="Assets/Icon/trellis.ico" />
   </ItemGroup>
   <ItemGroup>
+    <!-- MIDI player sounds: GeneralUser GS by S. Christian Collins (schristiancollins.com/generaluser), copied next to the exe. -->
+    <None Include="Assets/SoundFont/GeneralUser-GS.sf2" Link="SoundFont/GeneralUser-GS.sf2" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\GuitarPractice.Domain\GuitarPractice.Domain.csproj" />
     <ProjectReference Include="..\GuitarPractice.Infrastructure\GuitarPractice.Infrastructure.csproj" />
     <ProjectReference Include="..\GuitarPractice.Audio\GuitarPractice.Audio.csproj" />

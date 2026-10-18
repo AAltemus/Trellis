@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 
 namespace GuitarPractice.Audio;
 
@@ -82,25 +80,42 @@ public static class ToneSynth
 }
 
 /// <summary>
-/// Plays notification WAVs with what each OS already has, so there is no native dependency before the
-/// PortAudio backend lands: winmm PlaySound on Windows, afplay on macOS, paplay/aplay on Linux.
+/// Plays the ding through PortAudio, the same output path as the metronome, so it's one code path on every OS (no
+/// OS-specific players; user, 2026-10-18: "if it's cross platform i don't want anything platform specific"). The output
+/// stream opens when a ding plays and closes shortly after it ends.
 /// </summary>
-public sealed partial class SystemNotificationSound : INotificationSound
+public sealed class DeviceNotificationSound(IAudioDevices devices) : INotificationSound, IDisposable
 {
-    private readonly Lazy<string?> _dingPath = new(() => WriteTemp("guitarpractice-ding.wav", ToneSynth.DingWav()));
+    /// <summary>The ding is 1.6 s; the stream closes this long after the last one starts.</summary>
+    public static readonly TimeSpan CloseAfter = TimeSpan.FromSeconds(2.2);
+
+    private readonly Lock _gate = new();
+    private readonly ClipPlayer _player = new();
+    private IAudioOutput? _output;
+    private float[]? _ding;
+    private Timer? _closeTimer;
+    private bool _disposed;
 
     public void PlayDing()
     {
-        var path = _dingPath.Value;
-        if (path is null) return;
-
         try
         {
-            if (OperatingSystem.IsWindows()) PlayWindows(path);
-            else if (OperatingSystem.IsMacOS()) Launch("afplay", path);
-            else if (!Launch("paplay", path)) Launch("aplay", path);
+            lock (_gate)
+            {
+                if (_disposed) return;
+                _output ??= devices.CreateOutput();
+                if (!_output.IsRunning)
+                {
+                    var rate = _output.GetPreferredSampleRate();
+                    if (_ding is null || _rate != rate) (_ding, _rate) = (ToneSynth.Bell(rate, 880, 1.6), rate);
+                    _output.Start(new AudioStreamOptions(SampleRate: rate, FramesPerBuffer: 256), _player.Render);
+                }
+                _player.Play(_ding);
+                _closeTimer?.Dispose();
+                _closeTimer = new Timer(_ => Close(), null, CloseAfter, Timeout.InfiniteTimeSpan);
+            }
         }
-#pragma warning disable CA1031 // A failed ding must never take down a practice session.
+#pragma warning disable CA1031 // A failed ding (no device, driver error) must never take down a practice session.
         catch (Exception ex)
         {
             Trace.TraceWarning($"Notification sound failed: {ex.Message}");
@@ -108,45 +123,34 @@ public sealed partial class SystemNotificationSound : INotificationSound
 #pragma warning restore CA1031
     }
 
-    private static string? WriteTemp(string name, byte[] bytes)
-    {
-        try
-        {
-            var path = Path.Combine(Path.GetTempPath(), name);
-            File.WriteAllBytes(path, bytes);
-            return path;
-        }
-        catch (IOException) { return null; }
-        catch (UnauthorizedAccessException) { return null; }
-    }
+    private int _rate;
 
-    private static bool Launch(string player, string path)
+    private void Close()
     {
-        try
+        lock (_gate)
         {
-            using var _ = Process.Start(new ProcessStartInfo(player, $"\"{path}\"")
+            if (_player.IsPlaying) return; // a later ding is still sounding; its own timer closes the stream
+            try
             {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardError = true,
-            });
-            return true;
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            return false; // player not installed
+                _output?.Stop();
+            }
+#pragma warning disable CA1031 // Closing the device must not throw on a timer thread.
+            catch (Exception ex)
+            {
+                Trace.TraceWarning($"Closing the notification output failed: {ex.Message}");
+            }
+#pragma warning restore CA1031
         }
     }
 
-    [SupportedOSPlatform("windows")]
-    private static void PlayWindows(string path)
+    public void Dispose()
     {
-        const uint SND_ASYNC = 0x0001, SND_NODEFAULT = 0x0002, SND_FILENAME = 0x00020000;
-        PlaySound(path, IntPtr.Zero, SND_ASYNC | SND_NODEFAULT | SND_FILENAME);
+        lock (_gate)
+        {
+            _disposed = true;
+            _closeTimer?.Dispose();
+            _output?.Dispose();
+            _output = null;
+        }
     }
-
-    [LibraryImport("winmm.dll", EntryPoint = "PlaySoundW", StringMarshalling = StringMarshalling.Utf16)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    [SupportedOSPlatform("windows")]
-    private static partial bool PlaySound(string? pszSound, IntPtr hmod, uint fdwSound);
 }

@@ -5,20 +5,22 @@ using GuitarPractice.Infrastructure;
 
 namespace GuitarPractice.App;
 
-/// <summary>Light, dark, or follow Windows.</summary>
+/// <summary>
+/// Light or dark. There is deliberately no "follow the OS" option (user, 2026-10-18: "remove the system mode … only go with
+/// light and dark. if it's cross platform i don't want anything platform specific"). Value 0 was "System": stored 0 → Light.
+/// </summary>
 public enum ThemeMode
 {
-    System = 0,
     Light = 1,
     Dark = 2,
 }
 
 /// <summary>File → Settings → Appearance (AppSettings key "appearance").</summary>
-public sealed record AppearanceSettings(ThemeMode Theme = ThemeMode.System);
+public sealed record AppearanceSettings(ThemeMode Theme = ThemeMode.Light);
 
 /// <summary>
 /// Applies the theme app-wide (<see cref="Application.RequestedThemeVariant"/>, which every window inherits) and remembers
-/// it. "System" is Avalonia's Default variant: it follows the Windows light/dark setting, including changes while running.
+/// it. Always an explicit Light or Dark variant, never Avalonia's Default (which follows the OS).
 /// </summary>
 public sealed class ThemeService(SettingsStore settings)
 {
@@ -40,7 +42,7 @@ public sealed class ThemeService(SettingsStore settings)
             Trace.TraceWarning($"Loading appearance settings failed: {ex.Message}");
         }
 #pragma warning restore CA1031
-        Apply(saved?.Theme is { } t && Enum.IsDefined(t) ? t : ThemeMode.System);
+        Apply(saved?.Theme == ThemeMode.Dark ? ThemeMode.Dark : ThemeMode.Light); // nothing saved, or an old "System" (0): Light
     }
 
     /// <summary>Switches every open window now and remembers the choice.</summary>
@@ -59,12 +61,7 @@ public sealed class ThemeService(SettingsStore settings)
 #pragma warning restore CA1031
     }
 
-    public static ThemeVariant VariantFor(ThemeMode mode) => mode switch
-    {
-        ThemeMode.Light => ThemeVariant.Light,
-        ThemeMode.Dark => ThemeVariant.Dark,
-        _ => ThemeVariant.Default,
-    };
+    public static ThemeVariant VariantFor(ThemeMode mode) => mode == ThemeMode.Dark ? ThemeVariant.Dark : ThemeVariant.Light;
 
     private void Apply(ThemeMode mode)
     {

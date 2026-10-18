@@ -36,7 +36,8 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 - **Pause / Resume** keeps the session; switching items pauses and saves the running one.
 - **Stop** finishes the item early: the time you played is kept and the rest comes off the day.
 - **Reset** clears the item's logged time.
-- The item and the day count down live; a ding plays when an item's time is up and the next unfinished item is lined up.
+- The item and the day count down live; a ding (played through the same audio output as the metronome, so it works the
+  same on every OS) plays when an item's time is up and the next unfinished item is lined up.
 - Practised time is stored per (date, subcategory) in `PracticeLogs`, saved every 15 s while running, so it survives
   reshuffles, weight changes, locking and restarts (loading a saved week into a week clears it, see below). The seed
   is saved too, so the plan doesn't move between launches.
@@ -101,6 +102,16 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   per-item results for the round, plus all-time accuracy per item (kept between sessions; chords per mode, so V7 in
   any major key counts together). Keys: Enter/N next, Space/R replay, K key chord, 1–9/0 answer. Notes are a
   synthesised plucked string, in tune to ±2 cents.
+- **MIDI Player…** (Ctrl+I): play along with MIDI files, e.g. Guitar Pro → File → Export → MIDI. **Import MIDI…** (or drop
+  .mid files on the window) copies them into Trellis's library (`%LOCALAPPDATA%\GuitarPractice\midi`) so they're there
+  every time; rename or delete them there (your original is never touched). Sounds come from the bundled GeneralUser GS
+  SoundFont (see `src/GuitarPractice.App/Assets/SoundFont/README.md`). Practice controls: **Speed** 25–150 % (pitch
+  unchanged), **Mute** a track to play that part yourself or **Solo** one to learn it, **Loop bars** (or *Loop this
+  bar*, or **All** for the whole song), a one-bar **Count-in** at the song's tempo, volume (0–200 %; a soft limiter keeps
+  it clean). Each file remembers its speed, loop, count-in, volume and
+  muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
+  - **♫ Play along** (timer row; Tools → Play along with MIDI, Ctrl+Shift+I) opens the player for the selected practice
+    item; press **Link** to attach the current file to it, so next time it opens straight away.
 - **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best
   and latest BPM and progress toward its target. Set your own targets per exercise, or a block target as the fallback.
   A BPM chart with a line per exercise (up to four) and dashed target lines, a minutes-per-day chart, and a day table
@@ -111,7 +122,8 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
 
-**File → Settings…** (Ctrl+,): Appearance → Theme: System (follows the Windows light/dark setting), Light or Dark.
+**File → Settings…** (Ctrl+,): Appearance → Theme: Light (default) or Dark. It never follows the OS setting, so the app
+looks the same on every platform.
 It applies to every open window right away and is remembered.
 
 Every window reopens where you left it: the main window, Progress, Recorder and Ear Trainer at their last size and

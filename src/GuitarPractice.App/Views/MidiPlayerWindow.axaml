@@ -1,0 +1,152 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GuitarPractice.App.ViewModels"
+        x:Class="GuitarPractice.App.Views.MidiPlayerWindow"
+        x:DataType="vm:MidiPlayerViewModel"
+        Title="MIDI Player"
+        Icon="/Assets/Icon/trellis.ico"
+        Width="980" Height="680" MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        DragDrop.AllowDrop="True">
+
+  <!-- Keys (Space play/pause, Home back to start) are handled in code-behind so they don't fire while typing. -->
+
+  <Window.Styles>
+    <Style Selector="Button, ToggleButton, CheckBox">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Opacity" Value="0.7" />
+    </Style>
+    <Style Selector="ToggleButton.mute:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#d84a3a" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="ToggleButton.solo:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F2B33D" />
+      <Setter Property="Foreground" Value="#2a1d12" />
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="270,*" Margin="16">
+    <!-- Library -->
+    <DockPanel Margin="0,0,16,0">
+      <TextBlock DockPanel.Dock="Top" Text="Library" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
+      <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
+        <Button Content="Import MIDI…" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnImport"
+                ToolTip.Tip="Copies .mid files into Trellis's library (you can also drop files on this window)" />
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+          <TextBox Text="{Binding RenameText}" Watermark="Name" />
+          <Button Grid.Column="1" Content="Rename" Command="{Binding RenameCommand}" />
+        </Grid>
+        <Button Content="Delete…" Command="{Binding DeleteCommand}" IsVisible="{Binding !IsConfirmingDelete}"
+                HorizontalAlignment="Left" ToolTip.Tip="Delete the library copy (asks first)" />
+        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsConfirmingDelete}">
+          <Button Content="Delete it" Command="{Binding DeleteCommand}" Foreground="#E53935" />
+          <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+        </StackPanel>
+        <TextBlock Classes="caption" Text="{Binding LibraryStatus}" TextWrapping="Wrap"
+                   IsVisible="{Binding LibraryStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="caption" Text="{Binding LibraryFolder, StringFormat='Saved in {0}'}" TextWrapping="Wrap" />
+      </StackPanel>
+      <ListBox ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:MidiFileItemViewModel">
+            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <!-- Song -->
+    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="12" Margin="0,0,12,0">
+        <!-- Opened from a practice item -->
+        <Border IsVisible="{Binding IsLinkedItem}" Padding="10,6" CornerRadius="6" Background="#14808080">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+            <StackPanel>
+              <TextBlock Text="{Binding LinkTitle, StringFormat='Playing along for: {0}'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock Classes="caption" Text="{Binding LinkStatus}" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Link" Command="{Binding LinkCommand}" VerticalAlignment="Center"
+                    ToolTip.Tip="Link this file to the practice item: ♫ Play along opens it" />
+            <Button Grid.Column="2" Content="Unlink" Command="{Binding UnlinkCommand}" VerticalAlignment="Center" />
+            <Button Grid.Column="3" Content="✕" Command="{Binding CloseLinkCommand}" VerticalAlignment="Center" ToolTip.Tip="Hide" />
+          </Grid>
+        </Border>
+
+        <StackPanel>
+          <TextBlock Text="{Binding SongTitle}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Classes="caption" Text="{Binding SongInfo}" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- Transport -->
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" IsEnabled="{Binding HasFile}">
+          <Button Classes="accent" Content="{Binding PlayPauseText}" Command="{Binding PlayPauseCommand}" MinWidth="100"
+                  HorizontalContentAlignment="Center" Padding="0,8" FontSize="15" ToolTip.Tip="Space" />
+          <Button Grid.Column="1" Content="⏮ Start" Command="{Binding StopCommand}" Padding="10,8"
+                  ToolTip.Tip="Stop and go back to the start, or to the loop start (Home)" />
+          <StackPanel Grid.Column="2" VerticalAlignment="Center">
+            <Slider Minimum="0" Maximum="{Binding Length}" Value="{Binding Position}" Margin="0,-8,0,-8" />
+            <TextBlock Classes="caption" Text="{Binding PositionText}" />
+          </StackPanel>
+        </Grid>
+
+        <!-- Practice controls -->
+        <Border Padding="12,8" CornerRadius="8" Background="#14808080" IsEnabled="{Binding HasFile}">
+          <Grid ColumnDefinitions="Auto,*,60" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+            <TextBlock Text="Speed" VerticalAlignment="Center" />
+            <Slider Grid.Column="1" Minimum="25" Maximum="150" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SpeedPercent}"
+                    ToolTip.Tip="Slower or faster without changing the pitch" />
+            <TextBlock Grid.Column="2" Text="{Binding SpeedText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+            <CheckBox Grid.Row="1" Content="Loop bars" IsChecked="{Binding LoopEnabled}" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+              <NumericUpDown Value="{Binding LoopFromBar}" Minimum="1" Maximum="{Binding BarCount}" Increment="1" FormatString="0" Width="120" />
+              <TextBlock Text="to" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding LoopToBar}" Minimum="1" Maximum="{Binding BarCount}" Increment="1" FormatString="0" Width="120" />
+              <Button Content="Loop this bar" Command="{Binding LoopThisBarCommand}" ToolTip.Tip="Loop the bar playing now" />
+              <Button Content="All" Command="{Binding LoopAllCommand}" ToolTip.Tip="Loop the whole song (bar 1 to the last bar)" />
+            </StackPanel>
+
+            <CheckBox Grid.Row="2" Content="Count-in" IsChecked="{Binding CountIn}"
+                      ToolTip.Tip="One bar of clicks at the song's tempo (and your speed) before it plays" />
+            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Volume" VerticalAlignment="Center" Margin="12,0,0,0" />
+              <Slider Minimum="0" Maximum="200" Width="180" Value="{Binding Volume}"
+                      ToolTip.Tip="Above 100 % a soft limiter keeps it from distorting" />
+              <TextBlock Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Tracks -->
+        <StackPanel Spacing="4" IsVisible="{Binding HasFile}">
+          <TextBlock Text="Tracks" FontWeight="SemiBold" />
+          <TextBlock Classes="caption" Text="Mute your part to play it yourself; Solo to hear only that track." />
+          <ItemsControl ItemsSource="{Binding Tracks}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MidiTrackViewModel">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,2">
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="caption" Text="{Binding Detail}" />
+                  </StackPanel>
+                  <ToggleButton Grid.Column="1" Classes="mute" Content="Mute" IsChecked="{Binding IsMuted}" MinWidth="64"
+                                HorizontalContentAlignment="Center" />
+                  <ToggleButton Grid.Column="2" Classes="solo" Content="Solo" IsChecked="{Binding IsSoloed}" MinWidth="64"
+                                HorizontalContentAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
+                   IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>

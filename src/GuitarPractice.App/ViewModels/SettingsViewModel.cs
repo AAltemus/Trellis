@@ -14,7 +14,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(theme);
         _theme = theme;
-        _isSystem = theme.Current == ThemeMode.System;
         _isLight = theme.Current == ThemeMode.Light;
         _isDark = theme.Current == ThemeMode.Dark;
     }
@@ -22,18 +21,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     // One bool per radio button (Avalonia radio buttons bind IsChecked); only the one turned on acts.
 
     [ObservableProperty]
-    private bool _isSystem;
-
-    [ObservableProperty]
     private bool _isLight;
 
     [ObservableProperty]
     private bool _isDark;
-
-    partial void OnIsSystemChanged(bool value)
-    {
-        if (value) _theme.Set(ThemeMode.System);
-    }
 
     partial void OnIsLightChanged(bool value)
     {

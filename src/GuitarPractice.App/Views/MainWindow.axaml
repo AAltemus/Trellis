@@ -23,6 +23,8 @@
     <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
     <KeyBinding Gesture="Ctrl+E" Command="{Binding OpenEarTrainerCommand}" />
     <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
+    <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMidiPlayerCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding PlayAlongCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProgressCommand}" />
   </Window.KeyBindings>
 
@@ -102,6 +104,8 @@
         <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
         <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
         <MenuItem Header="_Ear Trainer…" Command="{Binding OpenEarTrainerCommand}" InputGesture="Ctrl+E" />
+        <MenuItem Header="M_IDI Player…" Command="{Binding OpenMidiPlayerCommand}" InputGesture="Ctrl+I" />
+        <MenuItem Header="Play _along with MIDI" Command="{Binding PlayAlongCommand}" InputGesture="Ctrl+Shift+I" />
         <Separator />
         <MenuItem Header="_Progress…" Command="{Binding OpenProgressCommand}" InputGesture="Ctrl+P" />
       </MenuItem>
@@ -310,6 +314,8 @@
                     ToolTip.Tip="Clear the time logged for this item." />
             <Button Content="♩ Metronome" Command="{Binding PracticeWithMetronomeCommand}"
                     ToolTip.Tip="Practice this item with the metronome (Ctrl+Shift+M): starts at your last logged tempo for the exercise, in its note value, with its target for the trainer. On Stop the tempo reached goes into the log below." />
+            <Button Content="♫ Play along" Command="{Binding PlayAlongCommand}"
+                    ToolTip.Tip="Open the MIDI player for this item (Ctrl+Shift+I): its linked MIDI file opens, or pick one and press Link." />
             <Button Content="🔔" Command="{Binding TestDingCommand}" ToolTip.Tip="Test the ding" />
           </StackPanel>
 

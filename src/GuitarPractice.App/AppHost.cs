@@ -16,12 +16,13 @@ internal static class AppHost
         });
 
         builder.Services.AddPracticeInfrastructure();
-        builder.Services.AddSingleton<INotificationSound, SystemNotificationSound>();
+        builder.Services.AddSingleton<INotificationSound, DeviceNotificationSound>(); // the ding, through PortAudio like everything else
         builder.Services.AddSingleton<IAudioDevices, PortAudioDevices>(); // each tool window creates + disposes its own streams
         builder.Services.AddSingleton<IToolWindows, ToolWindows>();
         builder.Services.AddSingleton<WindowPlacementService>();
         builder.Services.AddSingleton<ThemeService>();
         builder.Services.AddTransient<SettingsViewModel>();
+        builder.Services.AddTransient<MidiPlayerViewModel>();
         builder.Services.AddTransient<MetronomeViewModel>();
         builder.Services.AddTransient<TunerViewModel>();
         builder.Services.AddTransient<RecorderViewModel>();

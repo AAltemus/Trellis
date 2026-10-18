@@ -57,6 +57,7 @@ public sealed partial class MainWindowViewModel
     {
         SaveLogCommand.NotifyCanExecuteChanged();
         PracticeWithMetronomeCommand.NotifyCanExecuteChanged();
+        PlayAlongCommand.NotifyCanExecuteChanged();
         OpenProgressCommand.NotifyCanExecuteChanged();
         if (Current is not { } entry)
         {
@@ -165,6 +166,14 @@ public sealed partial class MainWindowViewModel
         var key = entry.Key;
         _tools.ShowMetronome(new MetronomeLink(title, plan.StartBpm, plan.TargetBpm, (Subdivision?)plan.NoteValue,
             bpm => OnMetronomeReached(key, entry.Name, plan, bpm)));
+    }
+
+    /// <summary>Opens the MIDI player for the selected item: its linked file opens; otherwise pick one and press Link.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void PlayAlong()
+    {
+        if (Current is not { } entry) return;
+        _tools.ShowMidiPlayer(new MidiPlayerLink(entry.Key.SubcategoryId, entry.Name));
     }
 
     private string OnMetronomeReached(Infrastructure.PracticeKey key, string itemName, TempoPlan plan, int bpm)

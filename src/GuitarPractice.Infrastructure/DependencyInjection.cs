@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddSingleton<WeekStore>();
         services.AddSingleton<SettingsStore>();
         services.AddSingleton<ProgressStore>();
+        services.AddSingleton(sp => new MidiLibraryStore(sp.GetRequiredService<SettingsStore>()));
         services.AddSingleton(TimeProvider.System);
         return services;
     }

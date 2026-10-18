@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="PortAudioSharp2" />
+    <PackageReference Include="MeltySynth" />
   </ItemGroup>
 </Project>

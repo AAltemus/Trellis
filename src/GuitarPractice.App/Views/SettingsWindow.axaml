@@ -13,8 +13,6 @@
     <StackPanel Spacing="6">
       <TextBlock Text="Appearance" FontSize="16" FontWeight="SemiBold" />
       <TextBlock Text="Theme" Classes="caption" />
-      <RadioButton GroupName="theme" IsChecked="{Binding IsSystem}"
-                   Content="System (follow the Windows light/dark setting)" />
       <RadioButton GroupName="theme" IsChecked="{Binding IsLight}" Content="Light" />
       <RadioButton GroupName="theme" IsChecked="{Binding IsDark}" Content="Dark" />
       <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,4,0,0"

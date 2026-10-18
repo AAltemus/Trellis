@@ -17,6 +17,9 @@ public interface IToolWindows
     void ShowEarTrainer();
     void ShowSettings();
 
+    /// <summary>Opens the MIDI player; with a <paramref name="link"/>, for that practice item (its linked file opens).</summary>
+    void ShowMidiPlayer(MidiPlayerLink? link = null);
+
     /// <summary>Opens Progress, selecting <paramref name="subcategoryId"/> when given.</summary>
     void ShowProgress(int? subcategoryId = null);
 
@@ -41,6 +44,12 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
     public void ShowEarTrainer() => _ = Show<EarTrainerWindow, EarTrainerViewModel>();
 
     public void ShowSettings() => _ = Show<SettingsWindow, SettingsViewModel>();
+
+    public void ShowMidiPlayer(MidiPlayerLink? link = null)
+    {
+        var window = Show<MidiPlayerWindow, MidiPlayerViewModel>();
+        if (link is not null) (window.DataContext as MidiPlayerViewModel)?.OpenFor(link);
+    }
 
     public void ShowProgress(int? subcategoryId = null)
     {
