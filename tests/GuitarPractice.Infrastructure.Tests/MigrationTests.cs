@@ -50,9 +50,10 @@ public sealed class MigrationTests : IDisposable
             db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(SingleBpmMigration);
             subcategoryId = db.Database.SqlQueryRaw<int>("SELECT MIN(\"Id\") AS \"Value\" FROM \"Subcategories\"").AsEnumerable().First();
             // Two entries the old way: one with a BPM, one with only a rating.
-            db.Database.ExecuteSqlRaw(
-                "INSERT INTO \"ProgressEntries\" (\"Date\", \"SubcategoryId\", \"BpmReached\", \"Rating\", \"Notes\", \"UpdatedAt\") VALUES " +
-                $"('2026-10-12', {subcategoryId}, 132, 4, 'old style', 0), ('2026-10-13', {subcategoryId}, NULL, 3, NULL, 0);");
+            db.Database.ExecuteSql($"""
+                INSERT INTO "ProgressEntries" ("Date", "SubcategoryId", "BpmReached", "Rating", "Notes", "UpdatedAt") VALUES
+                ('2026-10-12', {subcategoryId}, 132, 4, 'old style', 0), ('2026-10-13', {subcategoryId}, NULL, 3, NULL, 0);
+                """);
 
             db.Database.Migrate(); // → latest
             Assert.Empty(db.Database.GetPendingMigrations());
@@ -102,11 +103,12 @@ public sealed class MigrationTests : IDisposable
         {
             db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(BeforeRemovedRuns);
             subcategoryId = db.Database.SqlQueryRaw<int>("SELECT MIN(\"Id\") AS \"Value\" FROM \"Subcategories\"").AsEnumerable().First();
-            db.Database.ExecuteSqlRaw(
-                "INSERT INTO \"ProgressEntries\" (\"Id\", \"Date\", \"SubcategoryId\", \"Rating\", \"Notes\", \"UpdatedAt\") VALUES " +
-                $"(1, '2026-10-12', {subcategoryId}, 4, 'before', 0);" +
-                "INSERT INTO \"ProgressExercises\" (\"ProgressEntryId\", \"Name\", \"Bpm\", \"NoteValue\", \"SortOrder\") VALUES " +
-                "(1, 'Rolling sweeps', 90, 4, 0), (1, 'Trills', 150, 2, 1);");
+            db.Database.ExecuteSql($"""
+                INSERT INTO "ProgressEntries" ("Id", "Date", "SubcategoryId", "Rating", "Notes", "UpdatedAt") VALUES
+                (1, '2026-10-12', {subcategoryId}, 4, 'before', 0);
+                INSERT INTO "ProgressExercises" ("ProgressEntryId", "Name", "Bpm", "NoteValue", "SortOrder") VALUES
+                (1, 'Rolling sweeps', 90, 4, 0), (1, 'Trills', 150, 2, 1);
+                """);
 
             db.Database.Migrate();
         }
