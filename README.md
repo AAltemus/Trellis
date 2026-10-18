@@ -4,8 +4,10 @@
 
 A routine to grow your playing along. Trellis turns a weighted selection of practice tasks into a weekly plan and
 times each session, with the tools you'd otherwise switch apps for in one place: metronome (clicks or drums), tuner and
-bend trainer, recorder with looping, ear trainer and progress tracking. Cross-platform desktop app (Windows / macOS /
-Linux); C# / .NET 10, Avalonia 11, EF Core + SQLite.
+bend trainer, recorder with looping, ear trainer, progress tracking, and a MIDI player for playing along with backing
+tracks: import songs exported from Guitar Pro (or any MIDI file), slow them down without changing pitch, mute your
+part, loop the bars you're working on, and link a song to a practice item so it's one click away. Cross-platform
+desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 11, EF Core + SQLite.
 
 The icon is a sprout growing up a rosewood fretboard (simplified to a "T" made of a nut and a string at 16–32 px).
 Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg`; rebuild the `.ico` with
@@ -152,12 +154,12 @@ migration runs. Delete it to start fresh.
 | Project | Role |
 |---|---|
 | `GuitarPractice.Domain` | Entities, the planner, the practice timer state machine. No package dependencies; warnings are errors. |
-| `GuitarPractice.Infrastructure` | `PracticeDbContext`, entity configs, seed data, migrations, stores, startup migration/backup. |
-| `GuitarPractice.Audio` | PortAudio input/output, metronome engine, YIN tuner pipeline, bend tracker, notification ding. |
-| `GuitarPractice.App` | Avalonia UI: library/routine panel, week view, session timer, Week and Tools menus. |
+| `GuitarPractice.Infrastructure` | `PracticeDbContext`, entity configs, seed data, migrations, stores (incl. the MIDI library), startup migration/backup. |
+| `GuitarPractice.Audio` | PortAudio input/output, metronome engine, YIN tuner pipeline, bend tracker, recorder/looper, MIDI reader + player (MeltySynth), notification ding. |
+| `GuitarPractice.App` | Avalonia UI: library/routine panel, week view, session timer, Week and Tools menus, tool windows (metronome, tuner, recorder, ear trainer, MIDI player, progress). |
 | `GuitarPractice.Domain.Tests` | xUnit + FsCheck: planner properties and examples, progress math, week cloning, timer. |
-| `GuitarPractice.Infrastructure.Tests` | xUnit on in-memory SQLite: stores, week rules, settings, migrations in sync. |
-| `GuitarPractice.Audio.Tests` | xUnit: metronome timing (sample positions, no drift, no allocation), YIN accuracy, tuner, bends. |
+| `GuitarPractice.Infrastructure.Tests` | xUnit on in-memory SQLite: stores, week rules, settings, MIDI library, migrations up/down. |
+| `GuitarPractice.Audio.Tests` | xUnit: metronome timing (sample positions, no drift, no allocation), YIN accuracy, tuner, bends, drums, MIDI reading and playback (incl. the real SoundFont). |
 ## Planner
 
 `WeeklyPlanner.Generate(PlanRequest) → PlanResult` is a pure, deterministic function.

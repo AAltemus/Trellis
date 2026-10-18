@@ -150,9 +150,6 @@ public sealed partial class MainWindowViewModel
         RefreshTimer();
     }
 
-    [RelayCommand]
-    private void TestDing() => _sound.PlayDing();
-
     /// <summary>Called when the window closes so a running timer doesn't lose its last seconds.</summary>
     public void SaveOnExit()
     {
