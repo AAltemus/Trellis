@@ -4,6 +4,7 @@
         x:Class="GuitarPractice.App.Views.MetronomeWindow"
         x:DataType="vm:MetronomeViewModel"
         Title="Metronome"
+        Icon="/Assets/Icon/trellis.ico"
         Width="600" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner">
 

@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GuitarPractice.App.ViewModels"
+        x:Class="GuitarPractice.App.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Settings"
+        Icon="/Assets/Icon/trellis.ico"
+        Width="420" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+  <!-- Changes apply as you make them and are remembered; there's nothing to save or cancel. -->
+  <StackPanel Margin="20" Spacing="14">
+    <StackPanel Spacing="6">
+      <TextBlock Text="Appearance" FontSize="16" FontWeight="SemiBold" />
+      <TextBlock Text="Theme" Classes="caption" />
+      <RadioButton GroupName="theme" IsChecked="{Binding IsSystem}"
+                   Content="System (follow the Windows light/dark setting)" />
+      <RadioButton GroupName="theme" IsChecked="{Binding IsLight}" Content="Light" />
+      <RadioButton GroupName="theme" IsChecked="{Binding IsDark}" Content="Dark" />
+      <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,4,0,0"
+                 Text="Applies to every window right away and is remembered next time." />
+    </StackPanel>
+
+    <Button Content="Close" HorizontalAlignment="Right" MinWidth="80" IsDefault="True" IsCancel="True" Click="OnClose" />
+  </StackPanel>
+</Window>

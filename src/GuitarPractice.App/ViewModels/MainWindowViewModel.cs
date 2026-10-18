@@ -183,6 +183,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void OpenEarTrainer() => _tools.ShowEarTrainer();
 
+    [RelayCommand]
+    private void OpenSettings() => _tools.ShowSettings();
+
     private bool CanAddCategory() => !string.IsNullOrWhiteSpace(NewCategoryName);
 
     [RelayCommand(CanExecute = nameof(CanAddCategory))]

@@ -6,7 +6,8 @@
         xmlns:c="using:GuitarPractice.App.Controls"
         x:Class="GuitarPractice.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="Guitar Practice"
+        Title="Trellis"
+        Icon="/Assets/Icon/trellis.ico"
         Width="1440" Height="880" MinWidth="1024" MinHeight="640">
 
   <Window.KeyBindings>
@@ -21,6 +22,7 @@
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
     <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
     <KeyBinding Gesture="Ctrl+E" Command="{Binding OpenEarTrainerCommand}" />
+    <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProgressCommand}" />
   </Window.KeyBindings>
 
@@ -53,6 +55,9 @@
   <DockPanel>
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="_File">
+        <!-- Ctrl+, opens it too (KeyBinding above); not shown as InputGesture because Avalonia prints it "Ctrl+OemComma". -->
+        <MenuItem Header="_Settings…" Command="{Binding OpenSettingsCommand}" />
+        <Separator />
         <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
       </MenuItem>
       <MenuItem Header="_Week">

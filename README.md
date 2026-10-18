@@ -1,7 +1,16 @@
-# Guitar Practice
+<img src="src/GuitarPractice.App/Assets/Icon/trellis-256.png" alt="" width="96" align="right">
 
-Cross-platform desktop app (Windows / macOS / Linux) that turns a weighted selection of practice tasks
-into a weekly plan, with a metronome, tuner, recorder and progress tracking. C# / .NET 10, Avalonia 11, EF Core + SQLite.
+# Trellis: guitar practice
+
+A routine to grow your playing along. Trellis turns a weighted selection of practice tasks into a weekly plan and
+times each session, with the tools you'd otherwise switch apps for in one place: metronome (clicks or drums), tuner and
+bend trainer, recorder with looping, ear trainer and progress tracking. Cross-platform desktop app (Windows / macOS /
+Linux); C# / .NET 10, Avalonia 11, EF Core + SQLite.
+
+The icon is a sprout growing up a rosewood fretboard (simplified to a "T" made of a nut and a string at 16–32 px).
+Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg`; rebuild the `.ico` with
+`dotnet run scripts/make-icon.cs -- src/GuitarPractice.App/Assets/Icon`. The code keeps its `GuitarPractice.*`
+project names and the data folder stays `GuitarPractice`.
 
 ## Library model
 
@@ -101,6 +110,9 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   same name again starts it over from scratch (its own target, if set, stays).
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
+
+**File → Settings…** (Ctrl+,): Appearance → Theme: System (follows the Windows light/dark setting), Light or Dark.
+It applies to every open window right away and is remembered.
 
 Every window reopens where you left it: the main window, Progress, Recorder and Ear Trainer at their last size and
 position (and maximized if they were); the Metronome and Tuner, which size themselves, at their last position. If a saved

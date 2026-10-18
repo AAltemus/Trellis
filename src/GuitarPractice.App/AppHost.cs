@@ -20,6 +20,8 @@ internal static class AppHost
         builder.Services.AddSingleton<IAudioDevices, PortAudioDevices>(); // each tool window creates + disposes its own streams
         builder.Services.AddSingleton<IToolWindows, ToolWindows>();
         builder.Services.AddSingleton<WindowPlacementService>();
+        builder.Services.AddSingleton<ThemeService>();
+        builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddTransient<MetronomeViewModel>();
         builder.Services.AddTransient<TunerViewModel>();
         builder.Services.AddTransient<RecorderViewModel>();

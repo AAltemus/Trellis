@@ -22,6 +22,7 @@ public partial class App : Application
         // Synchronous by design: must finish before the first window, and must not block on async
         // work under Avalonia's SynchronizationContext.
         _host.Services.GetRequiredService<DatabaseInitializer>().Initialize();
+        _host.Services.GetRequiredService<ThemeService>().ApplySaved(); // before the first window: no flash of the wrong theme
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

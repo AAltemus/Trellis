@@ -82,6 +82,7 @@ public sealed class SeriesSwatch : Control
     {
         Width = 14;
         Height = 14;
+        ActualThemeVariantChanged += (_, _) => InvalidateVisual(); // colours differ in light and dark
     }
 
     public int Slot { get => GetValue(SlotProperty); set => SetValue(SlotProperty, value); }
@@ -138,6 +139,8 @@ public sealed class ProgressChart : Control
     {
         AffectsRender<ProgressChart>(SeriesProperty, PointsProperty, KindProperty, ReferenceValueProperty, FromProperty, ToProperty);
     }
+
+    public ProgressChart() => ActualThemeVariantChanged += (_, _) => InvalidateVisual(); // redraw when Settings switches the theme
 
     /// <summary>Line mode: the series to draw (first <see cref="MaxSeries"/> by slot).</summary>
     public IReadOnlyList<ChartSeries>? Series { get => GetValue(SeriesProperty); set => SetValue(SeriesProperty, value); }

@@ -5,6 +5,7 @@
         x:Class="GuitarPractice.App.Views.TunerWindow"
         x:DataType="vm:TunerViewModel"
         Title="Tuner"
+        Icon="/Assets/Icon/trellis.ico"
         Width="440" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner">
 

@@ -4,6 +4,7 @@
         x:Class="GuitarPractice.App.Views.EarTrainerWindow"
         x:DataType="vm:EarTrainerViewModel"
         Title="Ear Trainer"
+        Icon="/Assets/Icon/trellis.ico"
         Width="720" Height="760" MinWidth="560" MinHeight="520"
         WindowStartupLocation="CenterOwner">
 

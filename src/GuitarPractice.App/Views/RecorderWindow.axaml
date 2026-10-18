@@ -6,6 +6,7 @@
         x:Class="GuitarPractice.App.Views.RecorderWindow"
         x:DataType="vm:RecorderViewModel"
         Title="Recorder"
+        Icon="/Assets/Icon/trellis.ico"
         Width="760" Height="640" MinWidth="560" MinHeight="520"
         WindowStartupLocation="CenterOwner">
 

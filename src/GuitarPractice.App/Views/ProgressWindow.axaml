@@ -5,6 +5,7 @@
         x:Class="GuitarPractice.App.Views.ProgressWindow"
         x:DataType="vm:ProgressViewModel"
         Title="Progress"
+        Icon="/Assets/Icon/trellis.ico"
         Width="1120" Height="900" MinWidth="860" MinHeight="680"
         WindowStartupLocation="CenterOwner">
 

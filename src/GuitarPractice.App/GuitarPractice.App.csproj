@@ -6,6 +6,11 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Shown by Windows (Explorer, taskbar, Task Manager). The code keeps its GuitarPractice.* names. -->
+    <ApplicationIcon>Assets/Icon/trellis.ico</ApplicationIcon>
+    <Product>Trellis</Product>
+    <AssemblyTitle>Trellis</AssemblyTitle>
+    <Description>Trellis: guitar practice planner, timer and tools</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
@@ -14,6 +19,10 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Window title-bar icon (avares://GuitarPractice/Assets/Icon/trellis.ico). Sources + generator: trellis*.svg, scripts/make-icon.cs. -->
+    <AvaloniaResource Include="Assets/Icon/trellis.ico" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GuitarPractice.Domain\GuitarPractice.Domain.csproj" />

@@ -15,6 +15,7 @@ public interface IToolWindows
     void ShowTuner();
     void ShowRecorder();
     void ShowEarTrainer();
+    void ShowSettings();
 
     /// <summary>Opens Progress, selecting <paramref name="subcategoryId"/> when given.</summary>
     void ShowProgress(int? subcategoryId = null);
@@ -38,6 +39,8 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
     public void ShowRecorder() => _ = Show<RecorderWindow, RecorderViewModel>();
 
     public void ShowEarTrainer() => _ = Show<EarTrainerWindow, EarTrainerViewModel>();
+
+    public void ShowSettings() => _ = Show<SettingsWindow, SettingsViewModel>();
 
     public void ShowProgress(int? subcategoryId = null)
     {

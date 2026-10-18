@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Trellis small icon (16–32 px): the nut and one string form a T, with one leaf. Drawn on a 32 px grid so edges
+       land on whole pixels at 16 and 32. Same colours as trellis.svg. -->
+  <rect x="0" y="0" width="32" height="32" rx="7" fill="#4A3324"/>
+  <rect x="6" y="6" width="20" height="4" rx="1.5" fill="#EDE3CF"/>
+  <rect x="14" y="9" width="4" height="18" rx="2" fill="#EDE3CF"/>
+  <path d="M18 18.5 C20 15 24 14 27 15 C25.5 18.5 22 20 18 18.5 Z" fill="#6FAE68"/>
+</svg>
