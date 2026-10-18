@@ -73,7 +73,7 @@ public sealed partial class MainWindowViewModel
 
         var saved = _progressStore.Get(entry.Key.Date, entry.Key.SubcategoryId);
         LogExercises.SetSuggestions(_progressStore.ExerciseNames(entry.Key.SubcategoryId));
-        LogExercises.Load(saved?.Exercises.Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue)) ?? []);
+        LogExercises.Load(saved?.Exercises.Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue, x.RemovedRun)) ?? []);
         LogRating = RatingOption.All.FirstOrDefault(r => r.Value == saved?.Rating) ?? RatingOption.All[0];
         LogNotes = saved?.Notes ?? "";
         LogTitle = $"Log for {entry.Key.Date:ddd MMM d}";

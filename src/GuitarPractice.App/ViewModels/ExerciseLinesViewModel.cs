@@ -16,6 +16,8 @@ public sealed record NoteValueOption(NoteValue? Value, string Label)
         new(NoteValue.Eighths, "8ths"),
         new(NoteValue.Triplets, "triplets"),
         new(NoteValue.Sixteenths, "16ths"),
+        new(NoteValue.Quintuplets, "quintuplets"),
+        new(NoteValue.Sextuplets, "sextuplets"),
     ];
 
     public static NoteValueOption For(NoteValue? value) => All.FirstOrDefault(o => o.Value == value) ?? All[0];
@@ -34,6 +36,11 @@ public sealed partial class ExerciseLineViewModel(ExerciseLinesViewModel owner) 
 
     [ObservableProperty]
     private NoteValueOption? _noteValue = NoteValueOption.All[0];
+
+    /// <summary>Set when this line belongs to an exercise run removed from progress (kept as history; saved as it was).</summary>
+    public int? RemovedRun { get; init; }
+
+    public bool IsRemoved => RemovedRun is not null;
 
     /// <summary>Exercise names used before in this block (shared with the owner).</summary>
     public IReadOnlyList<string> Suggestions => owner.Suggestions;
@@ -67,12 +74,12 @@ public sealed partial class ExerciseLinesViewModel : ObservableObject
     {
         Lines.Clear();
         foreach (var log in logs)
-            Lines.Add(new ExerciseLineViewModel(this) { Name = log.Name, Bpm = log.Bpm, NoteValue = NoteValueOption.For(log.NoteValue) });
+            Lines.Add(new ExerciseLineViewModel(this) { Name = log.Name, Bpm = log.Bpm, NoteValue = NoteValueOption.For(log.NoteValue), RemovedRun = log.RemovedRun });
         if (Lines.Count == 0) Add();
     }
 
     public IReadOnlyList<ExerciseLog> ToLogs() =>
-        Lines.Select(l => new ExerciseLog(l.Name ?? "", l.Bpm is { } b ? (int)Math.Round(b) : null, l.NoteValue?.Value)).ToList();
+        Lines.Select(l => new ExerciseLog(l.Name ?? "", l.Bpm is { } b ? (int)Math.Round(b) : null, l.NoteValue?.Value, l.RemovedRun)).ToList();
 
     /// <summary>Adds a row; it inherits the previous row's note value (people usually stay in one subdivision).</summary>
     [RelayCommand]

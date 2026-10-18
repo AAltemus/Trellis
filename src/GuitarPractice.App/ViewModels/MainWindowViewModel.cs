@@ -94,6 +94,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         foreach (var category in store.LoadLibrary())
             Categories.Add(new CategoryViewModel(this, category, weights));
+        RefreshRemoved();
 
         _loading = false;
         Regenerate();
@@ -220,9 +221,39 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         _store.Archive(subcategory.Id);
         subcategory.Owner.Subcategories.Remove(subcategory);
+        RefreshRemoved();
         subcategory.Owner.RefreshSummary();
         OnPropertyChanged(nameof(DailyTotalSummary));
         Regenerate();
+    }
+
+    /// <summary>Items removed from the library (soft-deleted), with Restore. History was never touched.</summary>
+    public ObservableCollection<RemovedSubcategoryViewModel> RemovedItems { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasRemovedItems;
+
+    private void RefreshRemoved()
+    {
+        RemovedItems.Clear();
+        foreach (var s in _store.LoadRemoved())
+            RemovedItems.Add(new RemovedSubcategoryViewModel(this, s.Id, s.DisplayName, s.Category.Name));
+        HasRemovedItems = RemovedItems.Count > 0;
+    }
+
+    /// <summary>Back into its category at weight 0 (in the library, not yet in the routine), in library order.</summary>
+    internal void Restore(RemovedSubcategoryViewModel removed)
+    {
+        var entity = _store.Restore(removed.Id);
+        if (Categories.FirstOrDefault(c => c.Id == entity.CategoryId) is { } category)
+        {
+            var vm = new SubcategoryViewModel(this, category, entity, entity.Tuning?.Name, weight: 0);
+            var index = category.Subcategories.TakeWhile(s => (s.SortOrder, s.Id).CompareTo((entity.SortOrder, entity.Id)) < 0).Count();
+            category.Subcategories.Insert(index, vm);
+            category.RefreshSummary();
+            category.IsExpanded = true;
+        }
+        RefreshRemoved();
     }
 
     private void Regenerate()
@@ -390,13 +421,13 @@ public sealed partial class SubcategoryViewModel : ObservableObject
 
     public CategoryViewModel Owner { get; }
     public int Id => _entity.Id;
+    public int SortOrder => _entity.SortOrder;
     public string DisplayName => _entity.DisplayName;
     public int? StartBpm => _entity.StartBpm;
     public int? TargetBpm => _entity.TargetBpm;
     public string? Notes => _entity.Notes;
     public string? Detail { get; }
     public bool IsPinned => _entity.Pin != PinMode.None;
-    public bool CanDelete => !_entity.IsBuiltIn;
     public int PinnedMinutes => _entity.PinnedMinutes ?? _entity.MinSessionMinutes;
     public string PinnedLabel => $"Include · pinned first, {PinnedMinutes} min every practice day";
     public int WeightValue => (int)Math.Round(Weight);
@@ -415,8 +446,28 @@ public sealed partial class SubcategoryViewModel : ObservableObject
 
     partial void OnWeightChanged(double value) => _main.OnWeightChanged(this);
 
+    /// <summary>Removing asks first (the ✕ turns into "Remove? Remove / Cancel"). Built-in and own items alike.</summary>
+    [ObservableProperty]
+    private bool _isConfirmingDelete;
+
+    /// <summary>
+    /// Removes from the library (soft delete, see <see cref="LibraryStore.Archive"/>): gone from the library and the routine;
+    /// practice time, progress and past weeks are kept.
+    /// </summary>
     [RelayCommand]
-    private void Delete() => _main.Delete(this);
+    private void Delete()
+    {
+        if (!IsConfirmingDelete)
+        {
+            IsConfirmingDelete = true;
+            return;
+        }
+        IsConfirmingDelete = false;
+        _main.Delete(this);
+    }
+
+    [RelayCommand]
+    private void CancelDelete() => IsConfirmingDelete = false;
 
     public PlanTaskSpec ToSpec() => new(
         _entity.Id, Owner.Id, Owner.SortOrder, WeightValue,
@@ -431,4 +482,15 @@ public sealed partial class SubcategoryViewModel : ObservableObject
         else if (s.TargetBpm is int only) parts.Add($"target {only} bpm");
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
+}
+
+/// <summary>An item removed from the library: name, its category, Restore.</summary>
+public sealed partial class RemovedSubcategoryViewModel(MainWindowViewModel main, int id, string name, string category)
+{
+    public int Id { get; } = id;
+    public string Name { get; } = name;
+    public string Category { get; } = category;
+
+    [RelayCommand]
+    private void Restore() => main.Restore(this);
 }

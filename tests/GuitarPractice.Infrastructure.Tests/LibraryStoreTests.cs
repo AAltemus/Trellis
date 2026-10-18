@@ -162,6 +162,41 @@ public sealed class LibraryStoreTests : IDisposable
     }
 
     [Fact]
+    public void Removed_subcategories_are_listed_and_can_be_restored_without_rejoining_the_routine()
+    {
+        var routine = _db.Library.GetOrCreateDefaultRoutine();
+        var removed = routine.Items.First(i => i.Weight == 5).SubcategoryId;
+        Assert.Empty(_db.Library.LoadRemoved());
+
+        _db.Library.Archive(removed);
+        var listed = Assert.Single(_db.Library.LoadRemoved());
+        Assert.Equal(removed, listed.Id);
+        Assert.NotNull(listed.Category);
+
+        var restored = _db.Library.Restore(removed);
+        Assert.False(restored.IsArchived);
+        Assert.Empty(_db.Library.LoadRemoved());
+        Assert.Contains(_db.Library.LoadLibrary().SelectMany(c => c.Subcategories), s => s.Id == removed);
+        Assert.DoesNotContain(_db.Library.GetOrCreateDefaultRoutine().Items, i => i.SubcategoryId == removed); // weight 0
+    }
+
+    [Fact]
+    public void Removing_a_built_in_subcategory_keeps_its_practice_and_progress_history()
+    {
+        var builtIn = _db.Query(db => db.Subcategories.First(s => s.IsBuiltIn).Id);
+        var day = new DateOnly(2026, 10, 12);
+        _db.Logs.Save(new PracticeKey(day, builtIn), new PracticeState(600, true));
+        var progress = new ProgressStore(_db, _db.Clock);
+        progress.Save(day, builtIn, [new GuitarPractice.Domain.Practice.ExerciseLog("Drill", 120, NoteValue.Sixteenths)], 4, null);
+
+        _db.Library.Archive(builtIn);
+
+        Assert.DoesNotContain(_db.Library.LoadLibrary().SelectMany(c => c.Subcategories), s => s.Id == builtIn);
+        var history = Assert.Single(progress.History(builtIn));
+        Assert.Equal((600, 120), (history.SecondsPractised, history.Exercises.Single().Bpm!.Value));
+    }
+
+    [Fact]
     public void User_rows_get_ids_above_the_built_in_range_after_reservation()
     {
         using (var db = _db.CreateDbContext())

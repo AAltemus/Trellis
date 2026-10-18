@@ -1,3 +1,5 @@
+using GuitarPractice.Domain;
+using GuitarPractice.Domain.Practice;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -88,5 +90,53 @@ public sealed class MigrationTests : IDisposable
         down.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(SingleBpmMigration);
         var bpm = down.Database.SqlQueryRaw<int>("SELECT \"BpmReached\" AS \"Value\" FROM \"ProgressEntries\"").AsEnumerable().Single();
         Assert.Equal(140, bpm);
+    }
+
+    private const string BeforeRemovedRuns = "20261017131644_Auto_20261017_091642";
+
+    [Fact]
+    public void Upgrading_to_removed_runs_keeps_exercise_lines_and_allows_quintuplets()
+    {
+        int subcategoryId;
+        using (var db = _db.CreateDbContext())
+        {
+            db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(BeforeRemovedRuns);
+            subcategoryId = db.Database.SqlQueryRaw<int>("SELECT MIN(\"Id\") AS \"Value\" FROM \"Subcategories\"").AsEnumerable().First();
+            db.Database.ExecuteSqlRaw(
+                "INSERT INTO \"ProgressEntries\" (\"Id\", \"Date\", \"SubcategoryId\", \"Rating\", \"Notes\", \"UpdatedAt\") VALUES " +
+                $"(1, '2026-10-12', {subcategoryId}, 4, 'before', 0);" +
+                "INSERT INTO \"ProgressExercises\" (\"ProgressEntryId\", \"Name\", \"Bpm\", \"NoteValue\", \"SortOrder\") VALUES " +
+                "(1, 'Rolling sweeps', 90, 4, 0), (1, 'Trills', 150, 2, 1);");
+
+            db.Database.Migrate();
+        }
+
+        var store = new ProgressStore(_db, _db.Clock);
+        var day = Assert.Single(store.History(subcategoryId));
+        Assert.Equal([new ExerciseLog("Rolling sweeps", 90, NoteValue.Sixteenths), new ExerciseLog("Trills", 150, NoteValue.Eighths)], day.Exercises);
+        Assert.Equal((4, "before"), (day.Rating, day.Notes));
+
+        store.Save(new DateOnly(2026, 10, 13), subcategoryId,
+            [new("Fives", 80, NoteValue.Quintuplets), new("Sixes", 70, NoteValue.Sextuplets)], null, null);
+        Assert.Equal([NoteValue.Quintuplets, NoteValue.Sextuplets], store.History(subcategoryId)[1].Exercises.Select(x => x.NoteValue!.Value));
+    }
+
+    [Fact]
+    public void Downgrading_from_removed_runs_keeps_the_lines()
+    {
+        int subcategoryId;
+        using (var db = _db.CreateDbContext())
+        {
+            db.Database.Migrate();
+            subcategoryId = db.Subcategories.Min(s => s.Id);
+        }
+        var store = new ProgressStore(_db, _db.Clock);
+        store.Save(new DateOnly(2026, 10, 12), subcategoryId, [new("Fives", 80, NoteValue.Quintuplets), new("Old", 60, NoteValue.Eighths)], null, null);
+        store.RemoveExercise(subcategoryId, "Old", NoteValue.Eighths);
+
+        using var down = _db.CreateDbContext();
+        down.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(BeforeRemovedRuns);
+        var values = down.Database.SqlQueryRaw<int?>("SELECT \"NoteValue\" AS \"Value\" FROM \"ProgressExercises\" ORDER BY \"SortOrder\"").AsEnumerable().ToList();
+        Assert.Equal([null, 2], values); // quintuplets unknown to the old schema; the removed line comes back as current
     }
 }

@@ -155,4 +155,29 @@ public class ProgressStatsTests
         Assert.Empty(s.Exercises);
         Assert.Equal(0, s.MinutesThisWeek);
     }
+
+    [Fact]
+    public void Removed_runs_leave_current_progress_and_chart_slots_but_keep_their_stats()
+    {
+        // The first two Sweeps lines were removed together (run 1), then Sweeps was logged again.
+        var history = new[]
+        {
+            Day(6, exercises: [Ex("Sweeps", 80) with { RemovedRun = 1 }, Ex("Trills", 150), Ex("Legato", 100)]),
+            Day(4, exercises: [Ex("Sweeps", 95) with { RemovedRun = 1 }, Ex("Trills", 155)]),
+            Day(2, exercises: [Ex("sweeps", 60), Ex("Fives", 70, NoteValue.Quintuplets)]), // re-added: a fresh run
+        };
+
+        var s = ProgressStats.Summarize(history, 60, 160, Today);
+
+        Assert.Equal(["Trills", "Legato", "sweeps", "Fives"], s.Exercises.Select(e => e.Name));
+        Assert.Equal([0, 1, 2, 3], s.Exercises.Select(e => e.Slot));                  // slots among current exercises only
+        var fresh = s.Exercises.Single(e => e.Name == "sweeps");
+        Assert.Equal((60, 1, Today.AddDays(-2)), (fresh.BestBpm!.Value, fresh.TimesLogged, fresh.FirstDate)); // starts over
+
+        var removed = Assert.Single(s.Removed);
+        Assert.Equal((95, 2, -1, 1), (removed.BestBpm!.Value, removed.TimesLogged, removed.Slot, removed.RemovedRun!.Value));
+        Assert.True(removed.IsRemoved);
+        Assert.Equal("Fives · quintuplets", s.Latest!.Label);                          // never a removed run
+        Assert.Equal("sextuplets", ProgressStats.NoteValueName(NoteValue.Sextuplets));
+    }
 }

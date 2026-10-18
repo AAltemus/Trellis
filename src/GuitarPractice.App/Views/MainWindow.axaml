@@ -185,9 +185,17 @@
                                            IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                               </StackPanel>
                               <Button Grid.Column="1" Content="✕" Padding="8,2" VerticalAlignment="Top"
-                                      Command="{Binding DeleteCommand}" IsVisible="{Binding CanDelete}"
-                                      ToolTip.Tip="Remove from library" />
+                                      Command="{Binding DeleteCommand}" IsVisible="{Binding !IsConfirmingDelete}"
+                                      ToolTip.Tip="Remove from the library (asks first). Practice time, progress and past weeks are kept." />
                             </Grid>
+                            <StackPanel IsVisible="{Binding IsConfirmingDelete}" Spacing="4" Margin="0,2,0,2">
+                              <TextBlock Classes="caption" TextWrapping="Wrap"
+                                         Text="Remove from the library and your routine? Its practice time and progress history are kept." />
+                              <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button Content="Remove" Command="{Binding DeleteCommand}" Padding="8,2" Foreground="#E53935" />
+                                <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" Padding="8,2" />
+                              </StackPanel>
+                            </StackPanel>
                             <Grid ColumnDefinitions="*,28" IsVisible="{Binding !IsPinned}">
                               <Slider Minimum="0" Maximum="10" TickFrequency="1" IsSnapToTickEnabled="True"
                                       Value="{Binding Weight}" />
@@ -239,6 +247,32 @@
             <TextBox Watermark="New category…" Text="{Binding NewCategoryName}" />
             <Button Grid.Column="1" Content="Add category" Margin="6,0,0,0" Command="{Binding AddCategoryCommand}" />
           </Grid>
+
+          <!-- Removed items: soft-deleted, history kept; Restore puts them back at weight 0 -->
+          <Expander IsVisible="{Binding HasRemovedItems}" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch">
+            <Expander.Header>
+              <TextBlock Text="{Binding RemovedItems.Count, StringFormat='Removed items ({0})'}" />
+            </Expander.Header>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="Their practice time and progress are kept. Restore puts one back in its category at weight 0; set a weight to add it to your routine." />
+              <ItemsControl ItemsSource="{Binding RemovedItems}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RemovedSubcategoryViewModel">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                      <StackPanel>
+                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                        <TextBlock Classes="caption" Text="{Binding Category}" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Content="Restore" Command="{Binding RestoreCommand}" Padding="8,2"
+                              VerticalAlignment="Center" ToolTip.Tip="Put it back in the library (weight 0)" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Expander>
             </StackPanel>
           </Expander>
         </StackPanel>

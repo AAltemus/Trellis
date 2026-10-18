@@ -169,6 +169,34 @@ public sealed class LibraryStore(IDbContextFactory<PracticeDbContext> contextFac
         return subcategory;
     }
 
+    /// <summary>
+    /// Subcategories removed from the library (archived) whose category is still there, in library order, with their
+    /// category and tuning loaded.
+    /// </summary>
+    public IReadOnlyList<Subcategory> LoadRemoved()
+    {
+        using var db = contextFactory.CreateDbContext();
+        return db.Subcategories.AsNoTracking()
+            .Include(s => s.Category)
+            .Include(s => s.Tuning)
+            .Where(s => s.IsArchived && !s.Category.IsArchived)
+            .OrderBy(s => s.Category.SortOrder).ThenBy(s => s.Category.Id).ThenBy(s => s.SortOrder).ThenBy(s => s.Id)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Puts a removed subcategory back in the library (with its history, which was never touched). It is not re-added to
+    /// any routine: weight 0 until the user sets one. Returns it with its tuning loaded.
+    /// </summary>
+    public Subcategory Restore(int subcategoryId)
+    {
+        using var db = contextFactory.CreateDbContext();
+        var subcategory = db.Subcategories.Include(s => s.Tuning).Single(s => s.Id == subcategoryId);
+        subcategory.IsArchived = false;
+        db.SaveChanges();
+        return subcategory;
+    }
+
     /// <summary>Soft-deletes a subcategory and removes it from every routine. Past plans keep their history.</summary>
     public void Archive(int subcategoryId)
     {

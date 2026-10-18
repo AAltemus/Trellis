@@ -109,4 +109,17 @@ public class PracticeTempoTests
         Assert.Equal(0, index);
         Assert.Equal([Ex("", 88, null)], lines);
     }
+
+    [Fact]
+    public void Removed_lines_are_never_picked_or_written_to()
+    {
+        ExerciseLog[] lines = [Ex("Trills", 140) with { RemovedRun = 1 }, Ex("Scale", 100, NoteValue.Eighths)];
+
+        Assert.Equal("Scale", PracticeTempo.Plan(History(), lines, 60, 160).ExerciseName);
+
+        var (written, index) = PracticeTempo.RecordReached(lines, "Trills", NoteValue.Sixteenths, 152);
+        Assert.Equal(2, index);                                       // a new current line, not the removed one
+        Assert.Equal(140, written[0].Bpm);
+        Assert.Equal(Ex("Trills", 152), written[2]);
+    }
 }

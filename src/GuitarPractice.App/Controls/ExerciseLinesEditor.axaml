@@ -7,15 +7,18 @@
     <ItemsControl ItemsSource="{Binding Lines}">
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:ExerciseLineViewModel">
-          <Grid ColumnDefinitions="*,150,120,Auto" ColumnSpacing="6" Margin="0,1">
+          <Grid ColumnDefinitions="*,Auto,150,130,Auto" ColumnSpacing="6" Margin="0,1">
             <AutoCompleteBox Text="{Binding Name}" ItemsSource="{Binding Suggestions}" FilterMode="ContainsOrdinal"
                              MinimumPrefixLength="0" Watermark="Exercise, e.g. 3nps scale"
                              ToolTip.Tip="What you played; names you used before in this block are suggested" />
-            <NumericUpDown Grid.Column="1" Value="{Binding Bpm}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
+            <TextBlock Grid.Column="1" Text="removed" FontSize="11" Opacity="0.7" VerticalAlignment="Center" IsVisible="{Binding IsRemoved}"
+                       ToolTip.Tip="This exercise was removed from progress: the line stays as history and is saved as it is" />
+            <NumericUpDown Grid.Column="2" Value="{Binding Bpm}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
                            Watermark="BPM" />
-            <ComboBox Grid.Column="2" ItemsSource="{Binding NoteValues}" SelectedItem="{Binding NoteValue}"
+            <ComboBox Grid.Column="3" ItemsSource="{Binding NoteValues}" SelectedItem="{Binding NoteValue}"
                       HorizontalAlignment="Stretch" ToolTip.Tip="What the BPM counts: 120 in 16ths is twice as fast as 120 in 8ths" />
-            <Button Grid.Column="3" Content="✕" Command="{Binding RemoveCommand}" Padding="8,2" ToolTip.Tip="Remove this exercise" />
+            <Button Grid.Column="4" Content="✕" Command="{Binding RemoveCommand}" Padding="8,2"
+                    ToolTip.Tip="Delete this line from this day (to stop tracking an exercise but keep its history, use Remove in Progress)" />
           </Grid>
         </DataTemplate>
       </ItemsControl.ItemTemplate>

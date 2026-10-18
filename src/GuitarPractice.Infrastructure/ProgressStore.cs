@@ -35,7 +35,8 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
             .Select(x => new ExerciseLog(
                 Clean(x.Name, ProgressExercise.MaxNameLength) ?? "",
                 x.Bpm is >= ProgressExercise.MinBpm and <= ProgressExercise.MaxBpm ? x.Bpm : null,
-                x.NoteValue is { } v && Enum.IsDefined(v) ? v : null))
+                x.NoteValue is { } v && Enum.IsDefined(v) ? v : null,
+                x.RemovedRun is >= 1 ? x.RemovedRun : null))
             .Where(x => x.Name.Length > 0 || x.Bpm is not null)
             .ToList();
         rating = rating is >= 1 and <= 5 ? rating : null;
@@ -63,7 +64,10 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
         db.ProgressExercises.RemoveRange(entry.Exercises);
         entry.Exercises.Clear();
         for (var i = 0; i < lines.Count; i++)
-            entry.Exercises.Add(new ProgressExercise { Name = lines[i].Name, Bpm = lines[i].Bpm, NoteValue = lines[i].NoteValue, SortOrder = i });
+            entry.Exercises.Add(new ProgressExercise
+            {
+                Name = lines[i].Name, Bpm = lines[i].Bpm, NoteValue = lines[i].NoteValue, RemovedRun = lines[i].RemovedRun, SortOrder = i,
+            });
         entry.Rating = rating;
         entry.Notes = notes;
         entry.UpdatedAt = clock.GetUtcNow();
@@ -90,10 +94,35 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
             .Select(date =>
             {
                 entries.TryGetValue(date, out var e);
-                var lines = e?.Exercises.OrderBy(x => x.SortOrder).Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue)).ToList() ?? [];
+                var lines = e?.Exercises.OrderBy(x => x.SortOrder).Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue, x.RemovedRun)).ToList() ?? [];
                 return new ProgressDay(date, seconds.GetValueOrDefault(date), lines, e?.Rating, e?.Notes);
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// Removes an exercise (name + note value) from the block's current progress without deleting anything: its current
+    /// lines are marked as a removed run (the next run number for that exercise), so they stay in the history and the day
+    /// log, and logging the same name again starts a fresh run. Its own target is kept. Returns the lines marked (0 =
+    /// nothing current to remove). Raises <see cref="Changed"/>.
+    /// </summary>
+    public int RemoveExercise(int subcategoryId, string? name, NoteValue? noteValue)
+    {
+        var key = ProgressStats.ExerciseKey(name, noteValue);
+        using var db = contextFactory.CreateDbContext();
+        var same = db.ProgressExercises
+            .Where(x => x.ProgressEntry.SubcategoryId == subcategoryId && x.NoteValue == noteValue)
+            .AsEnumerable()
+            .Where(x => ProgressStats.ExerciseKey(x.Name, x.NoteValue) == key)
+            .ToList();
+        var current = same.Where(x => x.RemovedRun is null).ToList();
+        if (current.Count == 0) return 0;
+
+        var run = same.Max(x => x.RemovedRun ?? 0) + 1;
+        foreach (var line in current) line.RemovedRun = run;
+        db.SaveChanges();
+        Changed?.Invoke(this, subcategoryId);
+        return current.Count;
     }
 
     /// <summary>Exercise names used in this block, most recently used first (for suggestions).</summary>

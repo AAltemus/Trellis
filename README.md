@@ -15,6 +15,10 @@ into a weekly plan, with a metronome, tuner, recorder and progress tracking. C# 
   (Learning / Polishing / Maintaining) and are weighted and scheduled like any drill.
 - 78 built-in subcategories across 11 exercise categories, each with practice notes and BPM ranges where relevant.
   Hover a name in the app to see the notes. Add your own categories and subcategories from the library panel.
+- Any subcategory, built-in or your own, can be removed with its ✕ (asks first). Removing hides it from the library
+  and the routine but deletes nothing: its practice time and progress stay, and the Progress window still lists it
+  ("removed from library") while it has history. **Removed items** at the bottom of the library lists them with
+  **Restore**, which puts one back in its category at weight 0.
 
 ## Practising
 
@@ -28,7 +32,7 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   reshuffles, weight changes, locking and restarts (loading a saved week into a week clears it, see below). The seed
   is saved too, so the plan doesn't move between launches.
 - **Log for the day** (collapsible section under the timer): the exercises you played in the block, each with BPM and
-  note value (names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
+  note value (quarters, 8ths, triplets, 16ths, quintuplets, sextuplets; names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
 - **♩ Metronome** (Tools → Practice with metronome, Ctrl+Shift+M): opens the metronome for the selected item and starts
   it. It picks the exercise (the first named line in the log, else the one you logged last), starts at the tempo typed
   on that line or your latest logged tempo for it (else the block's start BPM), uses its note value as the subdivision
@@ -54,7 +58,7 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 
 ## Tools menu
 
-- **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth subdivisions,
+- **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth/quintuplet/sextuplet subdivisions,
   accent on beat 1, volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
   - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
   - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.
@@ -92,6 +96,9 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   and latest BPM and progress toward its target. Set your own targets per exercise, or a block target as the fallback.
   A BPM chart with a line per exercise (up to four) and dashed target lines, a minutes-per-day chart, and a day table
   you can edit for any date. While it's open it follows the block you select in the week.
+  **Remove** (asks first) stops tracking an exercise: it leaves the list and the chart, but nothing is deleted; its
+  lines stay in the day table marked "(removed)" and it's listed under "Removed exercises (history kept)". Logging the
+  same name again starts it over from scratch (its own target, if set, stays).
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
 

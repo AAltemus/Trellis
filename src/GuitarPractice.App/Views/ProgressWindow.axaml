@@ -43,7 +43,9 @@
     </DockPanel>
 
     <!-- Selected exercise -->
-    <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <!-- Scrolls when the window is short (charts, day table and editor no longer paint over each other). -->
+    <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,0,16,0">
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Re-read practice time (the timer saves it while you practise)" />
@@ -79,7 +81,7 @@
         <ItemsControl ItemsSource="{Binding ExerciseSummaries}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ExerciseSummaryRow">
-              <Grid ColumnDefinitions="20,240,*,110,150" ColumnSpacing="6" Margin="0,1">
+              <Grid ColumnDefinitions="20,240,*,110,150,Auto" ColumnSpacing="6" Margin="0,1">
                 <c:SeriesSwatch Slot="{Binding Slot}" IsVisible="{Binding IsCharted}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="{Binding Detail}" Opacity="0.8" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -87,12 +89,35 @@
                              VerticalAlignment="Center" IsVisible="{Binding HasTarget}" ToolTip.Tip="Progress toward this exercise's target" />
                 <NumericUpDown Grid.Column="4" Value="{Binding OwnTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
                                Watermark="{Binding TargetWatermark}" ToolTip.Tip="Your own target for this exercise; empty = use the block target" />
+                <Button Grid.Column="5" Content="Remove" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12"
+                        IsVisible="{Binding !IsConfirmingRemove}"
+                        ToolTip.Tip="Stop tracking this exercise: it leaves the list and chart, its history is kept. Log the same name again to start over." />
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsConfirmingRemove}">
+                  <Button Content="Remove it" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12" Foreground="#E53935" />
+                  <Button Content="Cancel" Command="{Binding CancelRemoveCommand}" Padding="8,2" FontSize="12" />
+                </StackPanel>
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
         <TextBlock Text="Only the first four exercises logged in a block get a line on the chart; the others are in the list and the table."
                    Classes="label" IsVisible="{Binding HasUnchartedExercises}" TextWrapping="Wrap" />
+        <Expander IsVisible="{Binding HasRemovedExercises}" Padding="8,4" HorizontalAlignment="Stretch"
+                  ToolTip.Tip="Exercises you removed. Their lines stay in the day table (marked removed); logging the same name again starts a new run.">
+          <Expander.Header>
+            <TextBlock Text="Removed exercises (history kept)" FontSize="12" />
+          </Expander.Header>
+          <ItemsControl ItemsSource="{Binding RemovedExercises}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:RemovedExerciseRow">
+                <Grid ColumnDefinitions="240,*" ColumnSpacing="6" Margin="20,1,0,1">
+                  <TextBlock Text="{Binding Label}" Opacity="0.8" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="1" Text="{Binding Detail}" Opacity="0.7" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </Expander>
         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
           <TextBlock Text="{Binding TargetStatus}" Foreground="#43A047" FontSize="12" VerticalAlignment="Center" />
           <Button Content="Save targets" Command="{Binding SaveTargetsCommand}"
@@ -101,7 +126,7 @@
       </StackPanel>
 
       <!-- Charts (two single-axis charts) + day table -->
-      <Grid Grid.Row="3" RowDefinitions="Auto,170,Auto,100,Auto,*">
+      <Grid Grid.Row="3" RowDefinitions="Auto,170,Auto,100,Auto,Auto">
         <TextBlock Text="Tempo per exercise (BPM)" Classes="charttitle" />
         <c:ProgressChart Grid.Row="1" Kind="Line" Series="{Binding BpmSeries}" ReferenceValue="{Binding TargetBpm}"
                          ReferenceLabel="{Binding TargetLabel}" From="{Binding ChartFrom}" To="{Binding ChartTo}"
@@ -116,7 +141,8 @@
           <TextBlock Grid.Column="3" Text="Rating" Classes="label" />
           <TextBlock Grid.Column="4" Text="Notes" Classes="label" />
         </Grid>
-        <ListBox Grid.Row="5" ItemsSource="{Binding DayRows}" SelectedItem="{Binding SelectedDay}" MinHeight="80">
+        <ListBox Grid.Row="5" ItemsSource="{Binding DayRows}" SelectedItem="{Binding SelectedDay}" Height="220"
+                 ToolTip.Tip="Pick a day to edit it below">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:DayRowViewModel">
               <Grid ColumnDefinitions="150,70,*,60,200">
@@ -151,5 +177,6 @@
         </StackPanel>
       </Border>
     </Grid>
+    </ScrollViewer>
   </Grid>
 </Window>

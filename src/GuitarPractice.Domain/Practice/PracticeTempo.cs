@@ -24,7 +24,7 @@ public static class PracticeTempo
         string? name;
         NoteValue? noteValue;
         int? typedBpm = null;
-        if (todaysLines.FirstOrDefault(l => !string.IsNullOrWhiteSpace(l.Name)) is { } line)
+        if (todaysLines.FirstOrDefault(l => l.RemovedRun is null && !string.IsNullOrWhiteSpace(l.Name)) is { } line)
             (name, noteValue, typedBpm) = (line.Name.Trim(), line.NoteValue, line.Bpm);
         else if (summary.Latest is { } latest)
             (name, noteValue) = (latest.Name, latest.NoteValue);
@@ -52,14 +52,14 @@ public static class PracticeTempo
         var written = new ExerciseLog(exerciseName?.Trim() ?? "", bpm, noteValue);
         var key = ProgressStats.ExerciseKey(exerciseName, noteValue);
 
-        var index = result.FindIndex(l => ProgressStats.ExerciseKey(l.Name, l.NoteValue) == key);
+        var index = result.FindIndex(l => l.RemovedRun is null && ProgressStats.ExerciseKey(l.Name, l.NoteValue) == key); // never into a removed run
         if (index >= 0)
         {
             result[index] = result[index] with { Bpm = bpm };
             return (result, index);
         }
 
-        index = result.FindIndex(l => string.IsNullOrWhiteSpace(l.Name) && l.Bpm is null);
+        index = result.FindIndex(l => l.RemovedRun is null && string.IsNullOrWhiteSpace(l.Name) && l.Bpm is null);
         if (index >= 0) result[index] = written;
         else
         {

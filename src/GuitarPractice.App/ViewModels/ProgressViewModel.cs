@@ -10,12 +10,16 @@ using GuitarPractice.Infrastructure;
 
 namespace GuitarPractice.App.ViewModels;
 
-/// <summary>A block (subcategory) in the Progress list.</summary>
-public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string category) : ObservableObject
+/// <summary>
+/// A block (subcategory) in the Progress list. <paramref name="removedFromLibrary"/>: the block was removed from the
+/// library; it is listed only while it has history.
+/// </summary>
+public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string category, bool removedFromLibrary = false) : ObservableObject
 {
     public int Id { get; } = subcategory.Id;
     public string Name { get; } = subcategory.DisplayName;
-    public string Category { get; } = category;
+    public string Category { get; } = removedFromLibrary ? $"{category} · removed from library" : category;
+    public bool IsRemovedFromLibrary { get; } = removedFromLibrary;
     public int? StartBpm { get; } = subcategory.StartBpm;
 
     /// <summary>The block's target; editable in the Progress window.</summary>
@@ -29,8 +33,12 @@ public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string
     private DateOnly? _lastActivity;
 }
 
-/// <summary>One exercise within the selected block, with its own (editable) target; empty = use the block target.</summary>
-public sealed partial class ExerciseSummaryRow(ExerciseProgress progress, string detail, int? blockTarget) : ObservableObject
+/// <summary>
+/// One exercise within the selected block, with its own (editable) target; empty = use the block target. Remove (asks
+/// first) takes it out of current progress but keeps its history.
+/// </summary>
+public sealed partial class ExerciseSummaryRow(ExerciseProgress progress, string detail, int? blockTarget, Action<ExerciseSummaryRow> remove)
+    : ObservableObject
 {
     public string Name { get; } = progress.Name;
     public NoteValue? NoteValue { get; } = progress.NoteValue;
@@ -48,7 +56,28 @@ public sealed partial class ExerciseSummaryRow(ExerciseProgress progress, string
     private decimal? _ownTarget = progress.HasOwnTarget ? progress.TargetBpm : null;
 
     public string TargetWatermark { get; } = blockTarget is int b ? $"block {b}" : "target";
+
+    [ObservableProperty]
+    private bool _isConfirmingRemove;
+
+    [RelayCommand]
+    private void Remove()
+    {
+        if (!IsConfirmingRemove)
+        {
+            IsConfirmingRemove = true;
+            return;
+        }
+        IsConfirmingRemove = false;
+        remove(this);
+    }
+
+    [RelayCommand]
+    private void CancelRemove() => IsConfirmingRemove = false;
 }
+
+/// <summary>An exercise run removed from the block: its history, read-only.</summary>
+public sealed record RemovedExerciseRow(string Label, string Detail);
 
 /// <summary>A day in the history table.</summary>
 public sealed record DayRowViewModel(DateOnly Date, int Seconds, IReadOnlyList<ExerciseLog> Exercises, int? Rating, string? Notes)
@@ -64,7 +93,7 @@ public sealed record DayRowViewModel(DateOnly Date, int Seconds, IReadOnlyList<E
         var name = string.IsNullOrEmpty(x.Name) ? "(unnamed)" : x.Name;
         var tempo = x.Bpm is int b ? $" {b}" : "";
         var value = x.NoteValue is { } v ? $" {ProgressStats.NoteValueName(v)}" : "";
-        return name + tempo + value;
+        return name + tempo + value + (x.RemovedRun is not null ? " (removed)" : "");
     }
 }
 
@@ -96,6 +125,8 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         foreach (var category in library.LoadLibrary())
             foreach (var s in category.Subcategories)
                 _allRows.Add(new ExerciseRowViewModel(s, category.Name));
+        foreach (var s in library.LoadRemoved()) // their history is kept; shown while they have some
+            _allRows.Add(new ExerciseRowViewModel(s, s.Category.Name, removedFromLibrary: true));
         _store.Changed += OnStoreChanged;
         RefreshList();
         SelectedExercise = Exercises.FirstOrDefault();
@@ -141,6 +172,12 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _hasUnchartedExercises;
+
+    /// <summary>Exercises removed from this block, newest first; their lines stay in the day table.</summary>
+    public ObservableCollection<RemovedExerciseRow> RemovedExercises { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasRemovedExercises;
 
     [ObservableProperty]
     private IReadOnlyList<ChartSeries> _bpmSeries = [];
@@ -253,6 +290,16 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         EditStatus = "Cleared (practice time, if any, stays)";
     }
 
+    /// <summary>Takes an exercise out of the block's current progress; its history stays (see ProgressStore.RemoveExercise).</summary>
+    private void RemoveExercise(ExerciseSummaryRow row)
+    {
+        if (SelectedExercise is not { } block) return;
+        var lines = _store.RemoveExercise(block.Id, row.Name, row.NoteValue); // Changed reloads the view
+        TargetStatus = lines > 0
+            ? $"Removed {row.Label} ({lines} line{(lines == 1 ? "" : "s")} kept as history). Log the same name again to start over."
+            : "";
+    }
+
     private void OnStoreChanged(object? sender, int subcategoryId)
     {
         var row = _allRows.FirstOrDefault(r => r.Id == subcategoryId);
@@ -265,7 +312,7 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     {
         var withHistory = _store.SubcategoriesWithHistory();
         Exercises.Clear();
-        foreach (var row in _allRows.Where(r => ShowAllExercises || _inRoutine.Contains(r.Id) || withHistory.Contains(r.Id)))
+        foreach (var row in _allRows.Where(r => withHistory.Contains(r.Id) || (!r.IsRemovedFromLibrary && (ShowAllExercises || _inRoutine.Contains(r.Id)))))
         {
             UpdateRowSummary(row);
             Exercises.Add(row);
@@ -325,8 +372,19 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
             if (e.LatestBpm is int latest && latest != e.BestBpm) detail.Add($"latest {latest}");
             if (e.TargetFraction is double f) detail.Add($"{f:P0} of {e.TargetBpm}{(e.HasOwnTarget ? "" : " (block)")}");
             detail.Add($"logged {e.TimesLogged}×, last {e.LastDate:MMM d}");
-            ExerciseSummaries.Add(new ExerciseSummaryRow(e, string.Join(" · ", detail), block.TargetBpm));
+            ExerciseSummaries.Add(new ExerciseSummaryRow(e, string.Join(" · ", detail), block.TargetBpm, RemoveExercise));
         }
+        RemovedExercises.Clear();
+        foreach (var e in s.Removed.OrderByDescending(e => e.LastDate))
+        {
+            var detail = new List<string>();
+            if (e.BestBpm is int best) detail.Add($"best {best}");
+            if (e.LatestBpm is int latest && latest != e.BestBpm) detail.Add($"last {latest}");
+            detail.Add($"logged {e.TimesLogged}×");
+            detail.Add(e.FirstDate == e.LastDate ? $"{e.FirstDate:MMM d, yyyy}" : $"{e.FirstDate:MMM d, yyyy} – {e.LastDate:MMM d, yyyy}");
+            RemovedExercises.Add(new RemovedExerciseRow(e.Label, string.Join(" · ", detail)));
+        }
+        HasRemovedExercises = RemovedExercises.Count > 0;
         HasUnchartedExercises = s.Exercises.Count > ProgressChart.MaxSeries;
 
         // Block target line (neutral) only while some charted exercise still uses it; own targets are drawn per line.
@@ -368,7 +426,7 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         }
         var entry = _store.Get(DateOnly.FromDateTime(date), block.Id);
         EditExercises.SetSuggestions(_store.ExerciseNames(block.Id));
-        EditExercises.Load(entry?.Exercises.Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue)) ?? []);
+        EditExercises.Load(entry?.Exercises.Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue, x.RemovedRun)) ?? []);
         EditRating = RatingOption.All.FirstOrDefault(r => r.Value == entry?.Rating) ?? RatingOption.All[0];
         EditNotes = entry?.Notes ?? "";
     }

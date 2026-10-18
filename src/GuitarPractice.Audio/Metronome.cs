@@ -9,6 +9,8 @@ public enum Subdivision
     Eighths = 2,
     Triplets = 3,
     Sixteenths = 4,
+    Quintuplets = 5,
+    Sextuplets = 6,
 }
 
 public enum ClickKind

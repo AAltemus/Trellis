@@ -3,8 +3,11 @@ using GuitarPractice.Domain.Planning;
 
 namespace GuitarPractice.Domain.Practice;
 
-/// <summary>One exercise line as logged: name, tempo and the note value the tempo counts.</summary>
-public sealed record ExerciseLog(string Name, int? Bpm, NoteValue? NoteValue);
+/// <summary>
+/// One exercise line as logged: name, tempo and the note value the tempo counts. <paramref name="RemovedRun"/>: null = the
+/// exercise's current run; a number = a run the user removed (history only, see <see cref="ProgressExercise.RemovedRun"/>).
+/// </summary>
+public sealed record ExerciseLog(string Name, int? Bpm, NoteValue? NoteValue, int? RemovedRun = null);
 
 /// <summary>One block (subcategory) on one day: time from the practice log plus the progress entry, if any.</summary>
 public sealed record ProgressDay(DateOnly Date, int SecondsPractised, IReadOnlyList<ExerciseLog> Exercises, int? Rating, string? Notes)
@@ -15,7 +18,8 @@ public sealed record ProgressDay(DateOnly Date, int SecondsPractised, IReadOnlyL
 /// <summary>
 /// Progress of one exercise within a block. Exercises are identified by name (trimmed, case- and space-insensitive)
 /// <b>and</b> note value: 120 in sixteenths and 120 in eighths are different speeds, so they are tracked separately.
-/// <see cref="Slot"/> is the order the exercise was first logged in this block (0-based); it never changes, so a
+/// <see cref="Slot"/> is the order the current exercise was first logged in this block (0-based) among the block's current
+/// exercises (removed runs don't count and get -1); it changes only when an earlier exercise is removed, so a
 /// chart can colour by it and an exercise keeps its colour.
 /// </summary>
 public sealed record ExerciseProgress(
@@ -31,14 +35,18 @@ public sealed record ExerciseProgress(
     bool HasOwnTarget,
     double? TargetFraction,
     int TimesLogged,
-    IReadOnlyList<(DateOnly Date, int Bpm)> BpmHistory)
+    IReadOnlyList<(DateOnly Date, int Bpm)> BpmHistory,
+    int? RemovedRun = null)
 {
+    public bool IsRemoved => RemovedRun is not null;
+
     public string Label => NoteValue is { } v ? $"{DisplayName} · {ProgressStats.NoteValueName(v)}" : DisplayName;
     public string DisplayName => string.IsNullOrEmpty(Name) ? "(unnamed)" : Name;
 }
 
 /// <summary>Headline numbers for one block.</summary>
-/// <param name="Exercises">Per exercise, in first-logged order (= <see cref="ExerciseProgress.Slot"/>).</param>
+/// <param name="Exercises">The current exercises, in first-logged order (= <see cref="ExerciseProgress.Slot"/>).</param>
+/// <param name="RemovedExercises">Runs the user removed (history only; <see cref="ExerciseProgress.Slot"/> = -1), oldest first.</param>
 /// <param name="Streak">Consecutive days with practice or a log entry, ending today (or yesterday, so it isn't
 /// "broken" before you've practised today).</param>
 public sealed record ProgressSummary(
@@ -48,8 +56,11 @@ public sealed record ProgressSummary(
     int MinutesThisWeek,
     int MinutesLast28Days,
     DateOnly? LastPractised,
-    int DaysPractised)
+    int DaysPractised,
+    IReadOnlyList<ExerciseProgress>? RemovedExercises = null)
 {
+    public IReadOnlyList<ExerciseProgress> Removed => RemovedExercises ?? [];
+
     /// <summary>The exercise logged most recently (ties: the later line that day), if any.</summary>
     public ExerciseProgress? Latest => Exercises.OrderBy(e => e.LastDate).ThenBy(e => e.Slot).LastOrDefault();
 }
@@ -65,6 +76,8 @@ public static class ProgressStats
         NoteValue.Eighths => "8ths",
         NoteValue.Triplets => "triplets",
         NoteValue.Sixteenths => "16ths",
+        NoteValue.Quintuplets => "quintuplets",
+        NoteValue.Sextuplets => "sextuplets",
         _ => value.ToString(),
     };
 
@@ -82,24 +95,28 @@ public static class ProgressStats
         ArgumentNullException.ThrowIfNull(history);
         var days = history.Where(d => d.Date <= today).OrderBy(d => d.Date).ToList();
 
-        // Per exercise, in first-logged order.
-        var order = new List<string>();
-        var byKey = new Dictionary<string, List<(DateOnly Date, ExerciseLog Line)>>();
+        // Per exercise run (name + note value + removed run), in first-logged order.
+        var order = new List<(string Key, int? Run)>();
+        var byRun = new Dictionary<(string Key, int? Run), List<(DateOnly Date, ExerciseLog Line)>>();
         foreach (var day in days)
             foreach (var line in day.Exercises)
             {
-                var key = ExerciseKey(line.Name, line.NoteValue);
-                if (!byKey.TryGetValue(key, out var list))
+                var id = (ExerciseKey(line.Name, line.NoteValue), line.RemovedRun);
+                if (!byRun.TryGetValue(id, out var list))
                 {
-                    byKey[key] = list = [];
-                    order.Add(key);
+                    byRun[id] = list = [];
+                    order.Add(id);
                 }
                 list.Add((day.Date, line));
             }
 
-        var exercises = order.Select((key, slot) =>
+        // Slots (chart colours) go to current exercises only, in first-logged order; removed runs get -1.
+        var slots = order.Where(id => id.Run is null).Select((id, slot) => (id, slot)).ToDictionary(x => x.id, x => x.slot);
+        var all = order.Select(id =>
         {
-            var lines = byKey[key];
+            var (key, run) = id;
+            var slot = slots.GetValueOrDefault(id, -1);
+            var lines = byRun[id];
             var latestName = lines[^1].Line.Name.Trim();
             var bpms = lines.Where(l => l.Line.Bpm is not null).Select(l => (l.Date, Bpm: l.Line.Bpm!.Value)).ToList();
             var best = bpms.Count > 0 ? bpms.Max(b => b.Bpm) : (int?)null;
@@ -115,8 +132,10 @@ public static class ProgressStats
             var history = bpms.GroupBy(x => x.Date).Select(g => (g.Key, g.Max(x => x.Bpm))).OrderBy(x => x.Key).ToList();
             return new ExerciseProgress(
                 key, latestName, lines[0].Line.NoteValue, slot, lines[0].Date, lines[^1].Date,
-                best, bpms.Count > 0 ? bpms[^1].Bpm : null, effectiveTarget, own is not null, fraction, lines.Count, history);
+                best, bpms.Count > 0 ? bpms[^1].Bpm : null, effectiveTarget, own is not null, fraction, lines.Count, history, run);
         }).ToList();
+        var exercises = all.Where(e => !e.IsRemoved).ToList();
+        var removed = all.Where(e => e.IsRemoved).ToList();
 
         var rated = days.Where(d => d.Rating is not null).TakeLast(RecentRatings).ToList();
         double? recentRating = rated.Count > 0 ? rated.Average(d => d.Rating!.Value) : null;
@@ -142,6 +161,7 @@ public static class ProgressStats
             minutesThisWeek,
             minutes28,
             practised.Count > 0 ? practised[^1].Date : null,
-            practised.Count);
+            practised.Count,
+            removed);
     }
 }

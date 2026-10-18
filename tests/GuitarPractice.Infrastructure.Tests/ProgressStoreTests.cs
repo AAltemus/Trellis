@@ -167,4 +167,55 @@ public sealed class ProgressStoreTests : IDisposable
         db.ProgressEntries.Add(entry);
         Assert.Throws<DbUpdateException>(() => db.SaveChanges());
     }
+
+    [Fact]
+    public void Removing_an_exercise_keeps_its_history_and_the_same_name_starts_over()
+    {
+        _store.Save(Monday, _block, [Ex("Rolling sweeps", 80), Ex("Trills", 150)], 4, "day one");
+        _store.Save(Monday.AddDays(1), _block, [Ex("rolling  SWEEPS", 90)], null, null);
+        _store.SetTarget(_block, "Rolling sweeps", NoteValue.Sixteenths, 140);
+        var changes = 0;
+        _store.Changed += (_, id) => { if (id == _block) changes++; };
+
+        Assert.Equal(2, _store.RemoveExercise(_block, " Rolling Sweeps ", NoteValue.Sixteenths));
+        Assert.Equal(0, _store.RemoveExercise(_block, "Rolling sweeps", NoteValue.Sixteenths)); // nothing current left
+        Assert.Equal(0, _store.RemoveExercise(_block, "Trills", NoteValue.Eighths));            // other note value: not this one
+        Assert.Equal(1, changes);
+
+        var history = _store.History(_block);
+        Assert.Equal([Ex("Rolling sweeps", 80) with { RemovedRun = 1 }, Ex("Trills", 150)], history[0].Exercises); // nothing deleted
+        Assert.Equal((4, "day one"), (history[0].Rating, history[0].Notes));
+
+        // Logging the name again starts a new run; removing that one makes run 2.
+        _store.Save(Monday.AddDays(3), _block, [Ex("Rolling sweeps", 60)], null, null);
+        var s = ProgressStats.Summarize(_store.History(_block), null, null, Monday.AddDays(3), _store.Targets(_block));
+        var fresh = s.Exercises.Single(e => e.Name == "Rolling sweeps");
+        Assert.Equal((60, 1, 140), (fresh.BestBpm!.Value, fresh.TimesLogged, fresh.TargetBpm!.Value)); // own target kept
+        Assert.Equal((90, 1), (s.Removed.Single().BestBpm!.Value, s.Removed.Single().RemovedRun!.Value));
+
+        _store.RemoveExercise(_block, "Rolling sweeps", NoteValue.Sixteenths);
+        Assert.Equal([1, 2], _store.History(_block).SelectMany(d => d.Exercises).Where(x => x.Name.StartsWith("R", StringComparison.OrdinalIgnoreCase)).Select(x => x.RemovedRun!.Value).Distinct().Order());
+    }
+
+    [Fact]
+    public void Saving_a_day_keeps_which_lines_were_removed()
+    {
+        _store.Save(Monday, _block, [Ex("Old", 80), Ex("Keep", 100)], null, null);
+        _store.RemoveExercise(_block, "Old", NoteValue.Sixteenths);
+
+        // An editor loads the day (with the marker), changes the rating, saves.
+        var lines = _store.History(_block)[0].Exercises;
+        _store.Save(Monday, _block, lines, 5, null);
+
+        Assert.Equal([1, null], _store.Get(Monday, _block)!.Exercises.Select(x => x.RemovedRun));
+        _store.Save(Monday, _block, [Ex("Bad run", 1) with { RemovedRun = 0 }], null, null); // out of range: current
+        Assert.Null(Assert.Single(_store.Get(Monday, _block)!.Exercises).RemovedRun);
+    }
+
+    [Fact]
+    public void Quintuplets_and_sextuplets_are_stored()
+    {
+        _store.Save(Monday, _block, [Ex("Fives", 72, NoteValue.Quintuplets), Ex("Sixes", 66, NoteValue.Sextuplets)], null, null);
+        Assert.Equal([NoteValue.Quintuplets, NoteValue.Sextuplets], _store.Get(Monday, _block)!.Exercises.Select(x => x.NoteValue!.Value));
+    }
 }

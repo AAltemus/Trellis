@@ -7,6 +7,8 @@ public enum NoteValue
     Eighths = 2,
     Triplets = 3,
     Sixteenths = 4,
+    Quintuplets = 5,
+    Sextuplets = 6,
 }
 
 /// <summary>
@@ -68,4 +70,11 @@ public class ProgressExercise
     public int? Bpm { get; set; }
     public NoteValue? NoteValue { get; set; }
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// Null = part of the exercise's current run. A number = the line belonged to a run the user removed from the block
+    /// (1 = first removal of that name + note value, 2 = second …): kept as history, left out of current progress, so
+    /// logging the same name again starts over.
+    /// </summary>
+    public int? RemovedRun { get; set; }
 }
