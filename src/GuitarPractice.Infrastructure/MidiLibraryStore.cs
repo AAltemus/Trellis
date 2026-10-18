@@ -10,7 +10,8 @@ public sealed record MidiLibraryItem(string FileName, string Path, long Bytes, D
 
 /// <summary>
 /// How a file was last played, restored when it's opened again. Tracks are identified by their index in the file, so
-/// muting the guitar sticks even if tracks are added elsewhere.
+/// muting the guitar sticks even if tracks are added elsewhere. <see cref="TrackVolumes"/>: file track index → percent
+/// (0–100), only for tracks not at 100. Fields are only ever appended (older saved rows load with the defaults).
 /// </summary>
 public sealed record MidiFileSettings(
     int SpeedPercent = 100,
@@ -20,7 +21,9 @@ public sealed record MidiFileSettings(
     bool CountIn = true,
     int VolumePercent = 100,
     List<int>? MutedTracks = null,
-    List<int>? SoloTracks = null);
+    List<int>? SoloTracks = null,
+    bool CountInEachLoop = false,
+    Dictionary<int, int>? TrackVolumes = null);
 
 /// <summary>Per-file settings and practice-item links (AppSettings key "midiLibrary").</summary>
 public sealed record MidiLibraryData(Dictionary<string, MidiFileSettings> Files, Dictionary<int, string> Links);

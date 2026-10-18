@@ -24,6 +24,9 @@ public readonly record struct TempoChange(long Tick, int MicrosecondsPerQuarter)
 
 public readonly record struct TimeSignature(long Tick, int Numerator, int Denominator);
 
+/// <summary>A position as bar and beat (1-based) and how many beats that bar has.</summary>
+public readonly record struct BarBeat(int Bar, int Beat, int BeatsInBar);
+
 /// <summary>
 /// A parsed standard MIDI file (format 0 or 1), ready to play: channel events in time order with their time in seconds
 /// (from the tempo map, at 100 % speed), the tracks that play something, time signatures and bar starts.
@@ -123,6 +126,20 @@ public sealed class MidiSong
         var tick = TickAt(Math.Max(0, seconds));
         var index = Array.BinarySearch(_barTicks, tick);
         return Math.Clamp(index >= 0 ? index + 1 : ~index, 1, _barTicks.Length);
+    }
+
+    /// <summary>
+    /// Bar and beat (both 1-based) at <paramref name="seconds"/>; a beat is the time signature's denominator (6/8 has six
+    /// eighth-note beats).
+    /// </summary>
+    public BarBeat BarBeatAt(double seconds)
+    {
+        var bar = BarAt(seconds);
+        var start = BarStartTick(bar);
+        var sig = TimeSignatureAt(start);
+        var ticksPerBeat = TicksPerQuarter * 4.0 / sig.Denominator;
+        var beat = (int)((TickAt(Math.Max(0, seconds)) - start) / ticksPerBeat) + 1;
+        return new BarBeat(bar, Math.Clamp(beat, 1, Math.Max(1, sig.Numerator)), Math.Max(1, sig.Numerator));
     }
 
     private int TempoIndexAtTick(long tick)

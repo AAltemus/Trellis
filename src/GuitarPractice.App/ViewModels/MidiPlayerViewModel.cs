@@ -20,7 +20,7 @@ public sealed class MidiFileItemViewModel(MidiLibraryItem item)
     public override string ToString() => Name;
 }
 
-/// <summary>A track: mute (play it yourself) or solo (hear only it).</summary>
+/// <summary>A track: mute (play it yourself), solo (hear only it) or turn it down.</summary>
 public sealed partial class MidiTrackViewModel(MidiPlayerViewModel owner, int slot, MidiTrackInfo track) : ObservableObject
 {
     public int Slot { get; } = slot;
@@ -34,8 +34,40 @@ public sealed partial class MidiTrackViewModel(MidiPlayerViewModel owner, int sl
     [ObservableProperty]
     private bool _isSoloed;
 
+    /// <summary>0–100 %.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VolumeText))]
+    private double _volume = 100;
+
+    public string VolumeText => $"{Math.Round(Volume)} %";
+
     partial void OnIsMutedChanged(bool value) => owner.OnTracksChanged();
     partial void OnIsSoloedChanged(bool value) => owner.OnTracksChanged();
+    partial void OnVolumeChanged(double value) => owner.OnTracksChanged();
+}
+
+/// <summary>A bar in the bar map: click to jump there.</summary>
+public sealed partial class MidiBarViewModel(MidiPlayerViewModel owner, int number) : ObservableObject
+{
+    public int Number { get; } = number;
+
+    [ObservableProperty]
+    private bool _isCurrent;
+
+    [ObservableProperty]
+    private bool _isInLoop;
+
+    [RelayCommand]
+    private void Jump() => owner.JumpToBar(Number);
+}
+
+/// <summary>A beat light in the current bar.</summary>
+public sealed partial class MidiBeatViewModel(int number) : ObservableObject
+{
+    public int Number { get; } = number;
+
+    [ObservableProperty]
+    private bool _isCurrent;
 }
 
 /// <summary>
@@ -133,6 +165,10 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _countIn = true;
 
+    /// <summary>Count in before every pass of the loop too, not only when Play is pressed.</summary>
+    [ObservableProperty]
+    private bool _countInEachLoop;
+
     [ObservableProperty]
     private double _volume = 100;
 
@@ -157,6 +193,25 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     private string? _error;
 
     public string PlayPauseText => IsPlaying ? "❚❚ Pause" : "▶ Play";
+
+    // ---- Where we are (bar map + big bar/beat readout) ----
+
+    public ObservableCollection<MidiBarViewModel> Bars { get; } = [];
+
+    public ObservableCollection<MidiBeatViewModel> Beats { get; } = [];
+
+    /// <summary>The bar playing now (1-based); the window keeps it in view in the bar map.</summary>
+    [ObservableProperty]
+    private int _currentBar = 1;
+
+    [ObservableProperty]
+    private string _barCaption = "";
+
+    [ObservableProperty]
+    private string _beatCaption = "";
+
+    [ObservableProperty]
+    private bool _isCountingIn;
 
     // ---- Link to a practice item ----
 
@@ -308,6 +363,10 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     private void LoadSong(MidiFileItemViewModel? file)
     {
         Tracks.Clear();
+        Bars.Clear();
+        Beats.Clear();
+        BarCaption = "";
+        BeatCaption = "";
         _song = null;
         Error = File.Exists(SoundFontPath) ? null : Error;
         if (file is null)
@@ -348,10 +407,12 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         {
             for (var slot = 0; slot < song.Tracks.Count; slot++)
             {
+                var index = song.Tracks[slot].Index;
                 var track = new MidiTrackViewModel(this, slot, song.Tracks[slot])
                 {
-                    IsMuted = saved.MutedTracks?.Contains(song.Tracks[slot].Index) == true,
-                    IsSoloed = saved.SoloTracks?.Contains(song.Tracks[slot].Index) == true,
+                    IsMuted = saved.MutedTracks?.Contains(index) == true,
+                    IsSoloed = saved.SoloTracks?.Contains(index) == true,
+                    Volume = saved.TrackVolumes?.TryGetValue(index, out var percent) == true ? Math.Clamp(percent, 0, 100) : 100,
                 };
                 Tracks.Add(track);
             }
@@ -360,12 +421,15 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
             LoopFromBar = Math.Clamp(saved.LoopFromBar, 1, song.BarCount);
             LoopToBar = Math.Clamp(saved.LoopToBar, (int)LoopFromBar, song.BarCount);
             CountIn = saved.CountIn;
+            CountInEachLoop = saved.CountInEachLoop;
             Volume = Math.Clamp(saved.VolumePercent, 0, 200);
+            for (var bar = 1; bar <= song.BarCount; bar++) Bars.Add(new MidiBarViewModel(this, bar));
         }
         finally
         {
             _applying = false;
         }
+        _shownBar = 0;
         _engine?.Load(song);
         PushSettings();
         SetPosition(LoopEnabled ? song.BarStartSeconds((int)(LoopFromBar ?? 1)) : 0, seek: true);
@@ -380,6 +444,7 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     partial void OnLoopFromBarChanged(decimal? value) => PushSettings();
     partial void OnLoopToBarChanged(decimal? value) => PushSettings();
     partial void OnCountInChanged(bool value) => PushSettings();
+    partial void OnCountInEachLoopChanged(bool value) => PushSettings();
     partial void OnVolumeChanged(double value) => PushSettings();
 
     private MidiPlayerSettings CurrentSettings()
@@ -392,14 +457,30 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         }
         var from = (int)Math.Clamp(LoopFromBar ?? 1, 1, Math.Max(1, BarCount));
         var to = (int)Math.Clamp(LoopToBar ?? from, from, Math.Max(1, BarCount));
-        return new MidiPlayerSettings(SpeedPercent / 100.0, LoopEnabled, from, to, CountIn, (float)(Volume / 100.0), muted, soloed);
+        float[] trackVolumes = [.. Tracks.OrderBy(t => t.Slot).Select(t => (float)(t.Volume / 100.0))]; // a new array each time
+        return new MidiPlayerSettings(SpeedPercent / 100.0, LoopEnabled, from, to, CountIn, (float)(Volume / 100.0), muted, soloed,
+            CountInEachLoop, trackVolumes);
     }
 
     private void PushSettings()
     {
         if (_applying) return;
         if (_engine is not null) _engine.Settings = CurrentSettings();
+        UpdateLoopBars();
         UpdatePositionText();
+    }
+
+    private void UpdateLoopBars()
+    {
+        var s = CurrentSettings();
+        foreach (var bar in Bars) bar.IsInLoop = s.LoopEnabled && bar.Number >= s.LoopFromBar && bar.Number <= s.LoopToBar;
+    }
+
+    /// <summary>From the bar map: go to the start of <paramref name="bar"/> (keeps playing if it was).</summary>
+    public void JumpToBar(int bar)
+    {
+        if (_song is null) return;
+        SetPosition(_song.BarStartSeconds(bar), seek: true);
     }
 
     private void SaveFileSettings()
@@ -411,7 +492,9 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
             _library.SaveSettings(file.Item.FileName, new MidiFileSettings(
                 (int)Math.Round(SpeedPercent), s.LoopEnabled, s.LoopFromBar, s.LoopToBar, s.CountIn, (int)Math.Round(Volume),
                 [.. Tracks.Where(t => t.IsMuted).Select(t => t.FileIndex)],
-                [.. Tracks.Where(t => t.IsSoloed).Select(t => t.FileIndex)]));
+                [.. Tracks.Where(t => t.IsSoloed).Select(t => t.FileIndex)],
+                s.CountInEachLoop,
+                Tracks.Where(t => Math.Round(t.Volume) < 100).ToDictionary(t => t.FileIndex, t => (int)Math.Round(t.Volume))));
         }
 #pragma warning disable CA1031 // Losing a preference must not break playback.
         catch (Exception ex)
@@ -546,6 +629,33 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         var bpm = song.QuarterBpmAt(Position) * SpeedPercent / 100.0;
         var counting = _engine?.IsCountingIn == true ? "count-in · " : "";
         PositionText = $"{counting}{Format(Position)} / {Format(song.LengthSeconds)} · bar {song.BarAt(Position)} of {song.BarCount} · {Math.Round(bpm)} BPM";
+        UpdateBarBeat(song);
+    }
+
+    private int _shownBar;
+
+    /// <summary>The big bar number, the beat lights (count-in beats while counting in) and the bar map highlight.</summary>
+    private void UpdateBarBeat(MidiSong song)
+    {
+        var at = song.BarBeatAt(Position);
+        var countInBeat = IsPlaying ? _engine?.CountInBeat ?? 0 : 0;
+        IsCountingIn = countInBeat > 0;
+        var beat = IsCountingIn ? countInBeat : at.Beat;
+
+        if (Beats.Count != at.BeatsInBar)
+        {
+            Beats.Clear();
+            for (var b = 1; b <= at.BeatsInBar; b++) Beats.Add(new MidiBeatViewModel(b));
+        }
+        foreach (var b in Beats) b.IsCurrent = b.Number == beat;
+
+        BarCaption = $"of {song.BarCount}";
+        BeatCaption = IsCountingIn ? $"Count-in {countInBeat} of {at.BeatsInBar}" : $"Beat {at.Beat} of {at.BeatsInBar}";
+        CurrentBar = at.Bar;
+        if (_shownBar == at.Bar) return;
+        if (_shownBar >= 1 && _shownBar <= Bars.Count) Bars[_shownBar - 1].IsCurrent = false;
+        if (at.Bar <= Bars.Count) Bars[at.Bar - 1].IsCurrent = true;
+        _shownBar = at.Bar;
     }
 
     internal static string Format(double seconds)
@@ -556,8 +666,14 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
             : t.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
 
+    private bool _disposed;
+
     public void Dispose()
     {
+        // Disposed by the window on close, then again by the DI container when the app exits (after the database
+        // services are gone): only the first call may do anything.
+        if (_disposed) return;
+        _disposed = true;
         _poll.Stop();
         SaveFileSettings();
         _engine?.Pause();

@@ -20,6 +20,26 @@ public partial class MidiPlayerWindow : Window
         AddHandler(KeyDownEvent, OnShortcutKey, RoutingStrategies.Tunnel);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is MidiPlayerViewModel vm)
+                vm.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(MidiPlayerViewModel.CurrentBar)) KeepBarInView(vm.CurrentBar);
+                };
+        };
+    }
+
+    /// <summary>Scrolls the bar map (only it, not the page) so the bar playing now is visible.</summary>
+    private void KeepBarInView(int bar)
+    {
+        if (BarList.ContainerFromIndex(bar - 1) is not { } cell || cell.TranslatePoint(default, BarList) is not { } at) return;
+        var top = at.Y;
+        var bottom = top + cell.Bounds.Height;
+        var offset = BarMap.Offset.Y;
+        var height = BarMap.Viewport.Height;
+        if (top < offset) BarMap.Offset = BarMap.Offset.WithY(top);
+        else if (bottom > offset + height) BarMap.Offset = BarMap.Offset.WithY(bottom - height);
     }
 
     private async void OnImport(object? sender, RoutedEventArgs e)

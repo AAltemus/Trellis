@@ -374,8 +374,14 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
         return new TuningOption(t.Id, $"{t.Name} ({t.Notes})", strings.Count > 0 ? strings : null);
     }
 
+    private bool _disposed;
+
     public void Dispose()
     {
+        // Disposed by the window on close, then again by the DI container when the app exits (after the database
+        // services are gone): only the first call may do anything.
+        if (_disposed) return;
+        _disposed = true;
         _poll.Stop();
         _engine.Dispose();
         _input.Dispose();

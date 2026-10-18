@@ -480,8 +480,14 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
 #pragma warning restore CA1031
     }
 
+    private bool _disposed;
+
     public void Dispose()
     {
+        // Disposed by the window on close, then again by the DI container when the app exits (after the database
+        // services are gone): only the first call may do anything.
+        if (_disposed) return;
+        _disposed = true;
         _autoNextTimer.Stop();
         _player.Stop();
         _output.Dispose();

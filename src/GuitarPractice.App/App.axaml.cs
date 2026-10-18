@@ -32,6 +32,10 @@ public partial class App : Application
             };
             _host.Services.GetRequiredService<WindowPlacementService>().Attach(main, "main"); // reopen at the last size and place
             desktop.MainWindow = main;
+            // Tool windows still open close (and save) here, while the database services are alive. Disposing the host
+            // on Exit also disposes every view model the container created; their Dispose runs only once, so a window
+            // already closed doesn't try to save again then.
+            main.Closing += (_, _) => _host.Services.GetRequiredService<IToolWindows>().CloseAll();
             desktop.Exit += (_, _) => _host.Dispose();
         }
 

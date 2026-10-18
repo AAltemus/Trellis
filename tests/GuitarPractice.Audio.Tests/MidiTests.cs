@@ -311,6 +311,93 @@ public class MidiTests
     }
 
     [Fact]
+    public void Count_in_before_every_loop_pass_when_asked()
+    {
+        var song = MidiFileReader.Read(Song());
+        List<double> GuitarTimes(bool eachLoop, out List<double> accents)
+        {
+            var synth = new FakeSynth();
+            var engine = Engine(song, synth, new MidiPlayerSettings(LoopEnabled: true, LoopFromBar: 2, LoopToBar: 2, CountIn: true,
+                CountInEachLoop: eachLoop)); // bar 2 = 2 s; count-in = 4 beats of 0.5 s
+            engine.Seek(song.BarStartSeconds(2));
+            engine.Play();
+            Render(engine, 7.5);
+            accents = [.. synth.NoteOns(9).Where(n => n.Note == MidiPlayerEngine.CountInAccentNote).Select(n => n.Sample / (double)Rate)];
+            return [.. synth.NoteOns(0).Select(n => n.Sample / (double)Rate)];
+        }
+
+        var each = GuitarTimes(eachLoop: true, out var eachAccents);
+        Assert.Equal(2, each.Count);                                       // count-in, bar, count-in, bar
+        Assert.All(each.Zip(new[] { 2.0, 6.0 }), p => Assert.InRange(p.First, p.Second - 0.01, p.Second + 0.01));
+        Assert.All(eachAccents.Zip(new[] { 0.0, 4.0 }), p => Assert.InRange(p.First, p.Second - 0.01, p.Second + 0.01));
+        Assert.Equal(2, eachAccents.Count);
+
+        var once = GuitarTimes(eachLoop: false, out var onceAccents);
+        Assert.Equal(3, once.Count);                                       // count-in once, then the bar at 2, 4, 6 s
+        Assert.Single(onceAccents);
+    }
+
+    [Fact]
+    public void Count_in_reports_the_beat_it_is_on()
+    {
+        var engine = Engine(MidiFileReader.Read(Song()), new FakeSynth(), new MidiPlayerSettings(CountIn: true));
+        engine.Play();
+        Render(engine, 0.1);
+        Assert.Equal(1, engine.CountInBeat);
+        Render(engine, 0.6);                                               // 0.7 s: beat 2 (0.5–1 s)
+        Assert.Equal(2, engine.CountInBeat);
+        Render(engine, 1.5);
+        Assert.Equal(0, engine.CountInBeat);                               // the song is playing
+    }
+
+    [Fact]
+    public void A_track_volume_scales_its_channel_volume_including_the_files_own_changes()
+    {
+        var synth = new FakeSynth();
+        var engine = Engine(MidiFileReader.Read(Song()), synth, new MidiPlayerSettings(TrackVolumes: [0.5f, 1f]));
+        engine.Play();
+        Render(engine, 0.1);
+        IEnumerable<(long Sample, int Value)> Volumes(int channel) =>
+            synth.Sent.Where(s => s.Channel == channel && s is { Command: 0xB0, Data1: 7 }).Select(s => (s.Sample, s.Data2));
+
+        Assert.NotEmpty(Volumes(0));
+        Assert.All(Volumes(0), v => Assert.Equal(50, v.Value));            // the file's CC 7 = 100, at 50 %
+        Assert.Empty(Volumes(9));                                          // drums untouched
+
+        engine.Settings = new MidiPlayerSettings(TrackVolumes: [0.25f, 1f]);
+        Render(engine, 0.05);
+        Assert.Equal(25, Volumes(0).Last().Value);                         // follows the slider while playing
+
+        engine.Seek(5.0);                                                  // chase replays the file's CC 7, scaled
+        Render(engine, 0.05);
+        Assert.Equal(25, Volumes(0).Last().Value);
+    }
+
+    [Fact]
+    public void The_count_in_is_at_full_level_even_when_the_drum_track_is_turned_down()
+    {
+        var synth = new FakeSynth();
+        var engine = Engine(MidiFileReader.Read(Song()), synth, new MidiPlayerSettings(CountIn: true, TrackVolumes: [1f, 0.2f]));
+        engine.Play();
+        Render(engine, 2.5);
+
+        var drums = synth.Sent.Where(s => s.Channel == 9 && s is { Command: 0xB0, Data1: 7 }).ToList();
+        Assert.Single(drums);
+        Assert.Equal(20, drums[0].Data2);                                  // turned down once the song starts
+        Assert.InRange(drums[0].Sample, 2.0 * Rate - 64, 2.0 * Rate + 128);
+    }
+
+    [Fact]
+    public void Bar_and_beat_follow_the_time_signature()
+    {
+        var song = MidiFileReader.Read(Song());
+        Assert.Equal(new BarBeat(1, 2, 4), song.BarBeatAt(0.6));           // 120 BPM: beats of 0.5 s
+        Assert.Equal(new BarBeat(2, 1, 4), song.BarBeatAt(2.0));
+        Assert.Equal(new BarBeat(5, 2, 3), song.BarBeatAt(13.5));          // 3/4 at 60 BPM from 12 s
+        Assert.Equal(new BarBeat(1, 1, 4), song.BarBeatAt(-1));
+    }
+
+    [Fact]
     public void Pause_releases_notes_and_play_resumes_where_it_was()
     {
         var synth = new FakeSynth();
@@ -350,7 +437,8 @@ public class MidiTests
     public void Render_does_not_allocate()
     {
         // A synth that records nothing (FakeSynth's growing lists would be the only allocations).
-        var engine = Engine(MidiFileReader.Read(Song()), new SilentSynth(), new MidiPlayerSettings(LoopEnabled: true, LoopFromBar: 5, LoopToBar: 6, CountIn: true)); // incl. the last bar
+        var engine = Engine(MidiFileReader.Read(Song()), new SilentSynth(), new MidiPlayerSettings(LoopEnabled: true, LoopFromBar: 5, LoopToBar: 6, CountIn: true,
+            CountInEachLoop: true, TrackVolumes: [0.5f, 0.3f])); // incl. the last bar, loop count-ins and scaled volumes
         engine.Play();
         var buffer = new float[256];
         Allocations.AssertNone(() => engine.Render(buffer));

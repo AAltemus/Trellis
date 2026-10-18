@@ -71,6 +71,27 @@ public sealed class MidiLibraryStoreTests : IDisposable
     }
 
     [Fact]
+    public void Track_volumes_and_count_in_each_loop_are_kept_and_older_rows_load_with_defaults()
+    {
+        var item = _store.Import(Source("song.mid"));
+        _store.SaveSettings(item.FileName, new MidiFileSettings(CountInEachLoop: true, TrackVolumes: new() { [3] = 40, [5] = 0 }));
+        var back = _store.GetSettings(item.FileName);
+        Assert.True(back.CountInEachLoop);
+        Assert.Equal(new Dictionary<int, int> { [3] = 40, [5] = 0 }, back.TrackVolumes);
+
+        // A row saved before these fields existed.
+        var settings = new SettingsStore(_db, _db.Clock);
+        settings.Set(MidiLibraryStore.SettingsKey, new
+        {
+            Files = new Dictionary<string, object> { ["song.mid"] = new { SpeedPercent = 80, CountIn = true, MutedTracks = new[] { 1 } } },
+            Links = new Dictionary<int, string>(),
+        });
+        var old = _store.GetSettings(item.FileName);
+        Assert.Equal((80, true, false, null), (old.SpeedPercent, old.CountIn, old.CountInEachLoop, old.TrackVolumes));
+        Assert.Equal([1], old.MutedTracks);
+    }
+
+    [Fact]
     public void Links_can_be_replaced_and_removed_and_a_missing_file_isnt_returned()
     {
         var a = _store.Import(Source("a.mid"));

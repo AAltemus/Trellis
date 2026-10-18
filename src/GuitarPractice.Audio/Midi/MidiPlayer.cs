@@ -47,8 +47,10 @@ public sealed class SoundFontSynth : IMidiSynth
 /// <summary>
 /// Playback settings, swapped as a whole by the UI. <see cref="Speed"/>: 1 = as written (0.25–1.5; MIDI keeps its pitch).
 /// Loop: bars <see cref="LoopFromBar"/>..<see cref="LoopToBar"/> inclusive (1-based). Count-in: one bar of side-stick
-/// clicks before playback starts. <see cref="Muted"/>/<see cref="Soloed"/>: bit n = <see cref="MidiSong.Tracks"/>[n]
-/// (first 64 tracks); any solo mutes every track that isn't soloed.
+/// clicks before playback starts, and with <see cref="CountInEachLoop"/> before every pass of the loop too.
+/// <see cref="Muted"/>/<see cref="Soloed"/>: bit n = <see cref="MidiSong.Tracks"/>[n] (first 64 tracks); any solo mutes
+/// every track that isn't soloed. <see cref="TrackVolumes"/>[n]: 0–1 for <see cref="MidiSong.Tracks"/>[n] (missing = 1);
+/// pass a new array to change it, never edit one the engine already has.
 /// </summary>
 public sealed record MidiPlayerSettings(
     double Speed = 1.0,
@@ -58,7 +60,9 @@ public sealed record MidiPlayerSettings(
     bool CountIn = false,
     float Volume = 1.0f,
     ulong Muted = 0,
-    ulong Soloed = 0)
+    ulong Soloed = 0,
+    bool CountInEachLoop = false,
+    IReadOnlyList<float>? TrackVolumes = null)
 {
     public const double MinSpeed = 0.25;
     public const double MaxSpeed = 1.5;
@@ -81,6 +85,14 @@ public sealed record MidiPlayerSettings(
         var bit = 1UL << trackSlot;
         return Soloed != 0 ? (Soloed & bit) == 0 : (Muted & bit) != 0;
     }
+
+    /// <summary>0–1 for the track at <paramref name="trackSlot"/>; 1 when not set.</summary>
+    public float TrackVolume(int trackSlot)
+    {
+        if (TrackVolumes is not { } volumes || trackSlot < 0 || trackSlot >= volumes.Count) return 1f;
+        var v = volumes[trackSlot];
+        return float.IsFinite(v) ? Math.Clamp(v, 0f, 1f) : 1f;
+    }
 }
 
 /// <summary>
@@ -89,13 +101,18 @@ public sealed record MidiPlayerSettings(
 /// through a lock-free queue and take effect at the next block. Events are dispatched at block boundaries of
 /// <see cref="BlockSize"/> samples (1.3 ms at 48 kHz). Seeking (and each loop restart) silences the synth, resets it and
 /// replays every program/controller/pitch-bend change before the new position, so instruments are right mid-song.
-/// Muting a track releases the notes it's holding. <see cref="Render"/> doesn't allocate, lock or block.
+/// Muting a track releases the notes it's holding. A track's volume scales the channel volume (CC 7) of the channels it
+/// plays on, including the file's own CC 7 changes; a channel shared by several tracks follows the quietest of them, and
+/// the drum channel is at the file's level while the count-in clicks. <see cref="Render"/> doesn't allocate, lock or block.
 /// </summary>
 public sealed class MidiPlayerEngine
 {
     public const int BlockSize = 64;
     public const int CountInNote = 37;       // GM side stick
     public const int CountInAccentNote = 76; // GM high woodblock (beat 1)
+
+    /// <summary>CC 7 after a reset (General MIDI default, and MeltySynth's).</summary>
+    public const int DefaultChannelVolume = 100;
 
     /// <summary>
     /// L+R → mono gain at 100 % volume. MeltySynth's output is quiet: a dense band mix (distorted guitar, bass, drums)
@@ -119,6 +136,9 @@ public sealed class MidiPlayerEngine
     private readonly float[] _right = new float[BlockSize];
     private readonly sbyte[] _noteOwner = new sbyte[16 * 128]; // track slot holding (channel, note), -1 = none
     private readonly int[] _trackSlot = new int[256];           // file track index → slot in Tracks (or -1)
+    private readonly ulong[] _channelTracks = new ulong[16];    // track slots (bits) that play on each channel
+    private readonly int[] _fileVolume = new int[16];           // the file's CC 7 per channel (synth default 100)
+    private readonly int[] _sentVolume = new int[16];           // CC 7 last sent per channel
 
     private MidiPlayerSettings _settings = new();
     private MidiSong? _pendingSong;
@@ -148,6 +168,8 @@ public sealed class MidiPlayerEngine
         SampleRate = sampleRate;
         _synth = synth;
         Array.Fill(_noteOwner, (sbyte)-1);
+        Array.Fill(_fileVolume, DefaultChannelVolume);
+        Array.Fill(_sentVolume, DefaultChannelVolume);
     }
 
     public int SampleRate { get; }
@@ -166,6 +188,7 @@ public sealed class MidiPlayerEngine
 
     private double _reportedPosition;
     private int _reportedState; // 0 stopped/paused, 1 playing, 2 counting in
+    private int _reportedCountInBeat;
 
     /// <summary>Song seconds (100 % speed) of the audio rendered last.</summary>
     public double Position => Volatile.Read(ref _reportedPosition);
@@ -173,6 +196,9 @@ public sealed class MidiPlayerEngine
     public bool IsPlaying => Volatile.Read(ref _reportedState) != 0;
 
     public bool IsCountingIn => Volatile.Read(ref _reportedState) == 2;
+
+    /// <summary>While counting in: the beat clicking now (1-based); 0 otherwise.</summary>
+    public int CountInBeat => Volatile.Read(ref _reportedCountInBeat);
 
     // ---- Commands from the UI ----
 
@@ -204,6 +230,7 @@ public sealed class MidiPlayerEngine
         while (done < output.Length)
         {
             var n = Math.Min(BlockSize, output.Length - done);
+            UpdateChannelVolumes(settings);
             if (_playing && _song is { } song)
             {
                 if (CountingIn) CountIn(n);
@@ -227,6 +254,9 @@ public sealed class MidiPlayerEngine
 
         Volatile.Write(ref _reportedPosition, _position);
         Volatile.Write(ref _reportedState, !_playing ? 0 : CountingIn ? 2 : 1);
+        Volatile.Write(ref _reportedCountInBeat, _playing && CountingIn
+            ? Math.Clamp((int)((_sample - _countInStart) / _countInBeatSamples) + 1, 1, _countInTotal)
+            : 0);
     }
 
     private void Apply(Command command)
@@ -238,9 +268,15 @@ public sealed class MidiPlayerEngine
                 _playing = false;
                 _countInTotal = 0;
                 Array.Fill(_trackSlot, -1);
+                Array.Clear(_channelTracks);
                 if (_song is { } loaded)
                     for (var slot = 0; slot < loaded.Tracks.Count; slot++)
-                        if (loaded.Tracks[slot].Index < _trackSlot.Length) _trackSlot[loaded.Tracks[slot].Index] = slot;
+                    {
+                        var track = loaded.Tracks[slot];
+                        if (track.Index < _trackSlot.Length) _trackSlot[track.Index] = slot;
+                        if (slot >= 64) continue;
+                        for (var c = 0; c < track.Channels.Count; c++) _channelTracks[track.Channels[c] & 0x0F] |= 1UL << slot;
+                    }
                 Chase(0);
                 break;
             case CommandKind.Play when _song is not null && !_playing:
@@ -269,6 +305,7 @@ public sealed class MidiPlayerEngine
         {
             Dispatch(song, loopEnd);
             Chase(song.BarStartSeconds(settings.LoopFromBar));
+            if (settings.CountIn && settings.CountInEachLoop) StartCountIn(song, settings);
             return;
         }
 
@@ -300,7 +337,45 @@ public sealed class MidiPlayerEngine
             {
                 _noteOwner[key] = -1;
             }
+            else if (IsChannelVolume(e))
+            {
+                SendFileVolume(e.Channel, e.Data2);
+                continue;
+            }
             _synth.Send(e.Channel, e.Command, e.Data1, e.Data2);
+        }
+    }
+
+    private static bool IsChannelVolume(MidiEvent e) => e.Command == 0xB0 && e.Data1 == 7;
+
+    /// <summary>The file set a channel's volume: send it scaled by the track volume.</summary>
+    private void SendFileVolume(int channel, int value)
+    {
+        _fileVolume[channel] = value;
+        var scaled = ScaledVolume(channel, Volatile.Read(ref _settings));
+        _synth.Send(channel, 0xB0, 7, scaled);
+        _sentVolume[channel] = scaled;
+    }
+
+    private int ScaledVolume(int channel, MidiPlayerSettings settings)
+    {
+        if (channel == MidiSong.DrumChannel && CountingIn) return _fileVolume[channel];
+        var gain = 1f;
+        var tracks = _channelTracks[channel];
+        for (var slot = 0; tracks != 0; slot++, tracks >>= 1)
+            if ((tracks & 1) != 0) gain = Math.Min(gain, settings.TrackVolume(slot));
+        return Math.Clamp((int)MathF.Round(_fileVolume[channel] * gain), 0, 127);
+    }
+
+    /// <summary>Sends CC 7 where a track volume (or the count-in) changed what a channel should be at.</summary>
+    private void UpdateChannelVolumes(MidiPlayerSettings settings)
+    {
+        for (var channel = 0; channel < 16; channel++)
+        {
+            var scaled = ScaledVolume(channel, settings);
+            if (scaled == _sentVolume[channel]) continue;
+            _synth.Send(channel, 0xB0, 7, scaled);
+            _sentVolume[channel] = scaled;
         }
     }
 
@@ -309,6 +384,8 @@ public sealed class MidiPlayerEngine
     {
         _synth.Reset();
         Array.Fill(_noteOwner, (sbyte)-1);
+        Array.Fill(_fileVolume, DefaultChannelVolume);
+        Array.Fill(_sentVolume, DefaultChannelVolume);
         _position = seconds;
         _next = 0;
         if (_song is not { } song) return;
@@ -317,7 +394,8 @@ public sealed class MidiPlayerEngine
         while (_next < events.Count && times[_next] < seconds)
         {
             var e = events[_next++];
-            if (e.Command is 0xB0 or 0xC0 or 0xE0) _synth.Send(e.Channel, e.Command, e.Data1, e.Data2);
+            if (IsChannelVolume(e)) SendFileVolume(e.Channel, e.Data2);
+            else if (e.Command is 0xB0 or 0xC0 or 0xE0) _synth.Send(e.Channel, e.Command, e.Data1, e.Data2);
         }
     }
 

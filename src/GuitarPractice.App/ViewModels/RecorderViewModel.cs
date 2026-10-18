@@ -499,8 +499,14 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         return $"{m}:{(seconds - m * 60).ToString("00.0", CultureInfo.InvariantCulture)}";
     }
 
+    private bool _disposed;
+
     public void Dispose()
     {
+        // Disposed by the window on close, then again by the DI container when the app exits (after the database
+        // services are gone): only the first call may do anything.
+        if (_disposed) return;
+        _disposed = true;
         _poll.Stop();
         if (IsRecording) StopRecording(); // closing mid-take keeps what was recorded
         _player?.Pause();

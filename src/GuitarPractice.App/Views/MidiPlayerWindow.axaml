@@ -27,6 +27,34 @@
       <Setter Property="Background" Value="#F2B33D" />
       <Setter Property="Foreground" Value="#2a1d12" />
     </Style>
+    <!-- Bar map: loop bars amber-tinted, the bar playing now in the accent colour -->
+    <Style Selector="Button.bar">
+      <Setter Property="Width" Value="38" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0,0,3,3" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.bar.loop /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#66F2B33D" />
+    </Style>
+    <Style Selector="Button.bar.current /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Ellipse.beat">
+      <Setter Property="Fill" Value="#40808080" />
+    </Style>
+    <Style Selector="Ellipse.beat.current">
+      <Setter Property="Fill" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="TextBlock.countin">
+      <Setter Property="Foreground" Value="#D98C00" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
   </Window.Styles>
 
   <Grid ColumnDefinitions="270,*" Margin="16">
@@ -93,49 +121,99 @@
           </StackPanel>
         </Grid>
 
+        <!-- Where we are: big bar number + beat lights, and a bar map (click a bar to go there) -->
+        <Border Padding="12,8" CornerRadius="8" Background="#14808080" IsVisible="{Binding HasFile}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+            <StackPanel VerticalAlignment="Top" MinWidth="130">
+              <TextBlock Classes="caption" Text="Bar" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding CurrentBar}" FontSize="40" FontWeight="SemiBold" />
+                <TextBlock Classes="caption" Text="{Binding BarCaption}" VerticalAlignment="Bottom" Margin="0,0,0,9" />
+              </StackPanel>
+              <ItemsControl ItemsSource="{Binding Beats}" Margin="0,2,0,4">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MidiBeatViewModel">
+                    <Ellipse Classes="beat" Classes.current="{Binding IsCurrent}" Width="14" Height="14" Margin="0,0,6,4" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="caption" Text="{Binding BeatCaption}" Classes.countin="{Binding IsCountingIn}" />
+            </StackPanel>
+            <ScrollViewer x:Name="BarMap" Grid.Column="1" MaxHeight="124" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl x:Name="BarList" ItemsSource="{Binding Bars}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MidiBarViewModel">
+                    <Button Classes="bar" Classes.current="{Binding IsCurrent}" Classes.loop="{Binding IsInLoop}"
+                            Content="{Binding Number}" Command="{Binding JumpCommand}"
+                            ToolTip.Tip="{Binding Number, StringFormat='Go to bar {0}'}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+
         <!-- Practice controls -->
         <Border Padding="12,8" CornerRadius="8" Background="#14808080" IsEnabled="{Binding HasFile}">
-          <Grid ColumnDefinitions="Auto,*,60" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+          <Grid ColumnDefinitions="Auto,*,60" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
             <TextBlock Text="Speed" VerticalAlignment="Center" />
             <Slider Grid.Column="1" Minimum="25" Maximum="150" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SpeedPercent}"
                     ToolTip.Tip="Slower or faster without changing the pitch" />
             <TextBlock Grid.Column="2" Text="{Binding SpeedText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
 
             <CheckBox Grid.Row="1" Content="Loop bars" IsChecked="{Binding LoopEnabled}" />
-            <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+            <WrapPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" ItemSpacing="8" LineSpacing="6">
               <NumericUpDown Value="{Binding LoopFromBar}" Minimum="1" Maximum="{Binding BarCount}" Increment="1" FormatString="0" Width="120" />
               <TextBlock Text="to" VerticalAlignment="Center" />
               <NumericUpDown Value="{Binding LoopToBar}" Minimum="1" Maximum="{Binding BarCount}" Increment="1" FormatString="0" Width="120" />
               <Button Content="Loop this bar" Command="{Binding LoopThisBarCommand}" ToolTip.Tip="Loop the bar playing now" />
               <Button Content="All" Command="{Binding LoopAllCommand}" ToolTip.Tip="Loop the whole song (bar 1 to the last bar)" />
-            </StackPanel>
+            </WrapPanel>
 
             <CheckBox Grid.Row="2" Content="Count-in" IsChecked="{Binding CountIn}"
                       ToolTip.Tip="One bar of clicks at the song's tempo (and your speed) before it plays" />
             <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="Volume" VerticalAlignment="Center" Margin="12,0,0,0" />
-              <Slider Minimum="0" Maximum="200" Width="180" Value="{Binding Volume}"
-                      ToolTip.Tip="Above 100 % a soft limiter keeps it from distorting" />
-              <TextBlock Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" />
+              <CheckBox Content="Before every loop pass" IsChecked="{Binding CountInEachLoop}" IsEnabled="{Binding CountIn}"
+                        ToolTip.Tip="Count in again each time the loop starts over (otherwise only when you press Play)" />
             </StackPanel>
+
+            <TextBlock Grid.Row="3" Text="Volume" VerticalAlignment="Center" />
+            <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="200" Value="{Binding Volume}"
+                    ToolTip.Tip="Above 100 % a soft limiter keeps it from distorting" />
+            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center"
+                       HorizontalAlignment="Right" />
           </Grid>
         </Border>
 
         <!-- Tracks -->
         <StackPanel Spacing="4" IsVisible="{Binding HasFile}">
           <TextBlock Text="Tracks" FontWeight="SemiBold" />
-          <TextBlock Classes="caption" Text="Mute your part to play it yourself; Solo to hear only that track." />
+          <TextBlock Classes="caption" Text="Mute your part to play it yourself; Solo to hear only that track; turn a track down to balance the mix."
+                     TextWrapping="Wrap" />
           <ItemsControl ItemsSource="{Binding Tracks}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:MidiTrackViewModel">
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" Margin="0,2">
+                <Grid ColumnDefinitions="*,Auto,48,Auto,Auto" ColumnSpacing="6" Margin="0,2">
                   <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock Classes="caption" Text="{Binding Detail}" />
                   </StackPanel>
-                  <ToggleButton Grid.Column="1" Classes="mute" Content="Mute" IsChecked="{Binding IsMuted}" MinWidth="64"
+                  <Slider Grid.Column="1" Minimum="0" Maximum="100" Width="110" Value="{Binding Volume}" VerticalAlignment="Center"
+                          Margin="0,-8" ToolTip.Tip="This track's volume" />
+                  <TextBlock Grid.Column="2" Text="{Binding VolumeText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  <ToggleButton Grid.Column="3" Classes="mute" Content="Mute" IsChecked="{Binding IsMuted}" MinWidth="64"
                                 HorizontalContentAlignment="Center" />
-                  <ToggleButton Grid.Column="2" Classes="solo" Content="Solo" IsChecked="{Binding IsSoloed}" MinWidth="64"
+                  <ToggleButton Grid.Column="4" Classes="solo" Content="Solo" IsChecked="{Binding IsSoloed}" MinWidth="64"
                                 HorizontalContentAlignment="Center" />
                 </Grid>
               </DataTemplate>
