@@ -169,6 +169,43 @@ public sealed class ProgressStoreTests : IDisposable
     }
 
     [Fact]
+    public void Renaming_an_exercise_relabels_its_lines_and_moves_its_target()
+    {
+        _store.Save(Monday, _block, [Ex("Rolling sweps", 80), Ex("Trills", 150)], null, null);
+        _store.Save(Monday.AddDays(1), _block, [Ex("rolling  SWEPS", 90), Ex("Rolling sweps", 70, NoteValue.Eighths)], null, null);
+        _store.SetTarget(_block, "Rolling sweps", NoteValue.Sixteenths, 140);
+        var changes = 0;
+        _store.Changed += (_, id) => { if (id == _block) changes++; };
+
+        Assert.Equal(2, _store.RenameExercise(_block, "Rolling sweps", NoteValue.Sixteenths, "  Rolling sweeps "));
+        Assert.Equal(1, changes);
+        var lines = _store.History(_block).SelectMany(d => d.Exercises).ToList();
+        Assert.Equal(["Rolling sweeps", "Trills", "Rolling sweeps", "Rolling sweps"], lines.Select(l => l.Name));  // 8ths untouched
+        Assert.Equal(140, _store.Targets(_block)[ProgressStats.ExerciseKey("Rolling sweeps", NoteValue.Sixteenths)]);
+        Assert.False(_store.Targets(_block).ContainsKey(ProgressStats.ExerciseKey("Rolling sweps", NoteValue.Sixteenths)));
+
+        Assert.Equal(0, _store.RenameExercise(_block, "Rolling sweeps", NoteValue.Sixteenths, "Rolling sweeps")); // nothing to do
+        Assert.Throws<ArgumentException>(() => _store.RenameExercise(_block, "Trills", NoteValue.Sixteenths, "   "));
+    }
+
+    [Fact]
+    public void Renaming_to_an_existing_exercise_merges_them_and_keeps_its_target()
+    {
+        _store.Save(Monday, _block, [Ex("Sweeps", 80), Ex("Arpeggio sweeps", 100)], null, null);
+        _store.Save(Monday.AddDays(1), _block, [Ex("Sweeps", 90)], null, null);
+        _store.SetTarget(_block, "Sweeps", NoteValue.Sixteenths, 120);
+        _store.SetTarget(_block, "Arpeggio sweeps", NoteValue.Sixteenths, 150);
+
+        Assert.Equal(2, _store.RenameExercise(_block, "Sweeps", NoteValue.Sixteenths, "arpeggio  SWEEPS"));
+        Assert.All(_store.History(_block).SelectMany(d => d.Exercises), x => Assert.Equal("Arpeggio sweeps", x.Name)); // its spelling
+
+        var s = ProgressStats.Summarize(_store.History(_block), null, null, Monday.AddDays(1), _store.Targets(_block));
+        var merged = Assert.Single(s.Exercises);
+        Assert.Equal((100, 3, 150), (merged.BestBpm!.Value, merged.TimesLogged, merged.TargetBpm!.Value)); // 3 lines; its target kept
+        Assert.Single(_store.Targets(_block));
+    }
+
+    [Fact]
     public void Removing_an_exercise_keeps_its_history_and_the_same_name_starts_over()
     {
         _store.Save(Monday, _block, [Ex("Rolling sweeps", 80), Ex("Trills", 150)], 4, "day one");

@@ -12,6 +12,27 @@ public sealed class SettingsStoreTests : IDisposable
     public void Dispose() => _db.Dispose();
 
     [Fact]
+    public void Progress_tracking_excludes_categories_and_blocks_and_takes_them_back()
+    {
+        var tracking = new ProgressTracking(_store);
+        var changes = 0;
+        tracking.Changed += (_, _) => changes++;
+        Assert.True(tracking.IsTracked(1, 101));                     // nothing saved: everything tracked
+
+        tracking.SetCategory(1, tracked: false);                       // e.g. Warmup
+        tracking.SetBlock(302, tracked: false);
+        tracking.SetBlock(302, tracked: false);                        // twice: still one entry
+        Assert.False(tracking.IsTracked(1, 101));                     // its category is out
+        Assert.False(tracking.IsTracked(3, 302));
+        Assert.True(tracking.IsTracked(3, 301));
+        Assert.Equal([302], tracking.Load().ExcludedBlocks);
+
+        tracking.SetCategory(1, tracked: true);
+        Assert.True(new ProgressTracking(new SettingsStore(_db, _db.Clock)).IsTracked(1, 101)); // saved
+        Assert.Equal(4, changes);
+    }
+
+    [Fact]
     public void Missing_key_reads_as_null()
     {
         Assert.Null(_store.Get<Prefs>("metronome"));

@@ -20,6 +20,7 @@ public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string
     public string Name { get; } = subcategory.DisplayName;
     public string Category { get; } = removedFromLibrary ? $"{category} · removed from library" : category;
     public bool IsRemovedFromLibrary { get; } = removedFromLibrary;
+    public int CategoryId { get; } = subcategory.CategoryId;
     public int? StartBpm { get; } = subcategory.StartBpm;
 
     /// <summary>The block's target; editable in the Progress window.</summary>
@@ -37,9 +38,55 @@ public sealed partial class ExerciseRowViewModel(Subcategory subcategory, string
 /// One exercise within the selected block, with its own (editable) target; empty = use the block target. Remove (asks
 /// first) takes it out of current progress but keeps its history.
 /// </summary>
-public sealed partial class ExerciseSummaryRow(ExerciseProgress progress, string detail, int? blockTarget, Action<ExerciseSummaryRow> remove)
+/// <param name="others">The block's other current exercises by <see cref="ProgressStats.ExerciseKey"/> → label: typing
+/// one of their names makes Rename a merge.</param>
+public sealed partial class ExerciseSummaryRow(
+    ExerciseProgress progress, string detail, int? blockTarget, Action<ExerciseSummaryRow> remove,
+    Action<ExerciseSummaryRow, string> rename, IReadOnlyDictionary<string, string> others)
     : ObservableObject
 {
+    // ---- Rename / merge (inline) ----
+
+    [ObservableProperty]
+    private bool _isRenaming;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MergeInto), nameof(IsMerge), nameof(RenameButtonText), nameof(RenameHint))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyRenameCommand))]
+    private string _renameText = "";
+
+    /// <summary>The existing exercise the new name belongs to (same note value), if any.</summary>
+    public string? MergeInto => others.GetValueOrDefault(ProgressStats.ExerciseKey(RenameText, NoteValue));
+
+    public bool IsMerge => MergeInto is not null;
+
+    public string RenameButtonText => IsMerge ? "Merge" : "Rename";
+
+    public string RenameHint => MergeInto is { } into
+        ? $"“{into}” already exists: this exercise's history joins it (its own target is kept)."
+        : "Renames every logged line of this exercise; its own target goes with it.";
+
+    [RelayCommand]
+    private void StartRename()
+    {
+        RenameText = progress.Name;
+        IsConfirmingRemove = false;
+        IsRenaming = true;
+    }
+
+    private bool CanApplyRename() =>
+        !string.IsNullOrWhiteSpace(RenameText) && RenameText.Trim() != progress.Name;
+
+    [RelayCommand(CanExecute = nameof(CanApplyRename))]
+    private void ApplyRename()
+    {
+        IsRenaming = false;
+        rename(this, RenameText);
+    }
+
+    [RelayCommand]
+    private void CancelRename() => IsRenaming = false;
+
     public string Name { get; } = progress.Name;
     public NoteValue? NoteValue { get; } = progress.NoteValue;
     public int Slot { get; } = progress.Slot;
@@ -74,6 +121,70 @@ public sealed partial class ExerciseSummaryRow(ExerciseProgress progress, string
 
     [RelayCommand]
     private void CancelRemove() => IsConfirmingRemove = false;
+}
+
+/// <summary>A category in "What's tracked": its checkbox and its blocks' checkboxes (disabled while the category is out).</summary>
+public sealed partial class TrackedCategoryViewModel : ObservableObject
+{
+    private readonly ProgressTracking _tracking;
+    private bool _reloading;
+
+    public TrackedCategoryViewModel(ProgressTracking tracking, Category category)
+    {
+        _tracking = tracking;
+        Id = category.Id;
+        Name = category.Name;
+        Blocks = [.. category.Subcategories.Select(s => new TrackedBlockViewModel(tracking, this, s.Id, s.DisplayName))];
+        Reload();
+    }
+
+    public int Id { get; }
+    public string Name { get; }
+    public IReadOnlyList<TrackedBlockViewModel> Blocks { get; }
+
+    [ObservableProperty]
+    private bool _isTracked;
+
+    [ObservableProperty]
+    private bool _isExpanded;
+
+    partial void OnIsTrackedChanged(bool value)
+    {
+        if (!_reloading) _tracking.SetCategory(Id, value);
+    }
+
+    internal void Reload()
+    {
+        _reloading = true;
+        var s = _tracking.Load();
+        IsTracked = !(s.ExcludedCategories?.Contains(Id) ?? false);
+        foreach (var b in Blocks) b.Reload(s);
+        _reloading = false;
+    }
+}
+
+public sealed partial class TrackedBlockViewModel(ProgressTracking tracking, TrackedCategoryViewModel category, int id, string name) : ObservableObject
+{
+    private bool _reloading;
+
+    public int Id { get; } = id;
+    public string Name { get; } = name;
+    public TrackedCategoryViewModel Category { get; } = category;
+
+    [ObservableProperty]
+    private bool _isTracked = true;
+
+    partial void OnIsTrackedChanged(bool value)
+    {
+        if (!_reloading) tracking.SetBlock(Id, value);
+    }
+
+    internal void Reload(ProgressTrackingSettings s)
+    {
+        _reloading = true;
+        IsTracked = !(s.ExcludedBlocks?.Contains(Id) ?? false);
+        _reloading = false;
+    }
 }
 
 /// <summary>An exercise run removed from the block: its history, read-only.</summary>
@@ -113,19 +224,24 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     private readonly HashSet<int> _inRoutine;
     private IReadOnlyList<ProgressDay> _history = [];
 
-    public ProgressViewModel(LibraryStore library, ProgressStore store, TimeProvider clock)
+    public ProgressViewModel(LibraryStore library, ProgressStore store, TimeProvider clock, ProgressTracking tracking)
     {
         ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(tracking);
         _library = library;
         _store = store;
         _clock = clock;
+        _tracking = tracking;
+        foreach (var category in library.LoadLibrary())
+            TrackedCategories.Add(new TrackedCategoryViewModel(tracking, category));
+        _tracking.Changed += OnTrackingChanged;
         _inRoutine = library.GetOrCreateDefaultRoutine().Items.Where(i => i.Weight > 0).Select(i => i.SubcategoryId).ToHashSet();
         foreach (var category in library.LoadLibrary())
             foreach (var s in category.Subcategories)
                 _allRows.Add(new ExerciseRowViewModel(s, category.Name));
-        foreach (var s in library.LoadRemoved()) // their history is kept; shown while they have some
+        foreach (var s in library.LoadAllRemoved()) // incl. items of removed categories; shown while they have history
             _allRows.Add(new ExerciseRowViewModel(s, s.Category.Name, removedFromLibrary: true));
         _store.Changed += OnStoreChanged;
         RefreshList();
@@ -219,7 +335,7 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _editStatus = "";
 
-    public IReadOnlyList<RatingOption> RatingOptions => RatingOption.All;
+    public IReadOnlyList<RatingOption> RatingOptions { get; } = RatingOption.All; // instance: compiled bindings
 
     // ---- Behaviour ----
 
@@ -233,11 +349,26 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         SelectedExercise = row;
     }
 
-    partial void OnShowAllExercisesChanged(bool value)
+    partial void OnShowAllExercisesChanged(bool value) => RefreshKeepingSelection();
+
+    private void RefreshKeepingSelection()
     {
         var selected = SelectedExercise;
         RefreshList();
         SelectedExercise = selected is not null && Exercises.Contains(selected) ? selected : Exercises.FirstOrDefault();
+    }
+
+    // ---- What's tracked ----
+
+    private readonly ProgressTracking _tracking;
+
+    /// <summary>Categories with their blocks: untick to leave them out of the tracker (history is kept).</summary>
+    public ObservableCollection<TrackedCategoryViewModel> TrackedCategories { get; } = [];
+
+    private void OnTrackingChanged(object? sender, EventArgs e)
+    {
+        foreach (var c in TrackedCategories) c.Reload();
+        RefreshKeepingSelection();
     }
 
     partial void OnSelectedExerciseChanged(ExerciseRowViewModel? value) => LoadExercise(selectDate: Today);
@@ -300,6 +431,24 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
             : "";
     }
 
+    /// <summary>Renames an exercise, or merges it into another of the same note value (see ProgressStore.RenameExercise).</summary>
+    private void RenameExercise(ExerciseSummaryRow row, string newName)
+    {
+        if (SelectedExercise is not { } block) return;
+        var into = row.MergeInto;
+        try
+        {
+            var lines = _store.RenameExercise(block.Id, row.Name, row.NoteValue, newName); // Changed reloads the view
+            TargetStatus = lines == 0 ? ""
+                : into is not null ? $"Merged {row.Label} into {into} ({lines} line{(lines == 1 ? "" : "s")})."
+                : $"Renamed {row.Label} to “{newName.Trim()}” ({lines} line{(lines == 1 ? "" : "s")}).";
+        }
+        catch (ArgumentException ex)
+        {
+            TargetStatus = ex.Message;
+        }
+    }
+
     private void OnStoreChanged(object? sender, int subcategoryId)
     {
         var row = _allRows.FirstOrDefault(r => r.Id == subcategoryId);
@@ -312,7 +461,11 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     {
         var withHistory = _store.SubcategoriesWithHistory();
         Exercises.Clear();
-        foreach (var row in _allRows.Where(r => withHistory.Contains(r.Id) || (!r.IsRemovedFromLibrary && (ShowAllExercises || _inRoutine.Contains(r.Id)))))
+        var tracked = _tracking.Load();
+        bool IsTracked(ExerciseRowViewModel r) =>
+            !(tracked.ExcludedCategories?.Contains(r.CategoryId) ?? false) && !(tracked.ExcludedBlocks?.Contains(r.Id) ?? false);
+        foreach (var row in _allRows.Where(IsTracked)
+                     .Where(r => withHistory.Contains(r.Id) || (!r.IsRemovedFromLibrary && (ShowAllExercises || _inRoutine.Contains(r.Id)))))
         {
             UpdateRowSummary(row);
             Exercises.Add(row);
@@ -365,6 +518,7 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         MinutesText = $"{s.MinutesThisWeek} min this week · {s.MinutesLast28Days} min in 4 weeks · {s.DaysPractised} days total";
         RatingText = s.RecentRating is double r ? $"{r:0.0}/5 (last {Math.Min(ProgressStats.RecentRatings, _history.Count(d => d.Rating is not null))})" : "–";
 
+        var current = s.Exercises.ToDictionary(e => ProgressStats.ExerciseKey(e.Name, e.NoteValue), e => e.Label);
         foreach (var e in s.Exercises)
         {
             var detail = new List<string>();
@@ -372,7 +526,9 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
             if (e.LatestBpm is int latest && latest != e.BestBpm) detail.Add($"latest {latest}");
             if (e.TargetFraction is double f) detail.Add($"{f:P0} of {e.TargetBpm}{(e.HasOwnTarget ? "" : " (block)")}");
             detail.Add($"logged {e.TimesLogged}×, last {e.LastDate:MMM d}");
-            ExerciseSummaries.Add(new ExerciseSummaryRow(e, string.Join(" · ", detail), block.TargetBpm, RemoveExercise));
+            var self = ProgressStats.ExerciseKey(e.Name, e.NoteValue);
+            var others = current.Where(kv => kv.Key != self).ToDictionary(kv => kv.Key, kv => kv.Value);
+            ExerciseSummaries.Add(new ExerciseSummaryRow(e, string.Join(" · ", detail), block.TargetBpm, RemoveExercise, RenameExercise, others));
         }
         RemovedExercises.Clear();
         foreach (var e in s.Removed.OrderByDescending(e => e.LastDate))
@@ -431,5 +587,9 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         EditNotes = entry?.Notes ?? "";
     }
 
-    public void Dispose() => _store.Changed -= OnStoreChanged;
+    public void Dispose()
+    {
+        _store.Changed -= OnStoreChanged;
+        _tracking.Changed -= OnTrackingChanged;
+    }
 }

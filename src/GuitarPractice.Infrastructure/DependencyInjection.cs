@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddSingleton<SettingsStore>();
         services.AddSingleton<ProgressStore>();
         services.AddSingleton(sp => new MidiLibraryStore(sp.GetRequiredService<SettingsStore>()));
+        services.AddSingleton<ProgressTracking>();
         services.AddSingleton(TimeProvider.System);
         return services;
     }

@@ -232,6 +232,8 @@ public sealed partial class MainWindowViewModel
     private void RefreshTimer()
     {
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(ShowLog));
+        OnPropertyChanged(nameof(ShowNotTracked));
         OnPropertyChanged(nameof(TimerTitle));
         OnPropertyChanged(nameof(TimerSubtitle));
         OnPropertyChanged(nameof(TimerRemaining));

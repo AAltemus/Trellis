@@ -321,7 +321,7 @@ public sealed class ProgressChart : Control
     }
 
     /// <summary>Direct labels at the right of each line's last point, nudged apart so they never overlap.</summary>
-    private void DrawEndLabels(DrawingContext context, List<ChartSeries> series, Rect plot, Func<double, double> y, IBrush ink, bool dark)
+    private static void DrawEndLabels(DrawingContext context, List<ChartSeries> series, Rect plot, Func<double, double> y, IBrush ink, bool dark)
     {
         var labels = series
             .Select(s => (Series: s, Y: y(s.Points[^1].Value), Text: Fit(s.Label, LabelWidth - 22, ink)))

@@ -17,7 +17,10 @@ public partial class EarTrainerWindow : Window
         AddHandler(KeyDownEvent, OnShortcutKey, RoutingStrategies.Tunnel);
     }
 
-    /// <summary>Enter/N next, Space/R replay, K key chord, 1–9 and 0 answer (not while a text box has focus).</summary>
+    /// <summary>
+    /// Enter/N next, Space/R replay, K key chord, 1–9 and 0 answer (melodies: 1–8 write a degree, Backspace takes one
+    /// back, M plays yours). Not while a text box has focus.
+    /// </summary>
     private void OnShortcutKey(object? sender, KeyEventArgs e)
     {
         if (DataContext is not EarTrainerViewModel vm || e.KeyModifiers != KeyModifiers.None) return;
@@ -35,6 +38,12 @@ public partial class EarTrainerWindow : Window
                 break;
             case Key.K:
                 if (vm.PlayKeyCommand.CanExecute(null)) vm.PlayKeyCommand.Execute(null);
+                break;
+            case Key.Back:
+                if (vm.BackspaceCommand.CanExecute(null)) vm.BackspaceCommand.Execute(null);
+                break;
+            case Key.M:
+                if (vm.PlayMineCommand.CanExecute(null)) vm.PlayMineCommand.Execute(null);
                 break;
             case >= Key.D0 and <= Key.D9:
                 vm.ChooseNumber(e.Key - Key.D0);

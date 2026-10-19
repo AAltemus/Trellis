@@ -125,6 +125,41 @@ public sealed class ProgressStore(IDbContextFactory<PracticeDbContext> contextFa
         return current.Count;
     }
 
+    /// <summary>
+    /// Renames an exercise in a block: every current line of (<paramref name="name"/>, <paramref name="noteValue"/>) gets
+    /// <paramref name="newName"/> (cleaned like a saved name). If that name already exists with the same note value it's
+    /// a merge: the lines join it. The own target moves with it unless the other exercise already has one (that one is
+    /// kept). Removed runs keep their old name. Returns the lines renamed (0 = nothing to do). Raises <see cref="Changed"/>.
+    /// </summary>
+    public int RenameExercise(int subcategoryId, string? name, NoteValue? noteValue, string newName)
+    {
+        var cleaned = Clean(newName, ProgressExercise.MaxNameLength)
+            ?? throw new ArgumentException("Give it a name.", nameof(newName));
+        var oldKey = ProgressStats.ExerciseKey(name, noteValue);
+        var newKey = ProgressStats.ExerciseKey(cleaned, noteValue);
+
+        using var db = contextFactory.CreateDbContext();
+        var current = db.ProgressExercises.Include(x => x.ProgressEntry)
+            .Where(x => x.ProgressEntry.SubcategoryId == subcategoryId && x.NoteValue == noteValue && x.RemovedRun == null)
+            .ToList();
+        // A merge takes the other exercise's spelling (its most recent), not however the name was typed.
+        if (oldKey != newKey && current.Where(x => ProgressStats.ExerciseKey(x.Name, x.NoteValue) == newKey)
+                .OrderByDescending(x => x.ProgressEntry.Date).FirstOrDefault() is { } existing)
+            cleaned = existing.Name;
+        var lines = current.Where(x => ProgressStats.ExerciseKey(x.Name, x.NoteValue) == oldKey && x.Name != cleaned).ToList();
+        if (lines.Count == 0) return 0;
+        foreach (var line in lines) line.Name = cleaned;
+
+        if (oldKey != newKey && db.ExerciseTargets.SingleOrDefault(t => t.SubcategoryId == subcategoryId && t.Key == oldKey) is { } target)
+        {
+            if (db.ExerciseTargets.Any(t => t.SubcategoryId == subcategoryId && t.Key == newKey)) db.ExerciseTargets.Remove(target);
+            else target.Key = newKey;
+        }
+        db.SaveChanges();
+        Changed?.Invoke(this, subcategoryId);
+        return lines.Count;
+    }
+
     /// <summary>Exercise names used in this block, most recently used first (for suggestions).</summary>
     public IReadOnlyList<string> ExerciseNames(int subcategoryId)
     {

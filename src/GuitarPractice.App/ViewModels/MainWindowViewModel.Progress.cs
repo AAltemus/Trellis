@@ -45,12 +45,36 @@ public sealed partial class MainWindowViewModel
     [ObservableProperty]
     private string _logStatus = "";
 
-    public IReadOnlyList<RatingOption> RatingOptions => RatingOption.All;
+    public IReadOnlyList<RatingOption> RatingOptions { get; } = RatingOption.All; // instance: compiled bindings
 
     private Infrastructure.PracticeKey? _logKey; // the (day, exercise) the fields are showing
 
     private SubcategoryViewModel? CurrentExercise =>
         Current is { } entry ? AllSubcategories.FirstOrDefault(s => s.Id == entry.Key.SubcategoryId) : null;
+
+    // ---- Left out of progress tracking (Progress → What's tracked) ----
+
+    private readonly Infrastructure.ProgressTracking _tracking;
+
+    /// <summary>The selected item's block is tracked: the log strip shows (otherwise a one-line note does).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLog), nameof(ShowNotTracked))]
+    private bool _isProgressTracked = true;
+
+    public bool ShowLog => HasSelection && IsProgressTracked;
+    public bool ShowNotTracked => HasSelection && !IsProgressTracked;
+
+    [ObservableProperty]
+    private string _notTrackedText = "";
+
+    private void RefreshTracked()
+    {
+        var exercise = CurrentExercise;
+        IsProgressTracked = exercise is null || _tracking.IsTracked(exercise.Owner.Id, exercise.Id);
+        NotTrackedText = exercise is null ? "" : $"Progress isn't tracked for {exercise.Owner.Name} · {exercise.DisplayName} (Progress → What's tracked).";
+        SaveLogCommand.NotifyCanExecuteChanged();
+        PracticeWithMetronomeCommand.NotifyCanExecuteChanged();
+    }
 
     /// <summary>Called when the selected item changes: shows that day's entry and the exercise's progress.</summary>
     private void LoadProgressLog()
@@ -59,6 +83,7 @@ public sealed partial class MainWindowViewModel
         PracticeWithMetronomeCommand.NotifyCanExecuteChanged();
         PlayAlongCommand.NotifyCanExecuteChanged();
         OpenProgressCommand.NotifyCanExecuteChanged();
+        RefreshTracked();
         if (Current is not { } entry)
         {
             _logKey = null;
@@ -138,7 +163,7 @@ public sealed partial class MainWindowViewModel
         {
             _logKey = null;      // force a reload of the fields
             LoadProgressLog();
-            LogStatus = "Updated from the Progress window";
+            LogStatus = "Updated from another window (Progress or Ear Trainer)";
         }
         RefreshProgressHint();
     }
@@ -178,6 +203,8 @@ public sealed partial class MainWindowViewModel
 
     private string OnMetronomeReached(Infrastructure.PracticeKey key, string itemName, TempoPlan plan, int bpm)
     {
+        if (!IsProgressTracked && _logKey == key)
+            return $"Reached {bpm} BPM (progress isn't tracked for {itemName})";
         if (_logKey != key)
             return $"Reached {bpm} BPM: not added (select {itemName} on {key.Date:ddd} in the week to log it)";
 

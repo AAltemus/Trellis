@@ -53,7 +53,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         LibraryStore store, PracticeLogStore logStore, WeekStore weekStore, INotificationSound sound, TimeProvider clock,
-        IToolWindows tools, ProgressStore progressStore, SettingsStore settingsStore)
+        IToolWindows tools, ProgressStore progressStore, SettingsStore settingsStore, ProgressTracking tracking)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(logStore);
@@ -62,6 +62,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(tools);
         ArgumentNullException.ThrowIfNull(progressStore);
         ArgumentNullException.ThrowIfNull(settingsStore);
+        ArgumentNullException.ThrowIfNull(tracking);
+        _tracking = tracking;
+        _tracking.Changed += (_, _) => RefreshTracked();
         _store = store;
         _logStore = logStore;
         _weekStore = weekStore;
@@ -239,12 +242,42 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasRemovedItems;
 
+    /// <summary>Categories removed from the library, with Restore (brings back their items too).</summary>
+    public ObservableCollection<RemovedCategoryViewModel> RemovedCategories { get; } = [];
+
+    [ObservableProperty]
+    private int _removedCount;
+
     private void RefreshRemoved()
     {
         RemovedItems.Clear();
         foreach (var s in _store.LoadRemoved())
             RemovedItems.Add(new RemovedSubcategoryViewModel(this, s.Id, s.DisplayName, s.Category.Name));
-        HasRemovedItems = RemovedItems.Count > 0;
+        RemovedCategories.Clear();
+        foreach (var c in _store.LoadRemovedCategories())
+            RemovedCategories.Add(new RemovedCategoryViewModel(this, c.Id, c.Name, c.Subcategories.Count));
+        RemovedCount = RemovedItems.Count + RemovedCategories.Count;
+        HasRemovedItems = RemovedCount > 0;
+    }
+
+    /// <summary>Removes a category (and its items) from the library and the routine; history is kept.</summary>
+    internal void RemoveCategory(CategoryViewModel category)
+    {
+        _store.ArchiveCategory(category.Id);
+        Categories.Remove(category);
+        RefreshRemoved();
+        OnPropertyChanged(nameof(DailyTotalSummary));
+        Regenerate();
+    }
+
+    /// <summary>Back into the library in its place, with its items at weight 0 (not in the routine yet).</summary>
+    internal void RestoreCategory(RemovedCategoryViewModel removed)
+    {
+        var entity = _store.RestoreCategory(removed.Id);
+        var vm = new CategoryViewModel(this, entity, new Dictionary<int, int>()) { IsExpanded = true };
+        var index = Categories.TakeWhile(c => (c.SortOrder, c.Id).CompareTo((entity.SortOrder, entity.Id)) < 0).Count();
+        Categories.Insert(index, vm);
+        RefreshRemoved();
     }
 
     /// <summary>Back into its category at weight 0 (in the library, not yet in the routine), in library order.</summary>
@@ -338,7 +371,7 @@ public sealed partial class CategoryViewModel : ObservableObject
         IsSongs = category.Kind == CategoryKind.Songs;
         Brush = Avalonia.Media.Brush.Parse(category.ColorHex ?? "#888888");
         Tunings = owner.Tunings;
-        NewSongTuning = Tunings.FirstOrDefault();
+        NewSongTuning = Tunings.Count > 0 ? Tunings[0] : null;
 
         foreach (var s in category.Subcategories)
             Subcategories.Add(new SubcategoryViewModel(owner, this, s, s.Tuning?.Name, weights.GetValueOrDefault(s.Id)));
@@ -381,6 +414,30 @@ public sealed partial class CategoryViewModel : ObservableObject
 
     [ObservableProperty]
     private SongStatus _newSongStatus = SongStatus.Learning;
+
+    // ---- Remove the whole category (asks first) ----
+    [ObservableProperty]
+    private bool _isConfirmingRemove;
+
+    public string RemoveConfirmText =>
+        $"Remove “{Name}” and its {Subcategories.Count} item{(Subcategories.Count == 1 ? "" : "s")} from the library and your " +
+        "routine? Their practice time and progress history are kept, and Removed items → Restore brings it back.";
+
+    [RelayCommand]
+    private void Remove()
+    {
+        if (!IsConfirmingRemove)
+        {
+            OnPropertyChanged(nameof(RemoveConfirmText));
+            IsConfirmingRemove = true;
+            return;
+        }
+        IsConfirmingRemove = false;
+        _owner.RemoveCategory(this);
+    }
+
+    [RelayCommand]
+    private void CancelRemove() => IsConfirmingRemove = false;
 
     public void RefreshSummary()
     {
@@ -488,6 +545,17 @@ public sealed partial class SubcategoryViewModel : ObservableObject
         else if (s.TargetBpm is int only) parts.Add($"target {only} bpm");
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
+}
+
+/// <summary>A category removed from the library: name, how many items it holds, Restore.</summary>
+public sealed partial class RemovedCategoryViewModel(MainWindowViewModel main, int id, string name, int itemCount)
+{
+    public int Id { get; } = id;
+    public string Name { get; } = name;
+    public string Detail { get; } = $"category · {itemCount} item{(itemCount == 1 ? "" : "s")}";
+
+    [RelayCommand]
+    private void Restore() => main.RestoreCategory(this);
 }
 
 /// <summary>An item removed from the library: name, its category, Restore.</summary>

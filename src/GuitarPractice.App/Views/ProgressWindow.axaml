@@ -28,6 +28,32 @@
     <!-- Exercises -->
     <DockPanel Grid.Column="0">
       <TextBlock DockPanel.Dock="Top" Text="Exercises" FontWeight="SemiBold" Margin="0,0,0,6" />
+      <!-- What's tracked: untick a category or block to leave it out (history is kept) -->
+      <Expander DockPanel.Dock="Bottom" Header="What's tracked" Margin="0,6,0,0" HorizontalAlignment="Stretch"
+                ToolTip.Tip="Leave categories or blocks out of progress tracking (e.g. Warmup, Theory). Their history is kept.">
+        <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding TrackedCategories}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:TrackedCategoryViewModel">
+                <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsTracked}" FontWeight="SemiBold" />
+                    <ToggleButton Grid.Column="1" Content="items" IsChecked="{Binding IsExpanded}" Padding="6,1" FontSize="11" Margin="0,0,12,0"
+                                  ToolTip.Tip="Choose single blocks in this category" />
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding Blocks}" IsVisible="{Binding IsExpanded}" IsEnabled="{Binding IsTracked}" Margin="22,0,0,4">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TrackedBlockViewModel">
+                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsTracked}" FontSize="12" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Expander>
       <CheckBox DockPanel.Dock="Bottom" Content="Show all exercises" IsChecked="{Binding ShowAllExercises}" Margin="0,8,0,0"
                 ToolTip.Tip="Otherwise: what's in your routine plus anything with history" />
       <ListBox ItemsSource="{Binding Exercises}" SelectedItem="{Binding SelectedExercise}">
@@ -82,6 +108,7 @@
         <ItemsControl ItemsSource="{Binding ExerciseSummaries}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ExerciseSummaryRow">
+              <StackPanel>
               <Grid ColumnDefinitions="20,240,*,110,150,Auto" ColumnSpacing="6" Margin="0,1">
                 <c:SeriesSwatch Slot="{Binding Slot}" IsVisible="{Binding IsCharted}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
@@ -90,14 +117,28 @@
                              VerticalAlignment="Center" IsVisible="{Binding HasTarget}" ToolTip.Tip="Progress toward this exercise's target" />
                 <NumericUpDown Grid.Column="4" Value="{Binding OwnTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
                                Watermark="{Binding TargetWatermark}" ToolTip.Tip="Your own target for this exercise; empty = use the block target" />
-                <Button Grid.Column="5" Content="Remove" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12"
-                        IsVisible="{Binding !IsConfirmingRemove}"
-                        ToolTip.Tip="Stop tracking this exercise: it leaves the list and chart, its history is kept. Log the same name again to start over." />
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding !IsConfirmingRemove}">
+                  <Button Content="Rename" Command="{Binding StartRenameCommand}" Padding="8,2" FontSize="12"
+                          ToolTip.Tip="Fix a typo, or give it another exercise's name to merge the two" />
+                  <Button Content="Remove" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12"
+                          ToolTip.Tip="Stop tracking this exercise: it leaves the list and chart, its history is kept. Log the same name again to start over." />
+                </StackPanel>
                 <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsConfirmingRemove}">
                   <Button Content="Remove it" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12" Foreground="#E53935" />
                   <Button Content="Cancel" Command="{Binding CancelRemoveCommand}" Padding="8,2" FontSize="12" />
                 </StackPanel>
               </Grid>
+              <!-- Rename / merge, inline under the row -->
+              <StackPanel IsVisible="{Binding IsRenaming}" Spacing="2" Margin="26,2,0,6">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBox Text="{Binding RenameText}" Width="260" Watermark="New name" />
+                  <Button Content="{Binding RenameButtonText}" Command="{Binding ApplyRenameCommand}" Padding="8,2" FontSize="12"
+                          Classes.accent="{Binding IsMerge}" />
+                  <Button Content="Cancel" Command="{Binding CancelRenameCommand}" Padding="8,2" FontSize="12" />
+                </StackPanel>
+                <TextBlock Text="{Binding RenameHint}" FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
+              </StackPanel>
+              </StackPanel>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

@@ -181,6 +181,33 @@ public sealed class LibraryStoreTests : IDisposable
     }
 
     [Fact]
+    public void A_removed_category_leaves_library_and_routine_and_comes_back_with_its_items()
+    {
+        var routine = _db.Library.GetOrCreateDefaultRoutine();
+        var inRoutine = routine.Items.First(i => i.Weight == 5).SubcategoryId;
+        var category = _db.Library.LoadLibrary().First(c => c.Subcategories.Any(s => s.Id == inRoutine));
+        var alreadyRemoved = category.Subcategories.First(s => s.Id != inRoutine).Id;
+        _db.Library.Archive(alreadyRemoved);                      // removed on its own before the category
+        var items = category.Subcategories.Select(s => s.Id).Where(id => id != alreadyRemoved).ToList();
+
+        _db.Library.ArchiveCategory(category.Id);
+
+        Assert.DoesNotContain(_db.Library.LoadLibrary(), c => c.Id == category.Id);
+        Assert.DoesNotContain(_db.Library.GetOrCreateDefaultRoutine().Items, i => items.Contains(i.SubcategoryId));
+        var listed = Assert.Single(_db.Library.LoadRemovedCategories());
+        Assert.Equal(items, listed.Subcategories.Select(s => s.Id));
+        Assert.Empty(_db.Library.LoadRemoved());                  // its items aren't listed one by one
+        Assert.Equal(items.Append(alreadyRemoved).Order(), _db.Library.LoadAllRemoved().Select(s => s.Id).Order()); // Progress keeps all
+
+        var restored = _db.Library.RestoreCategory(category.Id);
+        Assert.Equal(items, restored.Subcategories.Select(s => s.Id));
+        Assert.Contains(_db.Library.LoadLibrary(), c => c.Id == category.Id);
+        Assert.Empty(_db.Library.LoadRemovedCategories());
+        Assert.Equal(alreadyRemoved, Assert.Single(_db.Library.LoadRemoved()).Id); // still removed on its own
+        Assert.DoesNotContain(_db.Library.GetOrCreateDefaultRoutine().Items, i => items.Contains(i.SubcategoryId)); // weight 0
+    }
+
+    [Fact]
     public void Removing_a_built_in_subcategory_keeps_its_practice_and_progress_history()
     {
         var builtIn = _db.Query(db => db.Subcategories.First(s => s.IsBuiltIn).Id);

@@ -30,6 +30,31 @@
       <Setter Property="Background" Value="#d84a3a" />
       <Setter Property="Foreground" Value="White" />
     </Style>
+    <Style Selector="Button.answer.degree">
+      <Setter Property="MinWidth" Value="56" />
+    </Style>
+    <Style Selector="Border.slot">
+      <Setter Property="MinWidth" Value="44" />
+      <Setter Property="MinHeight" Value="52" />
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="#40808080" />
+    </Style>
+    <Style Selector="Border.slot.next">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="Border.slot.correct">
+      <Setter Property="Background" Value="#1baf7a" />
+      <Setter Property="BorderBrush" Value="#1baf7a" />
+      <Setter Property="TextElement.Foreground" Value="White" />
+    </Style>
+    <Style Selector="Border.slot.wrong">
+      <Setter Property="Background" Value="#d84a3a" />
+      <Setter Property="BorderBrush" Value="#d84a3a" />
+      <Setter Property="TextElement.Foreground" Value="White" />
+    </Style>
     <Style Selector="TextBlock.good">
       <Setter Property="Foreground" Value="#1a9c6c" />
     </Style>
@@ -77,42 +102,41 @@
             </Grid>
           </StackPanel>
 
-          <!-- Chords -->
-          <StackPanel Spacing="4" IsVisible="{Binding IsChords}">
-            <TextBlock Classes="caption" Text="Triads" />
-            <ItemsControl ItemsSource="{Binding TriadChoices}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel Classes="choices" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:EarChoiceViewModel">
-                  <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" ToolTip.Tip="{Binding ToolTip}"
-                            MinWidth="0" Margin="0,0,18,2" />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <TextBlock Classes="caption" Text="Seventh chords" Margin="0,4,0,0" />
-            <ItemsControl ItemsSource="{Binding SeventhChoices}">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <WrapPanel Classes="choices" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:EarChoiceViewModel">
-                  <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" ToolTip.Tip="{Binding ToolTip}"
-                            MinWidth="0" Margin="0,0,18,2" />
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+          <!-- Chords: one group per chord type, only the degrees where this key has that chord -->
+          <ItemsControl ItemsSource="{Binding ChordGroups}" IsVisible="{Binding IsChords}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:EarChordGroup">
+                <StackPanel Spacing="2" Margin="0,0,0,6">
+                  <TextBlock Classes="caption" Text="{Binding Title}" />
+                  <ItemsControl ItemsSource="{Binding Choices}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel Classes="choices" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:EarChoiceViewModel">
+                        <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" ToolTip.Tip="{Binding ToolTip}"
+                                  MinWidth="0" Margin="0,0,18,2" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Melodies -->
+          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsMelodies}">
+            <TextBlock Text="Melody length" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding MelodyLengthOptions}" SelectedItem="{Binding SelectedMelodyLength}" Width="80" />
+            <TextBlock Text="notes, from the key's root up to its octave" VerticalAlignment="Center" Classes="caption" />
           </StackPanel>
 
           <WrapPanel>
             <CheckBox Content="Play the key chord first" IsChecked="{Binding PlayKeyFirst}" Margin="0,0,18,0"
-                      IsVisible="{Binding IsIntervals}"
-                      ToolTip.Tip="Sets the key in your ear (I or i) before each interval. Chord questions are just the chord; press K or 🔑 Key to hear the key." />
+                      IsVisible="{Binding ShowPlayKeyFirst}"
+                      ToolTip.Tip="Sets the key in your ear (I or i) before each question. Chord questions are just the chord; press K or 🔑 Key to hear the key." />
             <CheckBox Content="Next question after a right answer" IsChecked="{Binding AutoNext}" Margin="0,0,18,0" />
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="Volume" VerticalAlignment="Center" />
@@ -132,7 +156,50 @@
                   ToolTip.Tip="Enter or N" />
         </Grid>
 
-        <ItemsControl ItemsSource="{Binding Answers}">
+        <!-- Melody: what you've written down, then the degree buttons -->
+        <StackPanel Spacing="10" IsVisible="{Binding IsMelodies}">
+          <ItemsControl ItemsSource="{Binding MelodySlots}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MelodySlotViewModel">
+                <Border Classes="slot" Classes.next="{Binding IsNext}" Classes.correct="{Binding IsCorrect}" Classes.wrong="{Binding IsWrong}">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Text}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Answer}" FontSize="11" HorizontalAlignment="Center"
+                               IsVisible="{Binding Answer, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <WrapPanel>
+            <ItemsControl ItemsSource="{Binding DegreeKeys}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DegreeKeyViewModel">
+                  <Button Classes="answer degree" Command="{Binding EnterCommand}" ToolTip.Tip="{Binding Label, StringFormat='Key {0}'}">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Label}" HorizontalAlignment="Center" />
+                      <TextBlock Text="{Binding Note}" FontSize="11" Opacity="0.8" HorizontalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Classes="answer degree" Content="⌫" Command="{Binding BackspaceCommand}" ToolTip.Tip="Take back the last note (Backspace)" />
+            <Button Classes="answer" Content="▶ Mine" Command="{Binding PlayMineCommand}" ToolTip.Tip="Hear what you've written down (M)" />
+          </WrapPanel>
+        </StackPanel>
+
+        <ItemsControl ItemsSource="{Binding Answers}" IsVisible="{Binding IsItemQuiz}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <WrapPanel />
@@ -172,6 +239,15 @@
               <Button Content="Cancel" Command="{Binding CancelResetCommand}" />
             </StackPanel>
           </Grid>
+          <!-- Log this round into today's notes of an Ear Training block -->
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" IsVisible="{Binding HasLogBlocks}">
+            <TextBlock Text="Log to today's" VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding LogBlocks}" SelectedItem="{Binding SelectedLogBlock}" HorizontalAlignment="Stretch" />
+            <Button Grid.Column="2" Content="Log score" Command="{Binding LogCommand}"
+                    ToolTip.Tip="Adds this round's score as a line in today's notes for that block (Progress)" />
+          </Grid>
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding LogStatus}"
+                     IsVisible="{Binding LogStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           <Grid ColumnDefinitions="110,90,*,130" Opacity="0.7">
             <TextBlock Classes="caption" Text="" />
             <TextBlock Grid.Column="1" Classes="caption" Text="This round" />

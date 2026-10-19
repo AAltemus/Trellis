@@ -235,6 +235,26 @@ public sealed class TunerEngine : IDisposable
     /// <inheritdoc cref="GateOpenDb"/>
     public double GateRangeDb { get; set; } = 40;
 
+    public const double DefaultSensitivityDb = -60;
+    public const double LeastSensitiveDb = -40;
+    public const double MostSensitiveDb = -80;
+
+    /// <summary>
+    /// Input sensitivity as the level that opens the gate (dBFS, −40 = least … −80 = most sensitive; −60 default). The
+    /// close level follows 16 dB below it, as with the defaults. For low-gain interfaces: lower it until picked notes
+    /// open the gate but the idle input (see the level readout) doesn't.
+    /// </summary>
+    public double Sensitivity
+    {
+        get => GateOpenDb;
+        set
+        {
+            var open = double.IsFinite(value) ? Math.Clamp(value, MostSensitiveDb, LeastSensitiveDb) : DefaultSensitivityDb;
+            GateOpenDb = open;
+            GateCloseDb = open - 16;
+        }
+    }
+
     /// <summary>True while the gate is open (a note is considered to be sounding).</summary>
     public bool IsGateOpen => Volatile.Read(ref _gateOpen);
 

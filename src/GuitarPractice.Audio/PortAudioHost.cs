@@ -35,7 +35,9 @@ internal static class PortAudioHost
         }
     }
 
-    public static IReadOnlyList<AudioDeviceInfo> ListDevices(bool input)
+    /// <param name="allDrivers">true: every host API's devices (the same device appears once per driver, each with its
+    /// own latency: e.g. Windows' default driver ~90 ms, its low-latency one ~3 ms).</param>
+    public static IReadOnlyList<AudioDeviceInfo> ListDevices(bool input, bool allDrivers = false)
     {
         var defaultIndex = input ? PortAudio.DefaultInputDevice : PortAudio.DefaultOutputDevice;
         var hostApi = defaultIndex == PortAudio.NoDevice ? -1 : PortAudio.GetDeviceInfo(defaultIndex).hostApi;
@@ -44,8 +46,9 @@ internal static class PortAudioHost
         {
             var d = PortAudio.GetDeviceInfo(i);
             var channels = input ? d.maxInputChannels : d.maxOutputChannels;
-            if (channels <= 0 || (hostApi >= 0 && d.hostApi != hostApi)) continue;
-            devices.Add(new AudioDeviceInfo(i.ToString(CultureInfo.InvariantCulture), d.name, channels, d.defaultSampleRate, i == defaultIndex));
+            if (channels <= 0 || (!allDrivers && hostApi >= 0 && d.hostApi != hostApi)) continue;
+            devices.Add(new AudioDeviceInfo(i.ToString(CultureInfo.InvariantCulture), d.name.Trim(), channels, d.defaultSampleRate,
+                i == defaultIndex, input ? d.defaultLowInputLatency : d.defaultLowOutputLatency, d.hostApi));
         }
         return devices;
     }

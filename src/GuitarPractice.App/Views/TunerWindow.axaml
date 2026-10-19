@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GuitarPractice.App.ViewModels"
         xmlns:audio="using:GuitarPractice.Audio"
+        xmlns:ctl="using:GuitarPractice.App.Controls"
         x:Class="GuitarPractice.App.Views.TunerWindow"
         x:DataType="vm:TunerViewModel"
         Title="Tuner"
@@ -72,6 +73,12 @@
       </Canvas>
     </Grid>
 
+    <!-- Strobe: stripes drift right when sharp, left when flat, stand still in tune -->
+    <ctl:StrobeView IsVisible="{Binding ShowStrobe}" Cents="{Binding StrobeCents}" Width="344" Height="44"
+                    HorizontalAlignment="Center" InTuneCents="3"
+                    StripeBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}" InTuneBrush="#43A047"
+                    ToolTip.Tip="Strobe: drifts right = sharp, left = flat; still = in tune" />
+
     <Grid ColumnDefinitions="*,*,*">
       <TextBlock Text="{Binding CentsText}" FontSize="18" HorizontalAlignment="Left"
                  FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
@@ -105,7 +112,7 @@
     </ItemsControl>
 
     <!-- Settings -->
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
       <TextBlock Text="Tuning" VerticalAlignment="Center" IsVisible="{Binding IsTunerMode}" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding Tunings}" SelectedItem="{Binding SelectedTuning}" HorizontalAlignment="Stretch"
                 IsVisible="{Binding IsTunerMode}" />
@@ -135,6 +142,17 @@
         <ProgressBar Minimum="0" Maximum="1" Value="{Binding Level}" Height="6" MinHeight="6" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding LevelText}" Classes="caption" Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="120" />
       </Grid>
+
+      <TextBlock Grid.Row="5" Text="Sensitivity" VerticalAlignment="Center" />
+      <Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="*,Auto">
+        <Slider Minimum="-80" Maximum="-40" IsDirectionReversed="True" TickFrequency="1" IsSnapToTickEnabled="True"
+                Value="{Binding Sensitivity}" Margin="0,-8"
+                ToolTip.Tip="For a quiet (low-gain) input, slide right until picked notes register but the idle level doesn't." />
+        <TextBlock Grid.Column="1" Text="{Binding SensitivityText}" Classes="caption" Margin="8,0,0,0" VerticalAlignment="Center" MinWidth="120" />
+      </Grid>
+
+      <CheckBox Grid.Row="6" Grid.ColumnSpan="2" Content="Strobe display" IsChecked="{Binding ShowStrobe}"
+                ToolTip.Tip="A strobe band under the needle: easier to see the last cent or two" />
     </Grid>
 
     <!-- Scored bends -->

@@ -45,7 +45,7 @@ public sealed partial class ExerciseLineViewModel(ExerciseLinesViewModel owner) 
     /// <summary>Exercise names used before in this block (shared with the owner).</summary>
     public IReadOnlyList<string> Suggestions => owner.Suggestions;
 
-    public IReadOnlyList<NoteValueOption> NoteValues => NoteValueOption.All;
+    public IReadOnlyList<NoteValueOption> NoteValues { get; } = NoteValueOption.All; // instance: compiled bindings
 
     internal void RefreshSuggestions() => OnPropertyChanged(nameof(Suggestions));
 

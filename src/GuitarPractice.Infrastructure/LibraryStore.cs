@@ -197,6 +197,57 @@ public sealed class LibraryStore(IDbContextFactory<PracticeDbContext> contextFac
         return subcategory;
     }
 
+    /// <summary>Removed categories (archived), in library order, with their subcategories that weren't removed on their own.</summary>
+    public IReadOnlyList<Category> LoadRemovedCategories()
+    {
+        using var db = contextFactory.CreateDbContext();
+        return db.Categories.AsNoTracking()
+            .Where(c => c.IsArchived)
+            .Include(c => c.Subcategories.Where(s => !s.IsArchived).OrderBy(s => s.SortOrder).ThenBy(s => s.Id))
+            .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Every subcategory that isn't in the library any more, removed on its own or with its category, with its category
+    /// and tuning loaded: what Progress lists as "removed from library" while it has history.
+    /// </summary>
+    public IReadOnlyList<Subcategory> LoadAllRemoved()
+    {
+        using var db = contextFactory.CreateDbContext();
+        return db.Subcategories.AsNoTracking()
+            .Include(s => s.Category)
+            .Include(s => s.Tuning)
+            .Where(s => s.IsArchived || s.Category.IsArchived)
+            .OrderBy(s => s.Category.SortOrder).ThenBy(s => s.Category.Id).ThenBy(s => s.SortOrder).ThenBy(s => s.Id)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Removes a category from the library: it is archived and its subcategories leave every routine. The subcategories
+    /// themselves aren't touched, so restoring the category brings back exactly the items it had (at weight 0); items
+    /// removed on their own before stay removed. Practice time, progress and past weeks are kept.
+    /// </summary>
+    public void ArchiveCategory(int categoryId)
+    {
+        using var db = contextFactory.CreateDbContext();
+        var category = db.Categories.Single(c => c.Id == categoryId);
+        category.IsArchived = true;
+        db.RoutineItems.RemoveRange(db.RoutineItems.Where(i => i.Subcategory.CategoryId == categoryId));
+        db.SaveChanges();
+    }
+
+    /// <summary>Puts a removed category back with its items (not in any routine: weight 0). Returns it as LoadLibrary would.</summary>
+    public Category RestoreCategory(int categoryId)
+    {
+        using (var db = contextFactory.CreateDbContext())
+        {
+            db.Categories.Single(c => c.Id == categoryId).IsArchived = false;
+            db.SaveChanges();
+        }
+        return LoadLibrary().Single(c => c.Id == categoryId);
+    }
+
     /// <summary>Soft-deletes a subcategory and removes it from every routine. Past plans keep their history.</summary>
     public void Archive(int subcategoryId)
     {

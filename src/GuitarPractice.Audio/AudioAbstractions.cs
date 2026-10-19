@@ -12,7 +12,12 @@ public delegate void AudioCaptureCallback(ReadOnlySpan<float> samples);
 /// </summary>
 public delegate void AudioRenderCallback(Span<float> output);
 
-public sealed record AudioDeviceInfo(string Id, string Name, int MaxChannels, double DefaultSampleRate, bool IsDefault);
+/// <param name="Id">Opaque, valid for this run only (PortAudio index: changes when devices come and go).</param>
+/// <param name="LatencySeconds">The driver's lowest suggested latency for this device (0 = unknown).</param>
+/// <param name="Driver">Which audio driver (PortAudio host API) the device is reached through; with <see cref="Name"/>
+/// it identifies the device across runs. -1 = unknown.</param>
+public sealed record AudioDeviceInfo(
+    string Id, string Name, int MaxChannels, double DefaultSampleRate, bool IsDefault, double LatencySeconds = 0, int Driver = -1);
 
 /// <param name="Channel">Capture only: 0 = mix all input channels to mono, n = use input channel n (1-based).</param>
 public sealed record AudioStreamOptions(string? DeviceId = null, int SampleRate = 48_000, int FramesPerBuffer = 256, int Channel = 0);

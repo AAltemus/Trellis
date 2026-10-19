@@ -262,6 +262,19 @@
       </StackPanel>
     </Border>
 
+    <!-- Output device: each device is listed once per audio driver with that driver's latency -->
+    <StackPanel Spacing="4">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+        <TextBlock Text="Output" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" HorizontalAlignment="Stretch"
+                  ToolTip.Tip="The same device can appear more than once (one per audio driver): the lowest ms starts soonest." />
+      </Grid>
+      <TextBlock Classes="caption" TextWrapping="Wrap" Opacity="0.7"
+                 Text="Lower ms = the click starts sooner after you press Start. If a device won't play, pick another entry for it." />
+      <TextBlock Classes="caption" Text="{Binding OutputNote}" TextWrapping="Wrap"
+                 IsVisible="{Binding OutputNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    </StackPanel>
+
     <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
                IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     <TextBlock Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.7" />

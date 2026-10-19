@@ -246,6 +246,18 @@
                         <Button Content="Add song" HorizontalAlignment="Right" Command="{Binding AddSongCommand}" />
                       </StackPanel>
                     </Border>
+
+                    <!-- Remove the whole category (asks first) -->
+                    <Button Content="Remove category…" Command="{Binding RemoveCommand}" IsVisible="{Binding !IsConfirmingRemove}"
+                            HorizontalAlignment="Right" Padding="8,2" Margin="0,6,0,0"
+                            ToolTip.Tip="Remove this category and its items from the library (asks first). History is kept." />
+                    <StackPanel IsVisible="{Binding IsConfirmingRemove}" Spacing="4" Margin="0,6,0,0">
+                      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RemoveConfirmText}" />
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Remove category" Command="{Binding RemoveCommand}" Padding="8,2" Foreground="#E53935" />
+                        <Button Content="Cancel" Command="{Binding CancelRemoveCommand}" Padding="8,2" />
+                      </StackPanel>
+                    </StackPanel>
                   </StackPanel>
                 </Expander>
               </DataTemplate>
@@ -261,11 +273,25 @@
           <Expander IsVisible="{Binding HasRemovedItems}" Margin="0,8,0,0" HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch">
             <Expander.Header>
-              <TextBlock Text="{Binding RemovedItems.Count, StringFormat='Removed items ({0})'}" />
+              <TextBlock Text="{Binding RemovedCount, StringFormat='Removed items ({0})'}" />
             </Expander.Header>
             <StackPanel Spacing="4">
               <TextBlock Classes="caption" TextWrapping="Wrap"
-                         Text="Their practice time and progress are kept. Restore puts one back in its category at weight 0; set a weight to add it to your routine." />
+                         Text="Their practice time and progress are kept. Restore puts one back in its category (a category with its items) at weight 0; set a weight to add it to your routine." />
+              <ItemsControl ItemsSource="{Binding RemovedCategories}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RemovedCategoryViewModel">
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                      <StackPanel>
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Classes="caption" Text="{Binding Detail}" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Content="Restore" Command="{Binding RestoreCommand}" Padding="8,2"
+                              VerticalAlignment="Center" ToolTip.Tip="Put the category and its items back in the library (weight 0)" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <ItemsControl ItemsSource="{Binding RemovedItems}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:RemovedSubcategoryViewModel">
@@ -319,7 +345,9 @@
           </StackPanel>
 
           <!-- Progress log for the selected item's block and day (collapsible; state remembered) -->
-          <Expander Grid.Row="3" Grid.ColumnSpan="3" Margin="0,12,0,0" IsVisible="{Binding HasSelection}"
+          <TextBlock Grid.Row="3" Grid.ColumnSpan="3" Margin="0,12,0,0" Classes="caption" TextWrapping="Wrap"
+                     Text="{Binding NotTrackedText}" IsVisible="{Binding ShowNotTracked}" />
+          <Expander Grid.Row="3" Grid.ColumnSpan="3" Margin="0,12,0,0" IsVisible="{Binding ShowLog}"
                     IsExpanded="{Binding IsLogExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
             <Expander.Header>
               <StackPanel Orientation="Horizontal" Spacing="12">
@@ -371,8 +399,10 @@
         </Grid>
       </Border>
 
-      <ScrollViewer x:Name="WeekBoard" Grid.Row="4" Padding="12" HorizontalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding Days}">
+      <!-- 12 px around the board as a Margin, not ScrollViewer Padding: Avalonia leaves the right padding out of the
+           scroll extent, which cut off the last column (Sunday) even at full scroll. -->
+      <ScrollViewer x:Name="WeekBoard" Grid.Row="4" HorizontalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Days}" Margin="12">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <UniformGrid Columns="7" />

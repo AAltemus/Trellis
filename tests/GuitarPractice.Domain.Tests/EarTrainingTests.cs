@@ -9,7 +9,48 @@ public class EarTrainingTests
 
     private static EarItem Interval(int semitones) => new(EarItemKind.Interval, semitones);
 
-    private static EarItem Chord(int degree, bool seventh = false) => new(EarItemKind.Chord, degree, seventh);
+    private static EarItem Chord(int degree, bool seventh = false) =>
+        new(EarItemKind.Chord, degree, seventh ? ChordType.Seventh : ChordType.Triad);
+
+    private static string?[] Names(MusicKey key, ChordType type) =>
+        [.. Enumerable.Range(0, 7).Select(d => MusicTheory.Exists(key, d, type) ? MusicTheory.ChordName(key, d, type) : null)];
+
+    [Fact]
+    public void Sus_add9_sixth_and_ninth_chords_exist_only_where_the_key_makes_them()
+    {
+        Assert.Equal(["Csus2", "Dsus2", null, "Fsus2", "Gsus2", "Asus2", null], Names(CMajor, ChordType.Sus2));
+        Assert.Equal(["Csus4", "Dsus4", "Esus4", null, "Gsus4", "Asus4", null], Names(CMajor, ChordType.Sus4));
+        Assert.Equal(["Cadd9", "Dm(add9)", null, "Fadd9", "Gadd9", "Am(add9)", null], Names(CMajor, ChordType.Add9));
+        Assert.Equal(["C6", "Dm6", null, "F6", "G6", null, null], Names(CMajor, ChordType.Sixth));
+        Assert.Equal(["Cmaj9", "Dm9", null, "Fmaj9", "G9", "Am9", null], Names(CMajor, ChordType.Ninth));
+        Assert.Equal(["Am9", null, "Cmaj9", "Dm9", null, "Fmaj9", "G9"], Names(AMinor, ChordType.Ninth));
+
+        Assert.Equal(["Isus2", "iisus4", "V9", "Imaj9", "ii6", "viadd9"],
+            new[] { (0, ChordType.Sus2), (1, ChordType.Sus4), (4, ChordType.Ninth), (0, ChordType.Ninth), (1, ChordType.Sixth), (5, ChordType.Add9) }
+                .Select(x => MusicTheory.Numeral(CMajor, x.Item1, x.Item2)));
+        Assert.Equal([0, 4, 7, 10, 14], MusicTheory.ChordTones(CMajor, 4, ChordType.Ninth));
+        Assert.Throws<InvalidOperationException>(() => MusicTheory.Quality(CMajor, 3, ChordType.Sus4)); // F–B–C
+
+        var item = new EarItem(EarItemKind.Chord, 4, ChordType.Sus4);
+        Assert.Equal("Vsus4 · Gsus4 (sus4)", item.Label(CMajor));
+        Assert.Equal("Vsus4: the 5 chord with a 4th for its 3rd in C major, Gsus4, a sus4 chord", item.Describe(CMajor));
+        Assert.Equal("major:Vsus4", item.StatsKey(CMajor));
+        Assert.Equal(7 * 7, EarItem.AllChords.Count);
+    }
+
+    [Fact]
+    public void A_quiz_leaves_out_chords_the_key_doesnt_have_and_plays_every_tone()
+    {
+        var items = new[] { new EarItem(EarItemKind.Chord, 3, ChordType.Sus4), new EarItem(EarItemKind.Chord, 0, ChordType.Ninth),
+            new EarItem(EarItemKind.Chord, 4, ChordType.Ninth), new EarItem(EarItemKind.Chord, 1, ChordType.Sixth) };
+        var quiz = new EarQuiz(new EarQuizOptions(CMajor, items), new Random(3));
+        Assert.Equal(3, quiz.Options.Items.Count);                                    // IVsus4 isn't in C major
+        for (var i = 0; i < 20; i++)
+        {
+            var q = quiz.Next();
+            Assert.Equal(MusicTheory.ChordTones(CMajor, q.Item.Value, q.Item.Chord), q.Sound.Notes.Select(n => n.Midi - q.RootMidi));
+        }
+    }
 
     [Fact]
     public void Diatonic_chords_in_major_and_minor()
@@ -189,7 +230,7 @@ public class EarTrainingTests
     public void Every_diatonic_chord_in_every_key_has_a_name()
     {
         foreach (var key in MusicKey.All)
-            foreach (var item in EarItem.AllChords)
+            foreach (var item in EarItem.AllChords.Where(i => i.ExistsIn(key)))
             {
                 Assert.False(string.IsNullOrEmpty(item.Label(key)));
                 Assert.InRange(EarQuiz.ChordRoot(key, item.Value), 48, 59);

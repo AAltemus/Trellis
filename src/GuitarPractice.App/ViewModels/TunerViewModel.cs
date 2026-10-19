@@ -12,7 +12,8 @@ namespace GuitarPractice.App.ViewModels;
 
 /// <summary>Remembered between sessions (AppSettings key "tuner"). The device is stored by name: PortAudio indexes shift.</summary>
 public sealed record TunerSettings(
-    int? TuningId = 1, double A4 = 440, string? DeviceName = null, int Channel = 0, bool BendMode = false, int BendSemitones = 2);
+    int? TuningId = 1, double A4 = 440, string? DeviceName = null, int Channel = 0, bool BendMode = false, int BendSemitones = 2,
+    double Sensitivity = TunerEngine.DefaultSensitivityDb, bool ShowStrobe = false);
 
 public sealed record BendIntervalOption(int Semitones, string Label)
 {
@@ -83,6 +84,8 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
         A4 = (decimal)Math.Clamp(saved.A4, 400, 480);
         SelectedBendInterval = BendIntervals.FirstOrDefault(b => b.Semitones == saved.BendSemitones) ?? BendIntervals[1];
         IsBendMode = saved.BendMode;
+        Sensitivity = Math.Clamp(saved.Sensitivity, TunerEngine.MostSensitiveDb, TunerEngine.LeastSensitiveDb);
+        ShowStrobe = saved.ShowStrobe;
         _loading = false;
 
         ApplyTuning();
@@ -207,6 +210,26 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
         if (!_loading) _engine.Smoother.A4 = _bend.A4 = (double)(value ?? 440);
     }
 
+    // ---- Sensitivity + strobe ----
+
+    /// <summary>Gate opening level, dBFS (−40 least … −80 most sensitive); the slider runs right = more sensitive.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SensitivityText))]
+    private double _sensitivity = TunerEngine.DefaultSensitivityDb;
+
+    /// <summary>Compare with the level readout: notes must reach this to be read.</summary>
+    public string SensitivityText => $"listens from {Math.Round(Sensitivity):0;−0} dBFS";
+
+    partial void OnSensitivityChanged(double value) => _engine.Sensitivity = value;
+
+    /// <summary>Show the strobe under the needle.</summary>
+    [ObservableProperty]
+    private bool _showStrobe;
+
+    /// <summary>Cents for the strobe (null = no note): the tuner reading, or the bend's distance from its target.</summary>
+    [ObservableProperty]
+    private double? _strobeCents;
+
     partial void OnIsBendModeChanged(bool value)
     {
         if (_loading) return;
@@ -278,6 +301,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
             HzText = _engine.IsGateOpen ? "Listening…" : "Play a single string";
             HintText = "";
             NeedleLeft = NeedleHalfWidth;
+            StrobeCents = null;
             return;
         }
 
@@ -292,6 +316,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
             : r.Cents > 50 ? $"{r.Cents / 100:0.#} semitones sharp: tune down"
             : r.Cents < 0 ? "Flat: tune up ▲" : "Sharp: tune down ▼";
         NeedleLeft = NeedleHalfWidth + Math.Clamp(r.Cents, -50, 50) / 50 * NeedleHalfWidth;
+        StrobeCents = r.Cents;
     }
 
     private void RefreshBend(TunerState state)
@@ -311,6 +336,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
             HintText = "";
             BendProgress = 0;
             NeedleLeft = NeedleHalfWidth;
+            StrobeCents = null;
             return;
         }
 
@@ -332,6 +358,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
             _ => "",
         };
         NeedleLeft = NeedleHalfWidth + Math.Clamp(bend.CentsFromTarget, -50, 50) / 50 * NeedleHalfWidth;
+        StrobeCents = bend.CentsFromTarget;
     }
 
     private void RecordBend(BendAttempt attempt)
@@ -389,7 +416,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
         {
             _settingsStore.Set(SettingsKey, new TunerSettings(
                 SelectedTuning?.Id, (double)(A4 ?? 440), SelectedDevice?.Name, SelectedChannel?.Channel ?? 0,
-                IsBendMode, SelectedBendInterval?.Semitones ?? 2));
+                IsBendMode, SelectedBendInterval?.Semitones ?? 2, Sensitivity, ShowStrobe));
         }
 #pragma warning disable CA1031 // Losing a preference must never break closing the window.
         catch (Exception ex)

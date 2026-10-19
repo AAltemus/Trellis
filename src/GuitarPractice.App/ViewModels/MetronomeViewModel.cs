@@ -14,6 +14,15 @@ public sealed record SubdivisionOption(Subdivision Value, string Label)
     public override string ToString() => Label;
 }
 
+/// <summary>An entry in the metronome's output picker; <see cref="Device"/> null = the system default output.</summary>
+public sealed record OutputDeviceOption(AudioDeviceInfo? Device, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>The metronome's output device (AppSettings "metronomeOutput"), by name + driver; null name = system default.</summary>
+public sealed record MetronomeOutputSettings(string? DeviceName = null, int Driver = -1);
+
 /// <summary>
 /// "Practice with metronome": the practice item the metronome is playing for. <see cref="Reached"/> gets the tempo heard
 /// last when playback stops and returns a line for the metronome window ("152 BPM → in the log").
@@ -53,6 +62,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         _loading = true;
         Apply((settingsStore.Get<MetronomeSettings>(SettingsKey) ?? new MetronomeSettings()).Normalized());
         RefreshPatterns(MatchingPatternName());
+        LoadOutputs();
         _loading = false;
         RebuildBeatLights();
         RebuildDrumGrid();
@@ -325,6 +335,64 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         if (seconds > 0) Bpm = 60.0 / seconds;
     }
 
+    // ---- Output device ----
+
+    public const string OutputSettingsKey = "metronomeOutput";
+
+    public ObservableCollection<OutputDeviceOption> Outputs { get; } = [];
+
+    [ObservableProperty]
+    private OutputDeviceOption? _selectedOutput;
+
+    [ObservableProperty]
+    private string? _outputNote;
+
+    /// <summary>System default first, then every output under every driver (lowest latency first per device).</summary>
+    private void LoadOutputs()
+    {
+        Outputs.Add(new OutputDeviceOption(null, "System default output"));
+        IReadOnlyList<AudioDeviceInfo> devices = [];
+        try
+        {
+            devices = OutputDevices.Sorted(_output.Devices);
+        }
+#pragma warning disable CA1031 // No audio library or devices: the picker just offers the default.
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Listing output devices failed: {ex.Message}");
+        }
+#pragma warning restore CA1031
+        foreach (var d in devices) Outputs.Add(new OutputDeviceOption(d, OutputDevices.Label(d)));
+
+        var saved = _settingsStore.Get<MetronomeOutputSettings>(OutputSettingsKey) ?? new MetronomeOutputSettings();
+        var match = OutputDevices.Find(devices, saved.DeviceName, saved.Driver);
+        SelectedOutput = Outputs.FirstOrDefault(o => o.Device == match) ?? Outputs[0];
+        OutputNote = saved.DeviceName is not null && match is null
+            ? $"“{saved.DeviceName}” isn't connected: using the system default."
+            : null;
+    }
+
+    partial void OnSelectedOutputChanged(OutputDeviceOption? value)
+    {
+        if (_loading) return;
+        OutputNote = null;
+        try
+        {
+            _settingsStore.Set(OutputSettingsKey, new MetronomeOutputSettings(value?.Device?.Name, value?.Device?.Driver ?? -1));
+        }
+#pragma warning disable CA1031 // Losing a preference must never break the metronome.
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Saving the metronome output failed: {ex.Message}");
+        }
+#pragma warning restore CA1031
+        if (IsPlaying)
+        {
+            StopPlayback();   // reopen on the new device
+            StartPlayback();
+        }
+    }
+
     // ---- Playback ----
 
     private void StartPlayback()
@@ -333,13 +401,14 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         SaveSettings();
         try
         {
-            var rate = _output.GetPreferredSampleRate();
+            var deviceId = SelectedOutput?.Device?.Id;
+            var rate = _output.GetPreferredSampleRate(deviceId);
             if (_engine?.SampleRate != rate) _engine = new MetronomeEngine(rate);
             _engine.Settings = Settings;
             while (_engine.TryDequeueTick(out _)) { }
             _pendingTicks.Clear();
             _engine.Start();
-            _output.Start(new AudioStreamOptions(SampleRate: rate, FramesPerBuffer: 256), _engine.Render);
+            _output.Start(new AudioStreamOptions(DeviceId: deviceId, SampleRate: rate, FramesPerBuffer: 256), _engine.Render);
         }
 #pragma warning disable CA1031 // Any audio failure (no device, driver error, missing native lib) is shown, not thrown.
         catch (Exception ex)

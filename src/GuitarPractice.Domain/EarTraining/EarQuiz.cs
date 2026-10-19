@@ -4,6 +4,9 @@ public enum EarItemKind
 {
     Interval = 0,
     Chord = 1,
+
+    /// <summary>Melodic dictation (<see cref="MelodyDictation"/>); there are no <see cref="EarItem"/>s of this kind.</summary>
+    Melody = 2,
 }
 
 /// <summary>How the two notes of an interval are played.</summary>
@@ -29,18 +32,25 @@ public enum IntervalRoot
 
 /// <summary>
 /// Something to recognise. Interval: <see cref="Value"/> = semitones (1–12). Chord: <see cref="Value"/> = scale degree
-/// (0 = I … 6 = vii), <see cref="Seventh"/> = four-note diatonic seventh chord.
+/// (0 = I … 6 = vii) and <see cref="Chord"/> = which chord is built on it from the key's notes.
 /// </summary>
-public sealed record EarItem(EarItemKind Kind, int Value, bool Seventh = false)
+public sealed record EarItem(EarItemKind Kind, int Value, ChordType Chord = ChordType.Triad)
 {
     public static IReadOnlyList<EarItem> AllIntervals { get; } = [.. Enumerable.Range(1, 12).Select(s => new EarItem(EarItemKind.Interval, s))];
 
+    /// <summary>Every chord type on every degree; not all exist in every mode (<see cref="ExistsIn"/>).</summary>
     public static IReadOnlyList<EarItem> AllChords { get; } =
-        [.. Enumerable.Range(0, 7).Select(d => new EarItem(EarItemKind.Chord, d)), .. Enumerable.Range(0, 7).Select(d => new EarItem(EarItemKind.Chord, d, Seventh: true))];
+        [.. Enum.GetValues<ChordType>().SelectMany(type => Enumerable.Range(0, 7).Select(d => new EarItem(EarItemKind.Chord, d, type)))];
 
-    /// <summary>"P5", or the chord's numeral in the key ("V7").</summary>
+    /// <summary>The diatonic seventh chord (kept for the original two chord types).</summary>
+    public bool Seventh => Chord == ChordType.Seventh;
+
+    /// <summary>Intervals always; a chord when the key's notes make a real chord of its type on its degree.</summary>
+    public bool ExistsIn(MusicKey key) => Kind == EarItemKind.Interval || MusicTheory.Exists(key, Value, Chord);
+
+    /// <summary>"P5", or the chord's numeral in the key ("V7", "Vsus4").</summary>
     public string ShortLabel(MusicKey key) =>
-        Kind == EarItemKind.Interval ? MusicTheory.IntervalShortName(Value) : MusicTheory.Numeral(key, Value, Seventh);
+        Kind == EarItemKind.Interval ? MusicTheory.IntervalShortName(Value) : MusicTheory.Numeral(key, Value, Chord);
 
     /// <summary>"P5 · perfect 5th", "ii · Dm (minor)", "V7 · G7 (dominant 7th)".</summary>
     public string Label(MusicKey key) => $"{ShortLabel(key)} · {Detail(key)}";
@@ -48,7 +58,7 @@ public sealed record EarItem(EarItemKind Kind, int Value, bool Seventh = false)
     /// <summary>"perfect 5th"; for a chord its name and quality in the key: "Dm (minor)".</summary>
     public string Detail(MusicKey key) => Kind == EarItemKind.Interval
         ? MusicTheory.IntervalLongName(Value)
-        : $"{MusicTheory.ChordName(key, Value, Seventh)} ({MusicTheory.QualityName(MusicTheory.Quality(key, Value, Seventh))})";
+        : $"{MusicTheory.ChordName(key, Value, Chord)} ({MusicTheory.QualityName(MusicTheory.Quality(key, Value, Chord))})";
 
     /// <summary>
     /// Said in full: "P5: a perfect 5th"; "ii: the 2 chord in C major, Dm, a minor chord".
@@ -58,9 +68,20 @@ public sealed record EarItem(EarItemKind Kind, int Value, bool Seventh = false)
         ArgumentNullException.ThrowIfNull(key);
         return Kind == EarItemKind.Interval
             ? $"{ShortLabel(key)}: a {MusicTheory.IntervalLongName(Value)}"
-            : $"{ShortLabel(key)}: the {Value + 1} chord{(Seventh ? " with its 7th" : "")} in {key.Name}, "
-              + $"{MusicTheory.ChordName(key, Value, Seventh)}, a {MusicTheory.QualityName(MusicTheory.Quality(key, Value, Seventh))} chord";
+            : $"{ShortLabel(key)}: the {Value + 1} chord{TypePhrase(Chord)} in {key.Name}, "
+              + $"{MusicTheory.ChordName(key, Value, Chord)}, a {MusicTheory.QualityName(MusicTheory.Quality(key, Value, Chord))} chord";
     }
+
+    private static string TypePhrase(ChordType type) => type switch
+    {
+        ChordType.Seventh => " with its 7th",
+        ChordType.Sus2 => " with a 2nd for its 3rd",
+        ChordType.Sus4 => " with a 4th for its 3rd",
+        ChordType.Add9 => " with an added 9th",
+        ChordType.Sixth => " with an added 6th",
+        ChordType.Ninth => " with its 7th and 9th",
+        _ => "",
+    };
 
     /// <summary>
     /// Identity for all-time stats. Intervals sound the same in any key ("int:P5"); a chord's sound depends on its
@@ -71,7 +92,7 @@ public sealed record EarItem(EarItemKind Kind, int Value, bool Seventh = false)
         ArgumentNullException.ThrowIfNull(key);
         return Kind == EarItemKind.Interval
             ? $"int:{MusicTheory.IntervalShortName(Value)}"
-            : $"{(key.Mode == KeyMode.Major ? "major" : "minor")}:{MusicTheory.Numeral(key, Value, Seventh)}";
+            : $"{(key.Mode == KeyMode.Major ? "major" : "minor")}:{MusicTheory.Numeral(key, Value, Chord)}";
     }
 }
 
@@ -127,7 +148,7 @@ public sealed class EarQuiz
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(random);
-        var items = options.Items.Distinct().ToList();
+        var items = options.Items.Distinct().Where(i => i.ExistsIn(options.Key)).ToList(); // e.g. a sus4 left over from another mode
         if (items.Count < 2) throw new ArgumentException("Pick at least two things to tell apart.", nameof(options));
         Options = options with { Items = items };
         _random = random;
@@ -225,7 +246,7 @@ public sealed class EarQuiz
         }
         else
         {
-            var tones = MusicTheory.ChordTones(Options.Key, item.Value, item.Seventh);
+            var tones = MusicTheory.ChordTones(Options.Key, item.Value, item.Chord);
             notes.AddRange(Strum([.. tones.Select(x => root + x)], t, ChordLength));
         }
         return new EarSound(notes);

@@ -179,6 +179,24 @@ public class TunerEngineTests
     }
 
     [Fact]
+    public void Higher_sensitivity_reads_a_quiet_low_gain_input()
+    {
+        var input = new FakeInput(48_000);
+        using var engine = new TunerEngine(input, backgroundAnalysis: false) { Sensitivity = -75 };
+        engine.Start();
+
+        var state = Run(engine, input, YinPitchDetectorTests.Sine(110, 48_000, 24_000, amp: 0.0005)); // ≈ −69 dBFS: gated at −60
+        Assert.Equal((-75.0, -91.0), (engine.GateOpenDb, engine.GateCloseDb));
+        Assert.NotNull(state.Reading);
+        Assert.Equal(45, state.Reading.TargetMidi);
+
+        engine.Sensitivity = -200;                                       // clamped
+        Assert.Equal(TunerEngine.MostSensitiveDb, engine.Sensitivity);
+        engine.Sensitivity = double.NaN;
+        Assert.Equal(TunerEngine.DefaultSensitivityDb, engine.Sensitivity);
+    }
+
+    [Fact]
     public void Dc_offset_and_rumble_are_filtered_out()
     {
         var input = new FakeInput(48_000);

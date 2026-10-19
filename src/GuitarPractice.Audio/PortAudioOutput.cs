@@ -31,7 +31,7 @@ public sealed class PortAudioOutput : IAudioOutput
         get
         {
             EnsureInitialized();
-            return PortAudioHost.ListDevices(input: false);
+            return PortAudioHost.ListDevices(input: false, allDrivers: true); // pick a low-latency driver by its latency
         }
     }
 
