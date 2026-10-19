@@ -78,6 +78,8 @@ public static class ProgressStats
         NoteValue.Sixteenths => "16ths",
         NoteValue.Quintuplets => "quintuplets",
         NoteValue.Sextuplets => "sextuplets",
+        NoteValue.Septuplets => "septuplets",
+        NoteValue.ThirtySeconds => "32nds",
         _ => value.ToString(),
     };
 

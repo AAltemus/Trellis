@@ -15,7 +15,7 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.0");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
             modelBuilder.Entity("GuitarPractice.Domain.AppSetting", b =>
                 {
@@ -393,7 +393,7 @@ namespace GuitarPractice.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_ProgressExercise_Bpm", "Bpm IS NULL OR (Bpm >= 1 AND Bpm <= 400)");
 
-                            t.HasCheckConstraint("CK_ProgressExercise_NoteValue", "NoteValue IS NULL OR (NoteValue >= 1 AND NoteValue <= 6)");
+                            t.HasCheckConstraint("CK_ProgressExercise_NoteValue", "NoteValue IS NULL OR (NoteValue >= 1 AND NoteValue <= 8)");
 
                             t.HasCheckConstraint("CK_ProgressExercise_RemovedRun", "RemovedRun IS NULL OR RemovedRun >= 1");
                         });

@@ -179,5 +179,8 @@ public class ProgressStatsTests
         Assert.True(removed.IsRemoved);
         Assert.Equal("Fives · quintuplets", s.Latest!.Label);                          // never a removed run
         Assert.Equal("sextuplets", ProgressStats.NoteValueName(NoteValue.Sextuplets));
+        Assert.Equal("septuplets", ProgressStats.NoteValueName(NoteValue.Septuplets));
+        Assert.Equal("32nds", ProgressStats.NoteValueName(NoteValue.ThirtySeconds));
+        Assert.All(Enum.GetValues<NoteValue>(), v => Assert.NotEqual(v.ToString(), ProgressStats.NoteValueName(v))); // every value has a display name
     }
 }

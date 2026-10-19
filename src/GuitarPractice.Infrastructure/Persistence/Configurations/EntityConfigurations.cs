@@ -155,7 +155,7 @@ internal sealed class ProgressExerciseConfiguration : IEntityTypeConfiguration<P
         b.ToTable(t =>
         {
             t.HasCheckConstraint("CK_ProgressExercise_Bpm", "Bpm IS NULL OR (Bpm >= 1 AND Bpm <= 400)");
-            t.HasCheckConstraint("CK_ProgressExercise_NoteValue", "NoteValue IS NULL OR (NoteValue >= 1 AND NoteValue <= 6)");
+            t.HasCheckConstraint("CK_ProgressExercise_NoteValue", "NoteValue IS NULL OR (NoteValue >= 1 AND NoteValue <= 8)");
             t.HasCheckConstraint("CK_ProgressExercise_RemovedRun", "RemovedRun IS NULL OR RemovedRun >= 1");
         });
     }

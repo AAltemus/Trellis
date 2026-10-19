@@ -79,7 +79,7 @@ scrolled so today is in view.
   reshuffles, weight changes, locking and restarts (loading a saved week into a week clears it, see below). The seed
   is saved too, so the plan doesn't move between launches.
 - **Log for the day** (collapsible section under the timer): the exercises you played in the block, each with BPM and
-  note value (quarters, 8ths, triplets, 16ths, quintuplets, sextuplets; names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
+  note value (quarters, 8ths, triplets, 16ths, quintuplets, sextuplets, septuplets, 32nds; names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
 - **♩ Metronome** (Tools → Practice with metronome, Ctrl+Shift+M): opens the metronome for the selected item and starts
   it. It picks the exercise (the first named line in the log, else the one you logged last), starts at the tempo typed
   on that line or your latest logged tempo for it (else the block's start BPM), uses its note value as the subdivision
@@ -108,7 +108,7 @@ scrolled so today is in view.
 
 ## Tools menu
 
-- **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth/quintuplet/sextuplet subdivisions,
+- **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth/quintuplet/sextuplet/septuplet/32nd subdivisions,
   accent on beat 1, volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
   - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
   - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.

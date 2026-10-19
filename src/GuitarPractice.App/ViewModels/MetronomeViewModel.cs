@@ -80,6 +80,8 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         new(Subdivision.Sixteenths, "♬♬ Sixteenth notes"),
         new(Subdivision.Quintuplets, "5 Quintuplets"),
         new(Subdivision.Sextuplets, "6 Sextuplets"),
+        new(Subdivision.Septuplets, "7 Septuplets"),
+        new(Subdivision.ThirtySeconds, "8 Thirty-second notes"),
     ];
 
     public IReadOnlyList<int> GapBarOptions { get; } = Enumerable.Range(1, 8).ToList();

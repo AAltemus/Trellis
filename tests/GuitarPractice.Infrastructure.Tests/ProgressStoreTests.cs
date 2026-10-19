@@ -250,9 +250,11 @@ public sealed class ProgressStoreTests : IDisposable
     }
 
     [Fact]
-    public void Quintuplets_and_sextuplets_are_stored()
+    public void Quintuplets_to_32nds_are_stored_and_unknown_note_values_dropped()
     {
-        _store.Save(Monday, _block, [Ex("Fives", 72, NoteValue.Quintuplets), Ex("Sixes", 66, NoteValue.Sextuplets)], null, null);
-        Assert.Equal([NoteValue.Quintuplets, NoteValue.Sextuplets], _store.Get(Monday, _block)!.Exercises.Select(x => x.NoteValue!.Value));
+        _store.Save(Monday, _block, [Ex("Fives", 72, NoteValue.Quintuplets), Ex("Sixes", 66, NoteValue.Sextuplets),
+            Ex("Sevens", 60, NoteValue.Septuplets), Ex("Bursts", 80, NoteValue.ThirtySeconds), Ex("Bad", 50, (NoteValue)9)], null, null);
+        Assert.Equal([NoteValue.Quintuplets, NoteValue.Sextuplets, NoteValue.Septuplets, NoteValue.ThirtySeconds, null],
+            _store.Get(Monday, _block)!.Exercises.Select(x => x.NoteValue));
     }
 }

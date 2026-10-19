@@ -141,4 +141,38 @@ public sealed class MigrationTests : IDisposable
         var values = down.Database.SqlQueryRaw<int?>("SELECT \"NoteValue\" AS \"Value\" FROM \"ProgressExercises\" ORDER BY \"SortOrder\"").AsEnumerable().ToList();
         Assert.Equal([null, 2], values); // quintuplets unknown to the old schema; the removed line comes back as current
     }
+
+    private const string BeforeSeptuplets = "20261018124535_Auto_20261018_084533";
+
+    [Fact]
+    public void Septuplets_and_32nds_survive_the_upgrade_and_are_cleared_by_a_downgrade()
+    {
+        int subcategoryId;
+        using (var db = _db.CreateDbContext())
+        {
+            db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(BeforeSeptuplets);
+            subcategoryId = db.Database.SqlQueryRaw<int>("SELECT MIN(\"Id\") AS \"Value\" FROM \"Subcategories\"").AsEnumerable().First();
+            db.Database.ExecuteSql($"""
+                INSERT INTO "ProgressEntries" ("Id", "Date", "SubcategoryId", "Rating", "Notes", "UpdatedAt") VALUES
+                (1, '2026-10-12', {subcategoryId}, 4, 'before', 0);
+                INSERT INTO "ProgressExercises" ("ProgressEntryId", "Name", "Bpm", "NoteValue", "SortOrder", "RemovedRun") VALUES
+                (1, 'Sixes', 70, 6, 0, NULL), (1, 'Gone', 60, 5, 1, 1);
+                """);
+            db.Database.Migrate();
+        }
+
+        var store = new ProgressStore(_db, _db.Clock);
+        Assert.Equal([new ExerciseLog("Sixes", 70, NoteValue.Sextuplets), new ExerciseLog("Gone", 60, NoteValue.Quintuplets, 1)],
+            Assert.Single(store.History(subcategoryId)).Exercises); // the table rebuild kept lines and removed runs
+        store.Save(new DateOnly(2026, 10, 13), subcategoryId,
+            [new("Sevens", 64, NoteValue.Septuplets), new("Bursts", 90, NoteValue.ThirtySeconds), new("Sixes", 72, NoteValue.Sextuplets)], null, null);
+        Assert.Equal([NoteValue.Septuplets, NoteValue.ThirtySeconds, NoteValue.Sextuplets],
+            store.History(subcategoryId)[1].Exercises.Select(x => x.NoteValue!.Value));
+
+        using var down = _db.CreateDbContext();
+        down.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>().Migrate(BeforeSeptuplets);
+        var values = down.Database.SqlQueryRaw<int?>(
+            "SELECT \"NoteValue\" AS \"Value\" FROM \"ProgressExercises\" WHERE \"ProgressEntryId\" <> 1 ORDER BY \"SortOrder\"").AsEnumerable().ToList();
+        Assert.Equal([null, null, 6], values); // unknown to the old schema; sextuplets kept
+    }
 }

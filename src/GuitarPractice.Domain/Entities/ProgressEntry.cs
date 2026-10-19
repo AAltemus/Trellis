@@ -1,6 +1,10 @@
 namespace GuitarPractice.Domain;
 
-/// <summary>What one BPM counts: the note value played at that tempo.</summary>
+/// <summary>
+/// What one BPM counts: the note value played at that tempo (the number is notes per beat). Same numbers and names as
+/// the metronome's <c>Subdivision</c>, which "Practice with metronome" casts it to: add a value to both (and to the
+/// ProgressExercises NoteValue check, which needs a migration).
+/// </summary>
 public enum NoteValue
 {
     Quarters = 1,
@@ -9,6 +13,8 @@ public enum NoteValue
     Sixteenths = 4,
     Quintuplets = 5,
     Sextuplets = 6,
+    Septuplets = 7,
+    ThirtySeconds = 8,
 }
 
 /// <summary>

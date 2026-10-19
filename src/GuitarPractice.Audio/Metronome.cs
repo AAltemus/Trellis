@@ -2,7 +2,10 @@ using System.Diagnostics;
 
 namespace GuitarPractice.Audio;
 
-/// <summary>Clicks per beat.</summary>
+/// <summary>
+/// Clicks per beat. Same numbers and names as the Domain's <c>NoteValue</c>: "Practice with metronome" casts one to the
+/// other, so add a value to both.
+/// </summary>
 public enum Subdivision
 {
     Quarters = 1,
@@ -11,6 +14,8 @@ public enum Subdivision
     Sixteenths = 4,
     Quintuplets = 5,
     Sextuplets = 6,
+    Septuplets = 7,
+    ThirtySeconds = 8,
 }
 
 public enum ClickKind

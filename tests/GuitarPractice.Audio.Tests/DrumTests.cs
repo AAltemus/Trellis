@@ -166,7 +166,7 @@ public class DrumTests
         Assert.NotEqual(a, a.WithStep(1, DrumHits.HiHat));
         Assert.Equal(DrumHits.Snare, a.Steps[1]); // WithStep copies
 
-        var messy = new DrumPattern("  " + new string('x', 60), 40, (Subdivision)7, [DrumHits.Kick, (DrumHits)0xFF]).Normalized();
+        var messy = new DrumPattern("  " + new string('x', 60), 40, (Subdivision)9, [DrumHits.Kick, (DrumHits)0xFF]).Normalized();
         Assert.Equal((DrumPattern.MaxNameLength, MetronomeSettings.MaxBeatsPerBar, Subdivision.Quarters), (messy.Name.Length, messy.BeatsPerBar, messy.Subdivision));
         Assert.Equal(MetronomeSettings.MaxBeatsPerBar, messy.Steps.Length);
         Assert.Equal([DrumHits.Kick, DrumHits.All, DrumHits.None], messy.Steps.Take(3));

@@ -18,6 +18,8 @@ public sealed record NoteValueOption(NoteValue? Value, string Label)
         new(NoteValue.Sixteenths, "16ths"),
         new(NoteValue.Quintuplets, "quintuplets"),
         new(NoteValue.Sextuplets, "sextuplets"),
+        new(NoteValue.Septuplets, "septuplets"),
+        new(NoteValue.ThirtySeconds, "32nds"),
     ];
 
     public static NoteValueOption For(NoteValue? value) => All.FirstOrDefault(o => o.Value == value) ?? All[0];

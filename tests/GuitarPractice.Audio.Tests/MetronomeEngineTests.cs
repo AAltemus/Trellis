@@ -318,13 +318,16 @@ public class MetronomeEngineTests
     [Theory]
     [InlineData(Subdivision.Quintuplets, 5)]
     [InlineData(Subdivision.Sextuplets, 6)]
-    public void Quintuplets_and_sextuplets_split_the_beat_evenly(Subdivision subdivision, int perBeat)
+    [InlineData(Subdivision.Septuplets, 7)]
+    [InlineData(Subdivision.ThirtySeconds, 8)]
+    public void Odd_groupings_and_32nds_split_the_beat_evenly(Subdivision subdivision, int perBeat)
     {
         var engine = Started(new MetronomeSettings(Bpm: 120, BeatsPerBar: 2, Subdivision: subdivision));
         Render(engine, Rate + 1); // one bar of two beats at 120 = 48 000 samples
 
         var ticks = Ticks(engine);
-        Assert.Equal(Enumerable.Range(0, 2 * perBeat + 1).Select(i => (long)Math.Round(i * 24_000.0 / perBeat)), ticks.Select(t => t.SamplePosition));
+        // Each click on the first sample at or after its exact time (a 7th of a beat is 3428.57 samples here).
+        Assert.Equal(Enumerable.Range(0, 2 * perBeat + 1).Select(i => (long)Math.Ceiling(i * 24_000.0 / perBeat - 1e-6)), ticks.Select(t => t.SamplePosition));
         Assert.Equal(3, ticks.Count(t => t.Kind != ClickKind.Subdivision)); // beats 1 and 2, then the next bar's 1
         Assert.Equal(perBeat - 1, ticks.Take(perBeat).Count(t => t.Kind == ClickKind.Subdivision));
         Assert.All(Render(Started(new MetronomeSettings(Bpm: 400, Subdivision: subdivision, Volume: 2f)), Rate), v => Assert.InRange(v, -1f, 1f));
