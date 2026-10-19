@@ -54,14 +54,12 @@ public partial class MidiPlayerWindow : Window
         vm.ImportFiles(files.Select(f => f.TryGetLocalPath()).OfType<string>());
     }
 
-#pragma warning disable CS0618 // DataFormats.Files / GetFiles: the Avalonia 11 drag-and-drop API.
     private static IEnumerable<string> DroppedMidiFiles(DragEventArgs e) =>
-        (e.Data.GetFiles() ?? []).Select(f => f.TryGetLocalPath()).OfType<string>()
+        (e.DataTransfer.TryGetFiles() ?? []).Select(f => f.TryGetLocalPath()).OfType<string>()
             .Where(p => p.EndsWith(".mid", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".midi", StringComparison.OrdinalIgnoreCase));
 
     private void OnDragOver(object? sender, DragEventArgs e) =>
-        e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
-#pragma warning restore CS0618
+        e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
 
     private void OnDrop(object? sender, DragEventArgs e)
     {

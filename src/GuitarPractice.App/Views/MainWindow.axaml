@@ -223,7 +223,7 @@
 
                     <!-- Add a subcategory (exercise categories) -->
                     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsExercise}" Margin="0,6,0,0">
-                      <TextBox Watermark="New subcategory…" Text="{Binding NewSubcategoryName}" />
+                      <TextBox PlaceholderText="New subcategory…" Text="{Binding NewSubcategoryName}" />
                       <Button Grid.Column="1" Content="Add" Margin="6,0,0,0" Command="{Binding AddSubcategoryCommand}" />
                     </Grid>
 
@@ -231,8 +231,8 @@
                     <Border IsVisible="{Binding IsSongs}" Padding="8" CornerRadius="6" Background="#14808080" Margin="0,6,0,0">
                       <StackPanel Spacing="6">
                         <TextBlock Text="Add a song" FontWeight="SemiBold" />
-                        <TextBox Watermark="Title" Text="{Binding NewSongTitle}" />
-                        <TextBox Watermark="Artist" Text="{Binding NewSongArtist}" />
+                        <TextBox PlaceholderText="Title" Text="{Binding NewSongTitle}" />
+                        <TextBox PlaceholderText="Artist" Text="{Binding NewSongArtist}" />
                         <Grid ColumnDefinitions="*,*">
                           <ComboBox ItemsSource="{Binding Tunings}" SelectedItem="{Binding NewSongTuning}"
                                     HorizontalAlignment="Stretch" Margin="0,0,3,0">
@@ -267,7 +267,7 @@
           </ItemsControl>
 
           <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
-            <TextBox Watermark="New category…" Text="{Binding NewCategoryName}" />
+            <TextBox PlaceholderText="New category…" Text="{Binding NewCategoryName}" />
             <Button Grid.Column="1" Content="Add category" Margin="6,0,0,0" Command="{Binding AddCategoryCommand}" />
           </Grid>
 
@@ -364,7 +364,7 @@
               <Grid ColumnDefinitions="130,*,Auto,Auto" ColumnSpacing="8">
                 <ComboBox ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding LogRating}"
                           HorizontalAlignment="Stretch" ToolTip.Tip="How the block went, 1 (rough) to 5 (clean)" />
-                <TextBox Grid.Column="1" Text="{Binding LogNotes}" Watermark="Notes for this block" />
+                <TextBox Grid.Column="1" Text="{Binding LogNotes}" PlaceholderText="Notes for this block" />
                 <Button Grid.Column="2" Content="Save log" Command="{Binding SaveLogCommand}" />
                 <Button Grid.Column="3" Content="Progress…" Command="{Binding OpenProgressCommand}"
                         ToolTip.Tip="History and charts for this block (Ctrl+P)" />
@@ -475,7 +475,7 @@
         <TextBlock Text="Save week" FontSize="18" FontWeight="SemiBold" />
         <TextBlock Classes="caption" TextWrapping="Wrap"
                    Text="Keeps this week's plan so you can load it into any later week from Week → Load saved week. Saving with an existing name replaces it." />
-        <TextBox Text="{Binding SaveWeekName}" Watermark="Name, e.g. Shred block">
+        <TextBox Text="{Binding SaveWeekName}" PlaceholderText="Name, e.g. Shred block">
           <TextBox.KeyBindings>
             <KeyBinding Gesture="Enter" Command="{Binding ConfirmSaveCommand}" />
             <KeyBinding Gesture="Escape" Command="{Binding CancelSaveCommand}" />

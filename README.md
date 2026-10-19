@@ -7,7 +7,7 @@ times each session, with the tools you'd otherwise switch apps for in one place:
 bend trainer, recorder with looping, ear trainer, progress tracking, and a MIDI player for playing along with backing
 tracks: import songs exported from Guitar Pro (or any MIDI file), slow them down without changing pitch, mute your
 part, loop the bars you're working on, and link a song to a practice item so it's one click away. Cross-platform
-desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 11, EF Core + SQLite.
+desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 12, EF Core + SQLite.
 
 The icon is a sprout growing up a rosewood fretboard (simplified to a "T" made of a nut and a string at 16–32 px).
 Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg`; rebuild the `.ico` with

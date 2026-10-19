@@ -65,7 +65,7 @@
         <Button Content="Import MIDI…" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnImport"
                 ToolTip.Tip="Copies .mid files into Trellis's library (you can also drop files on this window)" />
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-          <TextBox Text="{Binding RenameText}" Watermark="Name" />
+          <TextBox Text="{Binding RenameText}" PlaceholderText="Name" />
           <Button Grid.Column="1" Content="Rename" Command="{Binding RenameCommand}" />
         </Grid>
         <Button Content="Delete…" Command="{Binding DeleteCommand}" IsVisible="{Binding !IsConfirmingDelete}"

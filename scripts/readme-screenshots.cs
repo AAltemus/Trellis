@@ -1,9 +1,10 @@
 #:property PublishAot=false
 #:property ManagePackageVersionsCentrally=false
-#:package Avalonia.Headless@11.3.22
-#:package Avalonia.Skia@11.3.22
-#:package Avalonia.Themes.Fluent@11.3.22
-#:package Avalonia.Fonts.Inter@11.3.22
+#:package Avalonia.Headless@12.1.4
+#:package Avalonia.Skia@12.1.4
+#:package Avalonia.Themes.Fluent@12.1.4
+#:package Avalonia.Fonts.Inter@12.1.4
+#:package Avalonia.HarfBuzz@12.1.4
 #:project ../src/GuitarPractice.App/GuitarPractice.App.csproj
 using System.Reflection;
 using Avalonia;
@@ -30,7 +31,7 @@ using Microsoft.EntityFrameworkCore;
 // Renders the README screenshots (docs/screenshots) from demo data, headless. In-memory DB and temp folders only: never
 // your practice.db, recordings or midi folders. Never the real App class (its startup opens the real DB).
 // Run from the repo root: dotnet run --file scripts/readme-screenshots.cs [-- <outDir>]
-AppBuilder.Configure<ShotApp>().UseSkia().WithInterFont().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
+AppBuilder.Configure<ShotApp>().UseSkia().UseHarfBuzz().WithInterFont().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
 var outDir = args.Length > 0 ? args[0] : Path.Combine("docs", "screenshots");
 Directory.CreateDirectory(outDir);
 void Pump() => Avalonia.Threading.Dispatcher.UIThread.RunJobs();
@@ -214,7 +215,7 @@ for (var i = 0; i < windows.Count; i++)
     var b = new RenderTargetBitmap(new PixelSize((int)w.Bounds.Width, (int)w.Bounds.Height));
     b.Render(w);
     var file = Path.Combine(outDir, name + ".png");
-    b.Save(file);
+    b.Save(file, new PngBitmapEncoderOptions { CompressionLevel = System.IO.Compression.CompressionLevel.SmallestSize });
     Console.WriteLine($"{Path.GetFileName(file)} ({(i % 2 == 0 ? "dark" : "light")}) {w.Bounds.Width}×{w.Bounds.Height} {new FileInfo(file).Length / 1024} KB");
 }
 foreach (var (w, _) in windows) w.Close();

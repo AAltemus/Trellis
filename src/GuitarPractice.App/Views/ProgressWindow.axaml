@@ -97,7 +97,7 @@
           <TextBlock Text="Block target" Classes="label" />
           <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
             <NumericUpDown Value="{Binding BlockTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0" Width="150"
-                           Watermark="none" ToolTip.Tip="Target BPM for the whole block; leave empty for none" />
+                           PlaceholderText="none" ToolTip.Tip="Target BPM for the whole block; leave empty for none" />
             <TextBlock Text="{Binding TargetText}" VerticalAlignment="Center" Opacity="0.8" FontSize="12" TextWrapping="Wrap" MaxWidth="260" />
           </StackPanel>
         </StackPanel>
@@ -116,7 +116,7 @@
                 <ProgressBar Grid.Column="3" Minimum="0" Maximum="1" Value="{Binding TargetFraction}" Height="6" MinHeight="6"
                              VerticalAlignment="Center" IsVisible="{Binding HasTarget}" ToolTip.Tip="Progress toward this exercise's target" />
                 <NumericUpDown Grid.Column="4" Value="{Binding OwnTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
-                               Watermark="{Binding TargetWatermark}" ToolTip.Tip="Your own target for this exercise; empty = use the block target" />
+                               PlaceholderText="{Binding TargetWatermark}" ToolTip.Tip="Your own target for this exercise; empty = use the block target" />
                 <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding !IsConfirmingRemove}">
                   <Button Content="Rename" Command="{Binding StartRenameCommand}" Padding="8,2" FontSize="12"
                           ToolTip.Tip="Fix a typo, or give it another exercise's name to merge the two" />
@@ -131,7 +131,7 @@
               <!-- Rename / merge, inline under the row -->
               <StackPanel IsVisible="{Binding IsRenaming}" Spacing="2" Margin="26,2,0,6">
                 <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBox Text="{Binding RenameText}" Width="260" Watermark="New name" />
+                  <TextBox Text="{Binding RenameText}" Width="260" PlaceholderText="New name" />
                   <Button Content="{Binding RenameButtonText}" Command="{Binding ApplyRenameCommand}" Padding="8,2" FontSize="12"
                           Classes.accent="{Binding IsMerge}" />
                   <Button Content="Cancel" Command="{Binding CancelRenameCommand}" Padding="8,2" FontSize="12" />
@@ -209,7 +209,7 @@
             <CalendarDatePicker SelectedDate="{Binding EditDate}" HorizontalAlignment="Stretch" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding EditRating}" HorizontalAlignment="Stretch"
                       ToolTip.Tip="How the block went, 1 (rough) to 5 (clean)" />
-            <TextBox Grid.Column="2" Text="{Binding EditNotes}" Watermark="Notes for this block" />
+            <TextBox Grid.Column="2" Text="{Binding EditNotes}" PlaceholderText="Notes for this block" />
             <Button Grid.Column="3" Content="Save" Command="{Binding SaveEntryCommand}" />
             <Button Grid.Column="4" Content="Clear" Command="{Binding ClearEntryCommand}"
                     ToolTip.Tip="Remove the exercises, rating and notes for this day (practice time is kept)" />

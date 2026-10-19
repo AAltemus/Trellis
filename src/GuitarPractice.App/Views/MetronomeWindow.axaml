@@ -214,7 +214,7 @@
           </Grid>
 
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-            <TextBox Text="{Binding PatternName}" Watermark="Name your pattern" MaxLength="40" />
+            <TextBox Text="{Binding PatternName}" PlaceholderText="Name your pattern" MaxLength="40" />
             <Button Grid.Column="1" Content="Save" Command="{Binding SavePatternCommand}"
                     ToolTip.Tip="Save this grid under the name (same name: updates it)" />
             <Button Grid.Column="2" Content="Clear" Command="{Binding ClearStepsCommand}"
