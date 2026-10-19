@@ -14,6 +14,38 @@ Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg
 `dotnet run scripts/make-icon.cs -- src/GuitarPractice.App/Assets/Icon`. The code keeps its `GuitarPractice.*`
 project names and the data folder stays `GuitarPractice`.
 
+## Screenshots
+
+The week board with the timer and the day's log (dark theme):
+
+![Week board with the timer and practice log](docs/screenshots/week.png)
+
+Progress for one block: exercises, targets, BPM chart, minutes per day and the day table (light theme):
+
+![Progress window](docs/screenshots/progress.png)
+
+Metronome with the drum step grid (dark) and the tuner with the strobe display (light):
+
+<p>
+  <img src="docs/screenshots/metronome.png" alt="Metronome with drums" height="560">
+  <img src="docs/screenshots/tuner.png" alt="Tuner with strobe display" height="560">
+</p>
+
+Recorder: a take with an A–B loop, attached to a practice item (dark):
+
+![Recorder](docs/screenshots/recorder.png)
+
+MIDI player: bar map with a loop, speed and per-track volume (light):
+
+![MIDI player](docs/screenshots/midi-player.png)
+
+Ear trainer: chords in a key, with the round's score (dark):
+
+<img src="docs/screenshots/ear-trainer.png" alt="Ear trainer" width="600">
+
+The screenshots are rendered from demo data by `dotnet run --file scripts/readme-screenshots.cs` (from the repo root;
+in-memory database and temp folders, so your own data is never used); run it again after UI changes.
+
 ## Library model
 
 `Category` (Legato, Rhythm, Songs…) → `Subcategory` (the weighted, schedulable unit).

@@ -48,10 +48,14 @@ public sealed class TakeLinkStore(SettingsStore settings)
     public IReadOnlyDictionary<DateOnly, int> CountsByDay(int subcategoryId) =>
         Load().Values.Where(l => l.SubcategoryId == subcategoryId).GroupBy(l => l.Date).ToDictionary(g => g.Key, g => g.Count());
 
+    /// <summary>
+    /// The file name after the last '/' or '\', on every OS (Path.GetFileName ignores '\' on macOS/Linux; names users
+    /// type can't contain either, see <see cref="FileNames.IsInvalid"/>).
+    /// </summary>
     private static string Key(string fileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-        return Path.GetFileName(fileName);
+        return fileName[(fileName.LastIndexOfAny(['/', '\\']) + 1)..];
     }
 
     private Dictionary<string, TakeLink> Load() =>
