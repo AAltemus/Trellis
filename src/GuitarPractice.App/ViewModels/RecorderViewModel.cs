@@ -12,18 +12,26 @@ namespace GuitarPractice.App.ViewModels;
 
 /// <summary>Remembered between sessions (AppSettings key "recorder").</summary>
 public sealed record RecorderSettings(
-    string? DeviceName = null, int Channel = 0, bool CountIn = false, double CountInBpm = 0, double Volume = 100);
+    string? DeviceName = null, int Channel = 0, bool CountIn = false, double CountInBpm = 0, double Volume = 100, double Speed = 100);
+
+/// <summary>Opening the Recorder for a practice item: new takes attach to it (block, day, exercise).</summary>
+public sealed record RecorderLink(int SubcategoryId, DateOnly Date, string ItemName, string? Exercise);
 
 /// <summary>A WAV file in the recordings folder.</summary>
 public sealed partial class TakeItemViewModel(string path, TimeSpan duration) : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Name))]
+    [NotifyPropertyChangedFor(nameof(Name), nameof(FileName))]
     private string _path = path;
 
     public string Name => System.IO.Path.GetFileNameWithoutExtension(Path);
+    public string FileName => System.IO.Path.GetFileName(Path);
     public TimeSpan Duration { get; } = duration;
     public string DurationText => RecorderViewModel.Format(Duration.TotalSeconds);
+
+    /// <summary>"📎 Legato · Oct 18 · 3nps scale", or empty.</summary>
+    [ObservableProperty]
+    private string _attachText = "";
 }
 
 /// <summary>
@@ -47,11 +55,33 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private AudioTake? _take;
     private bool _outputRunning;
 
-    public RecorderViewModel(IAudioDevices devices, SettingsStore settingsStore)
+    // Slowed-down copies of _take (by speed %), and what the player plays: _take at 100 %, else a stretched copy.
+    // Positions and the loop are fractions of the take, so they mean the same place in either.
+    private readonly Dictionary<int, AudioTake> _stretched = [];
+    private AudioTake? _playTake;
+    private CancellationTokenSource? _stretching;
+
+    public RecorderViewModel(IAudioDevices devices, SettingsStore settingsStore, TakeLinkStore links, LibraryStore library,
+        ProgressStore progress, TimeProvider clock, string? recordingsDirectory = null)
     {
         ArgumentNullException.ThrowIfNull(devices);
         ArgumentNullException.ThrowIfNull(settingsStore);
+        ArgumentNullException.ThrowIfNull(links);
+        ArgumentNullException.ThrowIfNull(library);
+        ArgumentNullException.ThrowIfNull(progress);
+        ArgumentNullException.ThrowIfNull(clock);
         _settingsStore = settingsStore;
+        RecordingsDirectory = recordingsDirectory ?? DefaultRecordingsDirectory;
+        _links = links;
+        _progress = progress;
+        _clock = clock;
+        foreach (var category in library.LoadLibrary())
+            foreach (var s in category.Subcategories)
+                _blockNames[s.Id] = s.DisplayName;
+        foreach (var category in library.LoadLibrary())
+            foreach (var s in category.Subcategories)
+                AttachBlocks.Add(new LabeledOption<int>(s.Id, $"{category.Name} · {s.DisplayName}"));
+        _duplexDevices = devices;
         _input = devices.CreateInput();
         _output = devices.CreateOutput();
         _recorder = new TakeRecorder(_input);
@@ -76,13 +106,156 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         var metronomeBpm = settingsStore.Get<MetronomeSettings>(MetronomeViewModel.SettingsKey)?.Bpm ?? 100;
         CountInBpm = (decimal)Math.Round(saved.CountInBpm > 0 ? saved.CountInBpm : metronomeBpm);
         Volume = Math.Clamp(saved.Volume, 0, 200);
+        Speed = Math.Clamp(Math.Round(saved.Speed / 5) * 5, TimeStretch.MinSpeed * 100, TimeStretch.MaxSpeed * 100);
         _loading = false;
 
         RefreshTakes();
+        RefreshAttachTexts();
         SelectedTake = Takes.FirstOrDefault();
+        LoadLooperSettings();
     }
 
-    public static string RecordingsDirectory => Path.Combine(AppPaths.DataDirectory, "recordings");
+    // A different input (or channel): the looper's stream reopens on it next time.
+    partial void OnSelectedDeviceChanged(AudioDeviceInfo? value) => ReleaseDuplex();
+
+    partial void OnSelectedChannelChanged(ChannelOption? value) => ReleaseDuplex();
+
+    private void ReleaseDuplex()
+    {
+        if (_loading) return;
+        if (IsLooperRunning) StopLooper();
+        _duplex?.Stop();
+    }
+
+    /// <summary>Writes a new take into the recordings folder, lists it first and selects it; attaches it to the linked item.</summary>
+    private TakeItemViewModel SaveNewTake(AudioTake take, string prefix)
+    {
+        Directory.CreateDirectory(RecordingsDirectory);
+        var path = UniquePath($"{prefix} {DateTime.Now:yyyy-MM-dd HH-mm-ss}");
+        WavFile.Write(path, take);
+        var item = new TakeItemViewModel(path, take.Duration);
+        if (_link is { } link) _links.Set(item.FileName, new TakeLink(link.SubcategoryId, link.Date, link.Exercise));
+        Takes.Insert(0, item);
+        RefreshAttachTexts();
+        SelectedTake = item;
+        return item;
+    }
+
+    public static string DefaultRecordingsDirectory => Path.Combine(AppPaths.DataDirectory, "recordings");
+
+    /// <summary>Where takes live: the data folder's "recordings" (another folder only for headless checks).</summary>
+    public string RecordingsDirectory { get; }
+
+    // ---- Attach takes to a practice item (block + day + exercise) ----
+
+    private readonly TakeLinkStore _links;
+    private readonly ProgressStore _progress;
+    private readonly TimeProvider _clock;
+    private readonly IAudioDevices _duplexDevices;
+    private readonly Dictionary<int, string> _blockNames = [];
+    private RecorderLink? _link;
+
+    /// <summary>Opened from a practice item: new takes attach to it.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLink))]
+    private string? _linkTitle;
+
+    public bool HasLink => LinkTitle is not null;
+
+    public ObservableCollection<LabeledOption<int>> AttachBlocks { get; } = [];
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AttachCommand))]
+    private LabeledOption<int>? _attachBlock;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AttachCommand))]
+    private DateTime? _attachDate;
+
+    [ObservableProperty]
+    private string? _attachExercise;
+
+    [ObservableProperty]
+    private IReadOnlyList<string> _attachSuggestions = [];
+
+    /// <summary>"Attached to Legato · Sat Oct 18 · 3nps scale" or "Not attached to a practice item".</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DetachCommand))]
+    private string _attachSummary = "";
+
+    [ObservableProperty]
+    private bool _isAttached;
+
+    public void OpenFor(RecorderLink link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        _link = link;
+        LinkTitle = $"Recording for: {link.ItemName} · {link.Date:ddd MMM d}{(link.Exercise is { } e ? $" · {e}" : "")}";
+        if (SelectedTake is null) LoadAttachEditor(null);
+    }
+
+    [RelayCommand]
+    private void CloseLink()
+    {
+        _link = null;
+        LinkTitle = null;
+    }
+
+    /// <summary>Selects a take by file name (e.g. from Progress).</summary>
+    public void SelectTake(string fileName)
+    {
+        if (Takes.FirstOrDefault(t => string.Equals(t.FileName, fileName, StringComparison.OrdinalIgnoreCase)) is { } take)
+            SelectedTake = take;
+        else Status = $"“{fileName}” isn't in the recordings folder any more.";
+    }
+
+    partial void OnAttachBlockChanged(LabeledOption<int>? value) =>
+        AttachSuggestions = value is null ? [] : _progress.ExerciseNames(value.Value);
+
+    private bool CanAttach() => SelectedTake is not null && AttachBlock is not null && AttachDate is not null;
+
+    [RelayCommand(CanExecute = nameof(CanAttach))]
+    private void Attach()
+    {
+        if (SelectedTake is not { } take || AttachBlock is not { } block || AttachDate is not { } date) return;
+        _links.Set(take.FileName, new TakeLink(block.Value, DateOnly.FromDateTime(date), AttachExercise));
+        RefreshAttachTexts();
+        LoadAttachEditor(take);
+        Status = $"Attached “{take.Name}” to {block.Label}.";
+    }
+
+    private bool CanDetach() => IsAttached;
+
+    [RelayCommand(CanExecute = nameof(CanDetach))]
+    private void Detach()
+    {
+        if (SelectedTake is not { } take) return;
+        _links.Remove(take.FileName);
+        RefreshAttachTexts();
+        LoadAttachEditor(take);
+        Status = $"“{take.Name}” isn't attached any more.";
+    }
+
+    /// <summary>Fills the editor from the take's link, or (not attached) with the linked item / today as a suggestion.</summary>
+    private void LoadAttachEditor(TakeItemViewModel? take)
+    {
+        var link = take is null ? null : _links.Get(take.FileName);
+        IsAttached = link is not null;
+        AttachSummary = link is null ? "Not attached to a practice item" : $"Attached to {Describe(link)}";
+        var blockId = link?.SubcategoryId ?? _link?.SubcategoryId;
+        AttachBlock = AttachBlocks.FirstOrDefault(b => b.Value == blockId);
+        AttachDate = (link?.Date ?? _link?.Date ?? DateOnly.FromDateTime(_clock.GetLocalNow().DateTime)).ToDateTime(TimeOnly.MinValue);
+        AttachExercise = link?.Exercise ?? (link is null ? _link?.Exercise : null);
+        DetachCommand.NotifyCanExecuteChanged();
+    }
+
+    private string Describe(TakeLink link) =>
+        $"{_blockNames.GetValueOrDefault(link.SubcategoryId, "a removed item")} · {link.Date:ddd MMM d}{(link.Exercise is { } e ? $" · {e}" : "")}";
+
+    private void RefreshAttachTexts()
+    {
+        foreach (var t in Takes) t.AttachText = _links.Get(t.FileName) is { } l ? $"📎 {Describe(l)}" : "";
+    }
 
     // ---- Input ----
 
@@ -104,7 +277,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecordButtonText))]
-    [NotifyCanExecuteChangedFor(nameof(PlayPauseCommand), nameof(StopCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PlayPauseCommand), nameof(StopCommand), nameof(LooperStartStopCommand), nameof(RecordLayerCommand), nameof(CalibrateCommand))]
     private bool _isRecording;
 
     [ObservableProperty]
@@ -174,8 +347,18 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private double _volume = 100;
 
+    /// <summary>Playback speed in % (50–100), pitch unchanged.</summary>
     [ObservableProperty]
-    private string _status = "Tip: turn up the interface's direct-monitor mix to hear yourself with no delay while you play along.";
+    [NotifyPropertyChangedFor(nameof(SpeedText))]
+    private double _speed = 100;
+
+    public string SpeedText => $"{Speed:0} %";
+
+    [ObservableProperty]
+    private string? _speedStatus;
+
+    [ObservableProperty]
+    private string _status ="Tip: turn up the interface's direct-monitor mix to hear yourself with no delay while you play along.";
 
     [ObservableProperty]
     private string? _error;
@@ -184,7 +367,12 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
 
     // ---- Changes ----
 
-    partial void OnSelectedTakeChanged(TakeItemViewModel? value) => LoadSelectedTake();
+    partial void OnSelectedTakeChanged(TakeItemViewModel? value)
+    {
+        LoadSelectedTake();
+        LoadAttachEditor(value);
+        AttachCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnIsLoopEnabledChanged(bool value) => PublishPlayer();
 
@@ -197,6 +385,89 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     partial void OnCountInBpmChanged(decimal? value) => PublishPlayer();
 
     partial void OnVolumeChanged(double value) => PublishPlayer();
+
+    partial void OnSpeedChanged(double value)
+    {
+        if (!_loading) ScheduleSpeed();
+    }
+
+    private int SpeedPercent => (int)Math.Round(Speed);
+
+    /// <summary>Plays the take at the chosen speed: at once if that copy is ready, else after stretching it in the background.</summary>
+    private void ApplySpeed()
+    {
+        _stretching?.Cancel();
+        if (_take is not { } take) return;
+        var percent = SpeedPercent;
+        if (percent >= 100)
+        {
+            SpeedStatus = null;
+            SwitchPlayTake(take);
+            return;
+        }
+        if (_stretched.TryGetValue(percent, out var ready))
+        {
+            SpeedStatus = null;
+            SwitchPlayTake(ready);
+            return;
+        }
+
+        // Cancelling is routine (the speed changed again, another take): Stretch then returns null, no exception.
+        var cts = _stretching = new CancellationTokenSource();
+        SpeedStatus = $"Preparing {percent} %…";
+        _ = Task.Run(() =>
+        {
+            var result = TimeStretch.Stretch(take, percent / 100.0,
+                p => Dispatcher.UIThread.Post(() => { if (!cts.IsCancellationRequested) SpeedStatus = $"Preparing {percent} %… {p:P0}"; }),
+                cts.Token);
+            if (result is null) return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (cts.IsCancellationRequested || !ReferenceEquals(take, _take)) return;
+                _stretched[percent] = result;
+                SpeedStatus = null;
+                if (SpeedPercent == percent) SwitchPlayTake(result);
+            });
+        });
+    }
+
+    /// <summary>Waits for the slider to settle (250 ms) before preparing a new speed, so dragging doesn't start one per step.</summary>
+    private DispatcherTimer? _speedSettle;
+
+    private void ScheduleSpeed()
+    {
+        _stretching?.Cancel();
+        if (_take is not null && (SpeedPercent >= 100 || _stretched.ContainsKey(SpeedPercent)))
+        {
+            ApplySpeed();                          // ready now: no wait
+            return;
+        }
+        _speedSettle ??= new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Normal, (_, _) =>
+        {
+            _speedSettle!.Stop();
+            ApplySpeed();
+        });
+        _speedSettle.Stop();
+        SpeedStatus = $"Preparing {SpeedPercent} %…";
+        _speedSettle.Start();
+    }
+
+    /// <summary>Swaps what the player plays, keeping the place (as a fraction) and playing on if it was.</summary>
+    private void SwitchPlayTake(AudioTake playTake)
+    {
+        if (ReferenceEquals(playTake, _playTake)) return;
+        var fraction = PositionFraction;
+        var wasPlaying = IsPlaying;
+        _playTake = playTake;
+        if (_player is null) return;
+        _player.Load(playTake);
+        PublishPlayer();
+        _player.Seek(fraction * playTake.Duration.TotalSeconds);
+        if (wasPlaying) _player.Play();
+    }
+
+    /// <summary>Seconds of the copy being played (longer than the take when slowed down).</summary>
+    private double PlaySeconds => (_playTake ?? _take)?.Duration.TotalSeconds ?? 0;
 
     private void LoopRegionChanged()
     {
@@ -211,10 +482,10 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private void PublishPlayer()
     {
         if (_loading || _player is null || _take is null) return;
-        var seconds = _take.Duration.TotalSeconds;
+        var seconds = PlaySeconds;
         _player.Settings = new PlayerSettings(
             (float)(Volume / 100.0), IsLoopEnabled, LoopStart * seconds, LoopEnd * seconds,
-            IsCountInEnabled, (double)(CountInBpm ?? 100), 4);
+            IsCountInEnabled, (double)(CountInBpm ?? 100) * SpeedPercent / 100.0, 4); // the count-in slows down too
     }
 
     // ---- Commands ----
@@ -229,6 +500,8 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private void StartRecording()
     {
         Error = null;
+        if (IsLooperRunning) StopLooper();
+        _duplex?.Stop();                          // the looper holds the input
         Pause();
         try
         {
@@ -260,12 +533,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
 
         try
         {
-            Directory.CreateDirectory(RecordingsDirectory);
-            var path = UniquePath($"Take {DateTime.Now:yyyy-MM-dd HH-mm-ss}");
-            WavFile.Write(path, take);
-            var item = new TakeItemViewModel(path, take.Duration);
-            Takes.Insert(0, item);
-            SelectedTake = item;
+            var item = SaveNewTake(take, "Take");
             Status = $"Saved “{item.Name}” ({item.DurationText}){(_recorder.DroppedSamples > 0 ? $" · warning: {_recorder.DroppedSamples} samples dropped" : "")}";
         }
 #pragma warning disable CA1031 // Report a failed save; don't lose the window.
@@ -297,7 +565,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private void Stop()
     {
         Pause();
-        _player?.Seek(IsLoopEnabled && _take is not null ? LoopStart * _take.Duration.TotalSeconds : 0);
+        _player?.Seek(IsLoopEnabled && _take is not null ? LoopStart * PlaySeconds : 0);
         Refresh();
     }
 
@@ -305,7 +573,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private void Seek(double fraction)
     {
         if (_player is null || _take is null) return;
-        _player.Seek(Math.Clamp(fraction, 0, 1) * _take.Duration.TotalSeconds);
+        _player.Seek(Math.Clamp(fraction, 0, 1) * PlaySeconds);
         Refresh();
     }
 
@@ -328,8 +596,10 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         try
         {
             var target = UniquePath(name);
+            var oldFileName = take.FileName;
             File.Move(take.Path, target);
             take.Path = target;
+            _links.Rename(oldFileName, take.FileName);
             RenameText = take.Name;
             Status = $"Renamed to “{take.Name}”.";
         }
@@ -362,6 +632,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         try
         {
             File.Delete(take.Path);
+            _links.Remove(take.FileName);
             Takes.Remove(take);
             SelectedTake ??= Takes.FirstOrDefault();
             Status = $"Deleted “{take.Name}”.";
@@ -379,7 +650,10 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
     private void LoadSelectedTake()
     {
         Pause();
+        _stretching?.Cancel();
+        _stretched.Clear();
         _take = null;
+        _playTake = null;
         Peaks = null;
         if (SelectedTake is { } item)
         {
@@ -397,12 +671,14 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
 #pragma warning restore CA1031
         }
 
+        _playTake = _take;
         _player?.Load(_take);
         ClearLoop();
         OnPropertyChanged(nameof(HasTake));
         PlayPauseCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
         Refresh();
+        if (SpeedPercent < 100) ApplySpeed(); // prepare the slowed-down copy right away
     }
 
     /// <summary>Opens the output stream on first play and keeps it open (silent while paused) until the window closes.</summary>
@@ -415,7 +691,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
             if (_player?.OutputRate != rate)
             {
                 _player = new LoopPlayer(rate);
-                _player.Load(_take);
+                _player.Load(_playTake ?? _take);
             }
             _output.Start(new AudioStreamOptions(SampleRate: rate, FramesPerBuffer: 256), _player.Render);
             _outputRunning = true;
@@ -448,12 +724,14 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
 
         if (_take is { } take)
         {
-            var seconds = _player?.PositionSeconds ?? 0;
+            var playing = PlaySeconds;
+            PositionFraction = playing > 0 ? Math.Clamp((_player?.PositionSeconds ?? 0) / playing, 0, 1) : 0;
             var duration = take.Duration.TotalSeconds;
-            PositionFraction = duration > 0 ? Math.Clamp(seconds / duration, 0, 1) : 0;
+            var seconds = PositionFraction * duration;                  // in the take's own time, whatever the speed
             var countIn = _player is { IsCountingIn: true } ? "  · count-in…" : "";
             var loops = _player is { LoopCount: > 0 } p && IsLoopEnabled ? $"  · loop {p.LoopCount + 1}" : "";
-            PositionText = $"{Format(seconds)} / {Format(duration)}{countIn}{loops}";
+            var speed = ReferenceEquals(_playTake, take) || _playTake is null ? "" : $"  · {SpeedPercent} %";
+            PositionText = $"{Format(seconds)} / {Format(duration)}{speed}{countIn}{loops}";
             if (IsPlaying && _player is { IsPlaying: false }) IsPlaying = false; // reached the end
         }
         else
@@ -485,7 +763,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string UniquePath(string name)
+    private string UniquePath(string name)
     {
         var path = Path.Combine(RecordingsDirectory, name + ".wav");
         for (var n = 2; File.Exists(path); n++) path = Path.Combine(RecordingsDirectory, $"{name} ({n}).wav");
@@ -508,6 +786,9 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         if (_disposed) return;
         _disposed = true;
         _poll.Stop();
+        _stretching?.Cancel();
+        _speedSettle?.Stop();
+        DisposeLooper();
         if (IsRecording) StopRecording(); // closing mid-take keeps what was recorded
         _player?.Pause();
         _output.Stop();
@@ -517,7 +798,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         try
         {
             _settingsStore.Set(SettingsKey, new RecorderSettings(
-                SelectedDevice?.Name, SelectedChannel?.Channel ?? 0, IsCountInEnabled, (double)(CountInBpm ?? 100), Volume));
+                SelectedDevice?.Name, SelectedChannel?.Channel ?? 0, IsCountInEnabled, (double)(CountInBpm ?? 100), Volume, Speed));
         }
 #pragma warning disable CA1031 // Losing a preference must never break closing the window.
         catch (Exception ex)

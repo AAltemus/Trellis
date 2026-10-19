@@ -82,6 +82,8 @@ public sealed partial class MainWindowViewModel
         SaveLogCommand.NotifyCanExecuteChanged();
         PracticeWithMetronomeCommand.NotifyCanExecuteChanged();
         PlayAlongCommand.NotifyCanExecuteChanged();
+        RecordForItemCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(RecordButtonText));
         OpenProgressCommand.NotifyCanExecuteChanged();
         RefreshTracked();
         if (Current is not { } entry)
@@ -191,6 +193,23 @@ public sealed partial class MainWindowViewModel
         var key = entry.Key;
         _tools.ShowMetronome(new MetronomeLink(title, plan.StartBpm, plan.TargetBpm, (Subdivision?)plan.NoteValue,
             bpm => OnMetronomeReached(key, entry.Name, plan, bpm)));
+    }
+
+    // ---- Recorder takes for the selected item ----
+
+    private readonly Infrastructure.TakeLinkStore _takeLinks;
+
+    /// <summary>"🎙 Record", or "🎙 Record (2)" when the item already has takes on its day.</summary>
+    public string RecordButtonText =>
+        Current is { } entry && _takeLinks.For(entry.Key.SubcategoryId, entry.Key.Date).Count is > 0 and var n ? $"🎙 Record ({n})" : "🎙 Record";
+
+    /// <summary>Opens the Recorder for the selected item: new takes attach to its block and day (and the log's first exercise).</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void RecordForItem()
+    {
+        if (Current is not { } entry) return;
+        var exercise = LogExercises.ToLogs().Select(l => l.Name.Trim()).FirstOrDefault(n => n.Length > 0);
+        _tools.ShowRecorder(new RecorderLink(entry.Key.SubcategoryId, entry.Key.Date, entry.Name, exercise));
     }
 
     /// <summary>Opens the MIDI player for the selected item: its linked file opens; otherwise pick one and press Link.</summary>

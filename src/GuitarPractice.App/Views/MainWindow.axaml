@@ -25,6 +25,7 @@
     <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
     <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMidiPlayerCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding PlayAlongCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+R" Command="{Binding RecordForItemCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProgressCommand}" />
   </Window.KeyBindings>
 
@@ -103,6 +104,7 @@
         <MenuItem Header="Practice with m_etronome" Command="{Binding PracticeWithMetronomeCommand}" InputGesture="Ctrl+Shift+M" />
         <MenuItem Header="_Tuner…" Command="{Binding OpenTunerCommand}" InputGesture="Ctrl+T" />
         <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
+        <MenuItem Header="Record for this _item" Command="{Binding RecordForItemCommand}" InputGesture="Ctrl+Shift+R" />
         <MenuItem Header="_Ear Trainer…" Command="{Binding OpenEarTrainerCommand}" InputGesture="Ctrl+E" />
         <MenuItem Header="M_IDI Player…" Command="{Binding OpenMidiPlayerCommand}" InputGesture="Ctrl+I" />
         <MenuItem Header="Play _along with MIDI" Command="{Binding PlayAlongCommand}" InputGesture="Ctrl+Shift+I" />
@@ -342,6 +344,8 @@
                     ToolTip.Tip="Practice this item with the metronome (Ctrl+Shift+M): starts at your last logged tempo for the exercise, in its note value, with its target for the trainer. On Stop the tempo reached goes into the log below." />
             <Button Content="♫ Play along" Command="{Binding PlayAlongCommand}"
                     ToolTip.Tip="Open the MIDI player for this item (Ctrl+Shift+I): its linked MIDI file opens, or pick one and press Link." />
+            <Button Content="{Binding RecordButtonText}" Command="{Binding RecordForItemCommand}"
+                    ToolTip.Tip="Open the Recorder for this item (Ctrl+Shift+R): new takes are attached to it and this day (and the first exercise in the log)." />
           </StackPanel>
 
           <!-- Progress log for the selected item's block and day (collapsible; state remembered) -->

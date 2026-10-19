@@ -7,15 +7,51 @@
         x:DataType="vm:RecorderViewModel"
         Title="Recorder"
         Icon="/Assets/Icon/trellis.ico"
-        Width="760" Height="640" MinWidth="560" MinHeight="520"
+        Width="820" Height="760" MinWidth="620" MinHeight="560"
         WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.recording">
+      <Setter Property="Foreground" Value="#E53935" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Window.Styles>
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Escape" Command="{Binding CancelDeleteCommand}" />
   </Window.KeyBindings>
 
   <Panel>
-    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="16" ColumnDefinitions="220,16,*">
+    <DockPanel>
+    <!-- Opened for a practice item: new takes attach to it -->
+    <Border DockPanel.Dock="Top" IsVisible="{Binding HasLink}" Margin="16,12,16,0" Padding="10,6" CornerRadius="6" Background="#14808080">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="{Binding LinkTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Classes="caption" Opacity="0.7" FontSize="12" Text="New takes are attached to it (see Progress for that day)." />
+        </StackPanel>
+        <Button Grid.Column="1" Content="✕" Command="{Binding CloseLinkCommand}" VerticalAlignment="Center" ToolTip.Tip="Stop attaching new takes" />
+      </Grid>
+    </Border>
+
+    <!-- Input (takes and looper) -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,180" ColumnSpacing="8" Margin="16,12,16,0">
+      <TextBlock Text="Input" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" HorizontalAlignment="Stretch">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="audio:AudioDeviceInfo">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Grid.Column="2" Text="Channel" VerticalAlignment="Center" IsVisible="{Binding IsStereoDevice}" />
+      <ComboBox Grid.Column="3" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
+                HorizontalAlignment="Stretch" IsVisible="{Binding IsStereoDevice}" />
+    </Grid>
+
+    <TabControl Margin="8,4,8,0">
+    <TabItem Header="Takes">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="8,8,8,8" ColumnDefinitions="220,16,*">
 
       <!-- Record -->
       <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="10">
@@ -27,20 +63,7 @@
                      VerticalAlignment="Center" IsVisible="{Binding IsRecording}" />
       </StackPanel>
 
-      <!-- Input -->
-      <Grid Grid.Row="1" Grid.ColumnSpan="3" ColumnDefinitions="Auto,*,Auto,180" ColumnSpacing="8" Margin="0,10,0,10">
-        <TextBlock Text="Input" VerticalAlignment="Center" />
-        <ComboBox Grid.Column="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" HorizontalAlignment="Stretch">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="audio:AudioDeviceInfo">
-              <TextBlock Text="{Binding Name}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
-        <TextBlock Grid.Column="2" Text="Channel" VerticalAlignment="Center" IsVisible="{Binding IsStereoDevice}" />
-        <ComboBox Grid.Column="3" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
-                  HorizontalAlignment="Stretch" IsVisible="{Binding IsStereoDevice}" />
-      </Grid>
+      <Border Grid.Row="1" Height="10" />
 
       <!-- Takes -->
       <DockPanel Grid.Row="2" Grid.RowSpan="4" Grid.Column="0">
@@ -58,6 +81,8 @@
               <StackPanel>
                 <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding DurationText}" Classes="caption" Opacity="0.7" FontSize="12" />
+                <TextBlock Text="{Binding AttachText}" Classes="caption" Opacity="0.7" FontSize="11" TextTrimming="CharacterEllipsis"
+                           IsVisible="{Binding AttachText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -93,6 +118,32 @@
           <Slider Minimum="0" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding Volume}" Width="140" />
           <TextBlock Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="6,0,0,0" />
         </WrapPanel>
+        <WrapPanel>
+          <TextBlock Text="Speed" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <Slider Minimum="50" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding Speed}" Width="160"
+                  ToolTip.Tip="Slow the take down without changing its pitch (50–100 %)" />
+          <TextBlock Text="{Binding SpeedText}" VerticalAlignment="Center" Margin="6,0,12,0" />
+          <TextBlock Text="{Binding SpeedStatus}" Classes="caption" Opacity="0.8" VerticalAlignment="Center"
+                     IsVisible="{Binding SpeedStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </WrapPanel>
+
+        <!-- Attach the selected take to a practice block + day (+ exercise) -->
+        <Border Padding="10,8" CornerRadius="6" Background="#14808080" IsVisible="{Binding HasTake}">
+          <StackPanel Spacing="6">
+            <TextBlock Text="{Binding AttachSummary}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,150" ColumnSpacing="6">
+              <ComboBox ItemsSource="{Binding AttachBlocks}" SelectedItem="{Binding AttachBlock}" HorizontalAlignment="Stretch"
+                        PlaceholderText="Practice item" />
+              <CalendarDatePicker Grid.Column="1" SelectedDate="{Binding AttachDate}" HorizontalAlignment="Stretch" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+              <AutoCompleteBox Text="{Binding AttachExercise}" ItemsSource="{Binding AttachSuggestions}" FilterMode="ContainsOrdinal"
+                               Watermark="Exercise (optional)" MinimumPrefixLength="0" />
+              <Button Grid.Column="1" Content="Attach" Command="{Binding AttachCommand}" />
+              <Button Grid.Column="2" Content="Detach" Command="{Binding DetachCommand}" />
+            </Grid>
+          </StackPanel>
+        </Border>
       </StackPanel>
 
       <StackPanel Grid.Row="5" Grid.Column="2" Spacing="4" Margin="0,10,0,0">
@@ -101,6 +152,76 @@
         <TextBlock Text="{Binding Status}" Classes="caption" TextWrapping="Wrap" Opacity="0.7" />
       </StackPanel>
     </Grid>
+    </TabItem>
+
+    <!-- Looper: overdub layers on a loop synced to its own click -->
+    <TabItem Header="Looper">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="8" Spacing="12">
+          <WrapPanel IsEnabled="{Binding CanChangeLoop}">
+            <TextBlock Text="Tempo" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <NumericUpDown Value="{Binding LooperBpm}" Minimum="30" Maximum="300" Increment="1" FormatString="0" Width="120" />
+            <TextBlock Text="BPM" VerticalAlignment="Center" Margin="6,0,18,0" />
+            <ComboBox ItemsSource="{Binding LooperBeatOptions}" SelectedItem="{Binding LooperBeats}" Width="70" />
+            <TextBlock Text="beats per bar ·" VerticalAlignment="Center" Margin="6,0,6,0" />
+            <ComboBox ItemsSource="{Binding LooperBarOptions}" SelectedItem="{Binding LooperBars}" Width="70" />
+            <TextBlock Text="bars" VerticalAlignment="Center" Margin="6,0,0,0" />
+          </WrapPanel>
+          <TextBlock Classes="caption" Opacity="0.7" FontSize="12" TextWrapping="Wrap" IsVisible="{Binding !CanChangeLoop}"
+                     Text="Tempo and length are fixed while there are layers (Clear them to change)." />
+
+          <!-- Transport -->
+          <WrapPanel>
+            <Button Classes="accent" Content="{Binding LooperStartText}" Command="{Binding LooperStartStopCommand}" MinWidth="100" Margin="0,0,8,6"
+                    ToolTip.Tip="One bar of count-in, then the loop plays (with the click)" />
+            <Button Content="● Record layer" Command="{Binding RecordLayerCommand}" Margin="0,0,8,6" Foreground="White" Background="#C62828"
+                    ToolTip.Tip="Records the next whole pass as a new layer (starts the loop if it's stopped). Press again while recording to record the pass after it too." />
+            <Button Content="↶ Undo layer" Command="{Binding UndoLayerCommand}" Margin="0,0,8,6" />
+            <Button Content="Clear" Command="{Binding ClearLayersCommand}" Margin="0,0,8,6" />
+            <Button Content="Save as take" Command="{Binding SaveLoopCommand}" Margin="0,0,8,6"
+                    ToolTip.Tip="Mixes the layers into one take in the Takes list" />
+          </WrapPanel>
+
+          <Border Padding="12,10" CornerRadius="8" Background="#14808080">
+            <StackPanel Spacing="6">
+              <TextBlock Text="{Binding LooperPositionText}" FontSize="20" FontWeight="SemiBold" />
+              <ProgressBar Minimum="0" Maximum="1" Value="{Binding LooperPosition}" Height="8" MinHeight="8" />
+              <TextBlock Text="{Binding LooperState}" TextWrapping="Wrap" Classes.recording="{Binding LooperRecordingNow}" />
+            </StackPanel>
+          </Border>
+
+          <WrapPanel>
+            <CheckBox Content="Click" IsChecked="{Binding LooperClick}" Margin="0,0,8,0" />
+            <Slider Minimum="0" Maximum="100" Value="{Binding LooperClickVolume}" Width="120" IsEnabled="{Binding LooperClick}" />
+            <TextBlock Text="Loop volume" VerticalAlignment="Center" Margin="18,0,6,0" />
+            <Slider Minimum="0" Maximum="150" Value="{Binding LooperVolume}" Width="140" />
+            <TextBlock Text="{Binding LooperVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="6,0,0,0" />
+          </WrapPanel>
+
+          <!-- Latency: measured once, fine-tuned by ear -->
+          <Border Padding="12,10" CornerRadius="8" Background="#14808080">
+            <StackPanel Spacing="6">
+              <TextBlock Text="Timing (round-trip latency)" FontWeight="SemiBold" />
+              <TextBlock Classes="caption" Opacity="0.75" FontSize="12" TextWrapping="Wrap"
+                         Text="Calibrate plays 8 clicks and listens for them on the input above: put the guitar's pickups or a mic near the speakers, loop a cable from output to input, or pick your interface's loopback input if it has one (then switch back). Fine-tune by ear if layers land early or late." />
+              <WrapPanel>
+                <Button Content="Calibrate" Command="{Binding CalibrateCommand}" Margin="0,0,12,0" />
+                <Slider Minimum="0" Maximum="300" Value="{Binding LatencyMs}" Width="220" SmallChange="0.5" LargeChange="5"
+                        ToolTip.Tip="Recorded layers are moved this much earlier" />
+                <TextBlock Text="{Binding LatencyText}" VerticalAlignment="Center" Margin="8,0,0,0" />
+              </WrapPanel>
+              <TextBlock Text="{Binding CalibrationStatus}" TextWrapping="Wrap" FontSize="12"
+                         IsVisible="{Binding CalibrationStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
+                     IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+      </ScrollViewer>
+    </TabItem>
+    </TabControl>
+    </DockPanel>
 
     <!-- Delete take confirmation -->
     <Border IsVisible="{Binding IsDeleteConfirmOpen}" Background="#99000000">

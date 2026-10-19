@@ -95,6 +95,8 @@ public class MidiTests
 {
     private const int Rate = 48_000;
     private const int Q = 480; // ticks per quarter
+    private static readonly double[] EachLoopNotes = [2.0, 6.0];
+    private static readonly double[] EachLoopAccents = [0.0, 4.0];
 
     /// <summary>
     /// Conductor: 120 BPM 4/4, 60 BPM from bar 3, 3/4 from bar 5. Guitar (ch 0, distortion) plays a quarter note at the
@@ -328,8 +330,8 @@ public class MidiTests
 
         var each = GuitarTimes(eachLoop: true, out var eachAccents);
         Assert.Equal(2, each.Count);                                       // count-in, bar, count-in, bar
-        Assert.All(each.Zip(new[] { 2.0, 6.0 }), p => Assert.InRange(p.First, p.Second - 0.01, p.Second + 0.01));
-        Assert.All(eachAccents.Zip(new[] { 0.0, 4.0 }), p => Assert.InRange(p.First, p.Second - 0.01, p.Second + 0.01));
+        Assert.All(each.Zip(EachLoopNotes), p => Assert.InRange(p.First, p.Second - 0.01, p.Second + 0.01));
+        Assert.All(eachAccents.Zip(EachLoopAccents), p => Assert.InRange(p.First, p.Second - 0.01, p.Second + 0.01));
         Assert.Equal(2, eachAccents.Count);
 
         var once = GuitarTimes(eachLoop: false, out var onceAccents);

@@ -187,17 +187,28 @@ public sealed partial class TrackedBlockViewModel(ProgressTracking tracking, Tra
     }
 }
 
+/// <summary>A Recorder take attached to the edited day: name, exercise, Open (in the Recorder).</summary>
+public sealed partial class DayTakeViewModel(string fileName, string? exercise, Action<string> open)
+{
+    public string Name { get; } = Path.GetFileNameWithoutExtension(fileName);
+    public string Detail { get; } = exercise ?? "";
+
+    [RelayCommand]
+    private void Open() => open(fileName);
+}
+
 /// <summary>An exercise run removed from the block: its history, read-only.</summary>
 public sealed record RemovedExerciseRow(string Label, string Detail);
 
 /// <summary>A day in the history table.</summary>
-public sealed record DayRowViewModel(DateOnly Date, int Seconds, IReadOnlyList<ExerciseLog> Exercises, int? Rating, string? Notes)
+public sealed record DayRowViewModel(DateOnly Date, int Seconds, IReadOnlyList<ExerciseLog> Exercises, int? Rating, string? Notes, int Takes = 0)
 {
     public string DateText => Date.ToString("ddd MMM d, yyyy", CultureInfo.InvariantCulture);
     public string TimeText => Seconds > 0 ? PracticeProgress.Format(Seconds) : "–";
     public string ExercisesText => Exercises.Count == 0 ? "–" : string.Join("; ", Exercises.Select(Describe));
     public string RatingText => Rating is int r ? $"{r}/5" : "–";
     public string NotesText => Notes ?? "";
+    public string TakesText => Takes > 0 ? $"🎙 {Takes}" : "";
 
     private static string Describe(ExerciseLog x)
     {
@@ -224,12 +235,18 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     private readonly HashSet<int> _inRoutine;
     private IReadOnlyList<ProgressDay> _history = [];
 
-    public ProgressViewModel(LibraryStore library, ProgressStore store, TimeProvider clock, ProgressTracking tracking)
+    public ProgressViewModel(LibraryStore library, ProgressStore store, TimeProvider clock, ProgressTracking tracking,
+        TakeLinkStore takeLinks, IToolWindows tools)
     {
         ArgumentNullException.ThrowIfNull(library);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(tracking);
+        ArgumentNullException.ThrowIfNull(takeLinks);
+        ArgumentNullException.ThrowIfNull(tools);
+        _takeLinks = takeLinks;
+        _tools = tools;
+        _takeLinks.Changed += OnTakesChanged;
         _library = library;
         _store = store;
         _clock = clock;
@@ -559,8 +576,14 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
             .Select(d => new ChartPoint(d.Date, d.SecondsPractised / 60.0, $"{d.Date:ddd MMM d}: {PracticeProgress.Format(d.SecondsPractised)} practised"))
             .ToList();
 
-        foreach (var d in _history.Where(d => d.HasActivity).OrderByDescending(d => d.Date))
-            DayRows.Add(new DayRowViewModel(d.Date, d.SecondsPractised, d.Exercises, d.Rating, d.Notes));
+        // Days with practice, a log entry or Recorder takes (a take-only day still shows, to open its takes).
+        var takeCounts = _takeLinks.CountsByDay(block.Id);
+        var active = _history.Where(d => d.HasActivity).ToDictionary(d => d.Date);
+        foreach (var date in active.Keys.Union(takeCounts.Keys).OrderByDescending(d => d))
+        {
+            var d = active.GetValueOrDefault(date);
+            DayRows.Add(new DayRowViewModel(date, d?.SecondsPractised ?? 0, d?.Exercises ?? [], d?.Rating, d?.Notes, takeCounts.GetValueOrDefault(date)));
+        }
 
         var status = EditStatus;
         EditDate = selectDate.ToDateTime(TimeOnly.MinValue);
@@ -570,17 +593,44 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
         ClearEntryCommand.NotifyCanExecuteChanged();
     }
 
+    // ---- Recorder takes attached to the block on the edited day ----
+
+    private readonly TakeLinkStore _takeLinks;
+    private readonly IToolWindows _tools;
+
+    public ObservableCollection<DayTakeViewModel> DayTakes { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasDayTakes;
+
+    private void LoadDayTakes(int blockId, DateOnly date)
+    {
+        DayTakes.Clear();
+        foreach (var file in _takeLinks.For(blockId, date))
+            DayTakes.Add(new DayTakeViewModel(file, _takeLinks.Get(file)?.Exercise, f => _tools.ShowRecorder(selectTake: f)));
+        HasDayTakes = DayTakes.Count > 0;
+    }
+
+    private void OnTakesChanged(object? sender, EventArgs e)
+    {
+        if (SelectedExercise is not null)
+            LoadExercise(selectDate: EditDate is { } d ? DateOnly.FromDateTime(d) : Today, keepStatus: true);
+    }
+
     private void LoadEditor()
     {
         EditStatus = "";
         if (SelectedExercise is not { } block || EditDate is not { } date)
         {
+            DayTakes.Clear();
+            HasDayTakes = false;
             EditExercises.Load([]);
             EditRating = RatingOption.All[0];
             EditNotes = "";
             return;
         }
         var entry = _store.Get(DateOnly.FromDateTime(date), block.Id);
+        LoadDayTakes(block.Id, DateOnly.FromDateTime(date));
         EditExercises.SetSuggestions(_store.ExerciseNames(block.Id));
         EditExercises.Load(entry?.Exercises.Select(x => new ExerciseLog(x.Name, x.Bpm, x.NoteValue, x.RemovedRun)) ?? []);
         EditRating = RatingOption.All.FirstOrDefault(r => r.Value == entry?.Rating) ?? RatingOption.All[0];
@@ -591,5 +641,6 @@ public sealed partial class ProgressViewModel : ObservableObject, IDisposable
     {
         _store.Changed -= OnStoreChanged;
         _tracking.Changed -= OnTrackingChanged;
+        _takeLinks.Changed -= OnTakesChanged;
     }
 }

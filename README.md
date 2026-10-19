@@ -30,10 +30,13 @@ project names and the data folder stays `GuitarPractice`.
   and the routine but deletes nothing: its practice time and progress stay, and the Progress window still lists it
   ("removed from library") while it has history. **Removed items** at the bottom of the library lists them with
   **Restore**, which puts one back in its category at weight 0.
+- A whole category can be removed too (**Remove category…** at the bottom of it, asks first) and restored from
+  **Removed items** with the items it held.
 
 ## Practising
 
-Click an item in the week (or a day's name to jump to its first unfinished item), then **Start**.
+Click an item in the week (or a day's name to jump to its first unfinished item), then **Start**. The week opens
+scrolled so today is in view.
 
 - **Pause / Resume** keeps the session; switching items pauses and saves the running one.
 - **Stop** finishes the item early: the time you played is kept and the rest comes off the day.
@@ -50,6 +53,9 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   on that line or your latest logged tempo for it (else the block's start BPM), uses its note value as the subdivision
   and its target (own, else the block's) as the tempo trainer's target. On Stop the tempo reached is written into the
   log strip (same exercise line, else a new one); press Save log to keep it.
+- **🎙 Record** (Ctrl+Shift+R): opens the Recorder for the selected item; new takes are attached to it, that day and
+  the first exercise in the log, and show up in Progress for that day. The button counts the day's takes.
+- Items left out of progress tracking (Progress → What's tracked) show a one-line note instead of the log.
 
 ## Weeks (Week menu)
 
@@ -84,16 +90,29 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   - Keys: Space start/stop, ↑/↓ ±1, PgUp/PgDn ±5, T tap (not while typing in a box). Settings, the sound and the
     current grid are remembered; saved patterns live in the database.
   - Opened with ♩ Metronome from the timer, a "Playing for: …" banner shows the linked item; ✕ unlinks it.
+  - *Output*: pick the device, listed once per audio driver with that driver's latency; the lowest number starts the
+    click soonest (e.g. ~11 ms instead of ~110 ms on Windows' default driver). Remembered by name.
 - **Tuner…** (Ctrl+T): YIN pitch detection (±1 cent in tests), needle ±50 ¢, tunings from the library (Standard,
   Drop D, D Standard, Drop C, B Standard, 7-string) or chromatic, adjustable A4, input device/channel picker
   (pick your interface's guitar input; the system default may be a webcam mic). Settings are remembered.
   - *Bend trainer*: play a fretted note, bend it ½ / 1 / 1½ / 2 steps; the needle shows cents from the target and each
     held bend is scored (average offset while held, glide in/out excluded).
   - Level readout in dBFS and **Save last 20 s** (raw input as WAV, for troubleshooting).
-- **Recorder…** (Ctrl+R): record takes from your input, play them back on a waveform (click to jump, drag to select a
-  loop), loop an A–B region seamlessly with an optional 4-click count-in, rename/delete takes. Takes are WAV files in
-  `%LOCALAPPDATA%\GuitarPractice\recordings`. To hear yourself while playing along, use your interface's direct
-  monitoring (the app doesn't route the live input to the output).
+  - *Sensitivity* (−40 … −80 dBFS): for low-gain inputs, slide right until picked notes register but the idle input
+    doesn't. *Strobe display*: striped bands under the needle drift right when sharp, left when flat, stand still in tune.
+- **Recorder…** (Ctrl+R), two tabs:
+  - *Takes*: record from your input, play back on a waveform (click to jump, drag to select a loop), loop an A–B region
+    seamlessly with an optional 4-click count-in, **Speed** 50–100 % without changing pitch (also while playing; the
+    loop and count-in follow), rename/delete takes. Attach a take to a practice item, day and (optionally) exercise;
+    Progress lists each day's takes with an **Open** button. Takes are WAV files in
+    `%LOCALAPPDATA%\GuitarPractice\recordings`.
+  - *Looper*: a loop of 1–16 bars at a tempo, with its own click and a one-bar count-in. **● Record layer** records the
+    next whole pass as a layer (up to 8; press again while recording to record the pass after it too), **Undo layer**,
+    **Clear**, **Save as take** mixes the layers into a take. **Calibrate** measures your setup's round-trip latency
+    once (8 clicks out, heard back on the input: pickups or a mic near the speakers, a cable, or an interface loopback
+    input) so layers land on the beat; a slider fine-tunes it.
+  - To hear yourself while playing along, use your interface's direct monitoring (the app doesn't route the live input
+    to the output).
 - **Ear Trainer…** (Ctrl+E): hear an interval or a chord, pick what it was, get scored. Choose the key (any of 12
   tonics, major or natural minor) and tick exactly what to practise: the 12 intervals (m2 … P8; ascending, descending,
   together or mixed; from the key's root or from any note of the key) or the key's diatonic chords (I … vii° triads
@@ -104,14 +123,20 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   per-item results for the round, plus all-time accuracy per item (kept between sessions; chords per mode, so V7 in
   any major key counts together). Keys: Enter/N next, Space/R replay, K key chord, 1–9/0 answer. Notes are a
   synthesised plucked string, in tune to ±2 cents.
+  - More chord types built from the key's notes, offered only on the degrees where they're real chords: sus2, sus4,
+    add9, 6th and 9th chords (e.g. in C major Vsus4 but no IVsus4).
+  - *Melodies* (dictation): hear a 3–8 note melody in the key (after the key chord) and write it down with the degree
+    buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
+  - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
 - **MIDI Player…** (Ctrl+I): play along with MIDI files, e.g. Guitar Pro → File → Export → MIDI. **Import MIDI…** (or drop
   .mid files on the window) copies them into Trellis's library (`%LOCALAPPDATA%\GuitarPractice\midi`) so they're there
   every time; rename or delete them there (your original is never touched). Sounds come from the bundled GeneralUser GS
   SoundFont (see `src/GuitarPractice.App/Assets/SoundFont/README.md`). Practice controls: **Speed** 25–150 % (pitch
   unchanged), **Mute** a track to play that part yourself or **Solo** one to learn it, **Loop bars** (or *Loop this
-  bar*, or **All** for the whole song), a one-bar **Count-in** at the song's tempo, volume (0–200 %; a soft limiter keeps
-  it clean). Each file remembers its speed, loop, count-in, volume and
-  muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
+  bar*, or **All** for the whole song), a one-bar **Count-in** at the song's tempo (optionally before every loop
+  pass), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. A bar panel shows the bar and beat
+  playing now and a map of the bars (loop tinted, click a bar to jump there). Each file remembers its speed, loop,
+  count-in, volumes and muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
   - **♫ Play along** (timer row; Tools → Play along with MIDI, Ctrl+Shift+I) opens the player for the selected practice
     item; press **Link** to attach the current file to it, so next time it opens straight away.
 - **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best
@@ -121,6 +146,9 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
   **Remove** (asks first) stops tracking an exercise: it leaves the list and the chart, but nothing is deleted; its
   lines stay in the day table marked "(removed)" and it's listed under "Removed exercises (history kept)". Logging the
   same name again starts it over from scratch (its own target, if set, stays).
+  **Rename** fixes an exercise's name; typing another exercise's name (same note value) merges the two.
+  **What's tracked** (bottom left) leaves categories or single blocks out of tracking, e.g. Warmup or Theory; their
+  history is kept. The day table shows Recorder takes attached to each day (🎙 n).
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
 
@@ -155,7 +183,7 @@ migration runs. Delete it to start fresh.
 |---|---|
 | `GuitarPractice.Domain` | Entities, the planner, the practice timer state machine. No package dependencies; warnings are errors. |
 | `GuitarPractice.Infrastructure` | `PracticeDbContext`, entity configs, seed data, migrations, stores (incl. the MIDI library), startup migration/backup. |
-| `GuitarPractice.Audio` | PortAudio input/output, metronome engine, YIN tuner pipeline, bend tracker, recorder/looper, MIDI reader + player (MeltySynth), notification ding. |
+| `GuitarPractice.Audio` | PortAudio input/output/full-duplex, metronome engine, YIN tuner pipeline, bend tracker, recorder, time-stretch, overdub looper + latency calibration, MIDI reader + player (MeltySynth), notification ding. |
 | `GuitarPractice.App` | Avalonia UI: library/routine panel, week view, session timer, Week and Tools menus, tool windows (metronome, tuner, recorder, ear trainer, MIDI player, progress). |
 | `GuitarPractice.Domain.Tests` | xUnit + FsCheck: planner properties and examples, progress math, week cloning, timer. |
 | `GuitarPractice.Infrastructure.Tests` | xUnit on in-memory SQLite: stores, week rules, settings, MIDI library, migrations up/down. |
@@ -199,6 +227,9 @@ Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regen
 - [x] Ear trainer (intervals and diatonic chords in a chosen key, scored)
 - [x] MIDI player for playing along (Guitar Pro exports, speed, mute/solo, bar loops, count-in, linked to practice items)
 - [x] Trellis name and icon; Settings (Light/Dark theme); windows remember their size and position
+- [x] Recorder slow-down (50–100 %, pitch kept), takes attached to practice items, overdub looper with latency calibration
+- [x] Tuner sensitivity + strobe; ear trainer sus/add9/6/9th chords, melodic dictation, score logging; metronome output
+  picker; MIDI per-track volume and bar map; category remove/restore; exercise rename/merge; choose what Progress tracks
 - [ ] **M6** Velopack installers and release pipeline (a CI build/test matrix exists)
 
 Development notes for Claude sessions (`plans/`, `CLAUDE.md`) are kept locally and are not in this repository.

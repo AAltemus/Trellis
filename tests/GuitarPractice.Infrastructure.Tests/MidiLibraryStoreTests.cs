@@ -2,6 +2,7 @@ namespace GuitarPractice.Infrastructure.Tests;
 
 public sealed class MidiLibraryStoreTests : IDisposable
 {
+    private static readonly int[] OldMuted = [1];
     private readonly TestDatabase _db = new();
     private readonly string _root = Path.Combine(Path.GetTempPath(), "trellis-midi-tests-" + Guid.NewGuid().ToString("N"));
     private readonly MidiLibraryStore _store;
@@ -83,7 +84,7 @@ public sealed class MidiLibraryStoreTests : IDisposable
         var settings = new SettingsStore(_db, _db.Clock);
         settings.Set(MidiLibraryStore.SettingsKey, new
         {
-            Files = new Dictionary<string, object> { ["song.mid"] = new { SpeedPercent = 80, CountIn = true, MutedTracks = new[] { 1 } } },
+            Files = new Dictionary<string, object> { ["song.mid"] = new { SpeedPercent = 80, CountIn = true, MutedTracks = OldMuted } },
             Links = new Dictionary<int, string>(),
         });
         var old = _store.GetSettings(item.FileName);

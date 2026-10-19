@@ -176,23 +176,25 @@
         <TextBlock Grid.Row="2" Text="Minutes practised per day" Classes="charttitle" Margin="0,10,0,4" />
         <c:ProgressChart Grid.Row="3" Kind="Bars" Points="{Binding MinutePoints}" From="{Binding ChartFrom}" To="{Binding ChartTo}"
                          EmptyText="Practice time appears here when you use the timer" />
-        <Grid Grid.Row="4" ColumnDefinitions="150,70,*,60,200" Margin="8,12,8,4">
+        <Grid Grid.Row="4" ColumnDefinitions="150,70,*,60,50,200" Margin="8,12,8,4">
           <TextBlock Text="Day" Classes="label" />
           <TextBlock Grid.Column="1" Text="Time" Classes="label" />
           <TextBlock Grid.Column="2" Text="Exercises (BPM, note value)" Classes="label" />
           <TextBlock Grid.Column="3" Text="Rating" Classes="label" />
-          <TextBlock Grid.Column="4" Text="Notes" Classes="label" />
+          <TextBlock Grid.Column="4" Text="Takes" Classes="label" />
+          <TextBlock Grid.Column="5" Text="Notes" Classes="label" />
         </Grid>
         <ListBox Grid.Row="5" ItemsSource="{Binding DayRows}" SelectedItem="{Binding SelectedDay}" Height="220"
                  ToolTip.Tip="Pick a day to edit it below">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:DayRowViewModel">
-              <Grid ColumnDefinitions="150,70,*,60,200">
+              <Grid ColumnDefinitions="150,70,*,60,50,200">
                 <TextBlock Text="{Binding DateText}" />
                 <TextBlock Grid.Column="1" Text="{Binding TimeText}" />
                 <TextBlock Grid.Column="2" Text="{Binding ExercisesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ExercisesText}" Margin="0,0,8,0" />
                 <TextBlock Grid.Column="3" Text="{Binding RatingText}" />
-                <TextBlock Grid.Column="4" Text="{Binding NotesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding NotesText}" />
+                <TextBlock Grid.Column="4" Text="{Binding TakesText}" ToolTip.Tip="Recorder takes attached to this day" />
+                <TextBlock Grid.Column="5" Text="{Binding NotesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding NotesText}" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -216,6 +218,28 @@
             <c:ExerciseLinesEditor DataContext="{Binding EditExercises}" />
           </ScrollViewer>
           <TextBlock Text="{Binding EditStatus}" Foreground="#43A047" FontSize="12" />
+          <!-- Recorder takes attached to this day -->
+          <StackPanel IsVisible="{Binding HasDayTakes}" Spacing="2">
+            <TextBlock Text="Takes this day" Classes="label" />
+            <ItemsControl ItemsSource="{Binding DayTakes}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:DayTakeViewModel">
+                  <Button Command="{Binding OpenCommand}" Margin="0,0,6,4" Padding="8,2" ToolTip.Tip="Open it in the Recorder">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Text="🎙" />
+                      <TextBlock Text="{Binding Name}" />
+                      <TextBlock Text="{Binding Detail}" Opacity="0.7" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </StackPanel>
       </Border>
     </Grid>

@@ -53,7 +53,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         LibraryStore store, PracticeLogStore logStore, WeekStore weekStore, INotificationSound sound, TimeProvider clock,
-        IToolWindows tools, ProgressStore progressStore, SettingsStore settingsStore, ProgressTracking tracking)
+        IToolWindows tools, ProgressStore progressStore, SettingsStore settingsStore, ProgressTracking tracking, TakeLinkStore takeLinks)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(logStore);
@@ -63,6 +63,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(progressStore);
         ArgumentNullException.ThrowIfNull(settingsStore);
         ArgumentNullException.ThrowIfNull(tracking);
+        ArgumentNullException.ThrowIfNull(takeLinks);
+        _takeLinks = takeLinks;
+        _takeLinks.Changed += (_, _) => OnPropertyChanged(nameof(RecordButtonText));
         _tracking = tracking;
         _tracking.Changed += (_, _) => RefreshTracked();
         _store = store;

@@ -33,6 +33,32 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Take_links_follow_renames_and_deletes_and_list_by_block_and_day()
+    {
+        var links = new TakeLinkStore(_store);
+        var day = new DateOnly(2026, 10, 18);
+        var changes = 0;
+        links.Changed += (_, _) => changes++;
+
+        links.Set(@"C:\data\recordings\Take 1.wav", new TakeLink(301, day, "  3nps scale "));
+        links.Set("Take 2.wav", new TakeLink(301, day));
+        links.Set("Take 3.wav", new TakeLink(301, day.AddDays(-1), " "));
+        links.Set("Other.wav", new TakeLink(402, day));
+
+        Assert.Equal(new TakeLink(301, day, "3nps scale"), links.Get("take 1.WAV"));  // by file name, any case
+        Assert.Null(links.Get("Take 3.wav")!.Exercise);
+        Assert.Equal(["Take 1.wav", "Take 2.wav"], links.For(301, day));
+        Assert.Equal(new Dictionary<DateOnly, int> { [day] = 2, [day.AddDays(-1)] = 1 }, links.CountsByDay(301));
+
+        links.Rename("Take 1.wav", "Sweeps clean.wav");
+        links.Remove("Take 2.wav");
+        links.Remove("Never linked.wav");                                       // no-op, no event
+        Assert.Equal(["Sweeps clean.wav"], links.For(301, day));
+        Assert.Equal("3nps scale", new TakeLinkStore(new SettingsStore(_db, _db.Clock)).Get("Sweeps clean.wav")?.Exercise); // saved
+        Assert.Equal(6, changes);
+    }
+
+    [Fact]
     public void Missing_key_reads_as_null()
     {
         Assert.Null(_store.Get<Prefs>("metronome"));

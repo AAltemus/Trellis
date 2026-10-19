@@ -5,6 +5,7 @@ namespace GuitarPractice.Domain.Tests;
 public class MelodyDictationTests
 {
     private static readonly MusicKey CMajor = new(0, KeyMode.Major);
+    private static readonly int[] StartDegrees = [0, 2, 4];
 
     [Fact]
     public void Melodies_have_the_chosen_length_stay_in_the_octave_and_move_mostly_by_step()
@@ -15,7 +16,7 @@ public class MelodyDictationTests
         {
             var q = dictation.Next();
             Assert.Equal(6, q.Degrees.Count);
-            Assert.Contains(q.Degrees[0], new[] { 0, 2, 4 });
+            Assert.Contains(q.Degrees[0], StartDegrees);
             Assert.All(q.Degrees, d => Assert.InRange(d, 0, 7));
             moves.AddRange(q.Degrees.Zip(q.Degrees.Skip(1), (a, b) => Math.Abs(b - a)));
         }

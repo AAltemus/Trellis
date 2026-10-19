@@ -13,7 +13,8 @@ public interface IToolWindows
     /// <summary>Opens the metronome; with a <paramref name="link"/>, plays for that practice item.</summary>
     void ShowMetronome(MetronomeLink? link = null);
     void ShowTuner();
-    void ShowRecorder();
+    /// <summary>Opens the Recorder; with a <paramref name="link"/>, new takes attach to that item and day; <paramref name="selectTake"/> = a take file name to select.</summary>
+    void ShowRecorder(RecorderLink? link = null, string? selectTake = null);
     void ShowEarTrainer();
     void ShowSettings();
 
@@ -45,7 +46,13 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
 
     public void ShowTuner() => _ = Show<TunerWindow, TunerViewModel>();
 
-    public void ShowRecorder() => _ = Show<RecorderWindow, RecorderViewModel>();
+    public void ShowRecorder(RecorderLink? link = null, string? selectTake = null)
+    {
+        var window = Show<RecorderWindow, RecorderViewModel>();
+        if (window.DataContext is not RecorderViewModel vm) return;
+        if (link is not null) vm.OpenFor(link);
+        if (selectTake is not null) vm.SelectTake(selectTake);
+    }
 
     public void ShowEarTrainer() => _ = Show<EarTrainerWindow, EarTrainerViewModel>();
 

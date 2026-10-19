@@ -60,6 +60,28 @@ public interface IAudioDevices
 {
     IAudioInput CreateInput();
     IAudioOutput CreateOutput();
+
+    /// <summary>One stream that records and plays on the same sample clock (the looper).</summary>
+    IAudioDuplex CreateDuplex() => throw new NotSupportedException("Full-duplex audio isn't available here.");
+}
+
+/// <summary>
+/// Called on the audio thread with the captured mono samples and the mono buffer to fill, the same length and at the
+/// same instant of the stream: input and output never drift apart. Real-time rules apply.
+/// </summary>
+public delegate void AudioDuplexCallback(ReadOnlySpan<float> input, Span<float> output);
+
+/// <summary>Record and play through one stream (e.g. the looper: what's heard and what's recorded stay locked together).</summary>
+public interface IAudioDuplex : IDisposable
+{
+    int SampleRate { get; }
+    bool IsRunning { get; }
+
+    /// <summary>Opens the input <see cref="AudioStreamOptions.DeviceId"/> (channel as for capture) with an output on
+    /// the same driver (the default output when it's on that driver).</summary>
+    void Start(AudioStreamOptions options, AudioDuplexCallback callback);
+
+    void Stop();
 }
 
 /// <summary>PortAudio-backed <see cref="IAudioDevices"/>.</summary>
@@ -67,6 +89,7 @@ public sealed class PortAudioDevices : IAudioDevices
 {
     public IAudioInput CreateInput() => new PortAudioInput();
     public IAudioOutput CreateOutput() => new PortAudioOutput();
+    public IAudioDuplex CreateDuplex() => new PortAudioDuplex();
 }
 
 /// <summary>Pitch math shared by the tuner and the bend-accuracy mode.</summary>

@@ -12,18 +12,18 @@ public class EarTrainingTests
     private static EarItem Chord(int degree, bool seventh = false) =>
         new(EarItemKind.Chord, degree, seventh ? ChordType.Seventh : ChordType.Triad);
 
-    private static string?[] Names(MusicKey key, ChordType type) =>
-        [.. Enumerable.Range(0, 7).Select(d => MusicTheory.Exists(key, d, type) ? MusicTheory.ChordName(key, d, type) : null)];
+    private static string[] Names(MusicKey key, ChordType type) => // "–" where the key has no such chord
+        [.. Enumerable.Range(0, 7).Select(d => MusicTheory.Exists(key, d, type) ? MusicTheory.ChordName(key, d, type) : "–")];
 
     [Fact]
     public void Sus_add9_sixth_and_ninth_chords_exist_only_where_the_key_makes_them()
     {
-        Assert.Equal(["Csus2", "Dsus2", null, "Fsus2", "Gsus2", "Asus2", null], Names(CMajor, ChordType.Sus2));
-        Assert.Equal(["Csus4", "Dsus4", "Esus4", null, "Gsus4", "Asus4", null], Names(CMajor, ChordType.Sus4));
-        Assert.Equal(["Cadd9", "Dm(add9)", null, "Fadd9", "Gadd9", "Am(add9)", null], Names(CMajor, ChordType.Add9));
-        Assert.Equal(["C6", "Dm6", null, "F6", "G6", null, null], Names(CMajor, ChordType.Sixth));
-        Assert.Equal(["Cmaj9", "Dm9", null, "Fmaj9", "G9", "Am9", null], Names(CMajor, ChordType.Ninth));
-        Assert.Equal(["Am9", null, "Cmaj9", "Dm9", null, "Fmaj9", "G9"], Names(AMinor, ChordType.Ninth));
+        Assert.Equal(["Csus2", "Dsus2", "–", "Fsus2", "Gsus2", "Asus2", "–"], Names(CMajor, ChordType.Sus2));
+        Assert.Equal(["Csus4", "Dsus4", "Esus4", "–", "Gsus4", "Asus4", "–"], Names(CMajor, ChordType.Sus4));
+        Assert.Equal(["Cadd9", "Dm(add9)", "–", "Fadd9", "Gadd9", "Am(add9)", "–"], Names(CMajor, ChordType.Add9));
+        Assert.Equal(["C6", "Dm6", "–", "F6", "G6", "–", "–"], Names(CMajor, ChordType.Sixth));
+        Assert.Equal(["Cmaj9", "Dm9", "–", "Fmaj9", "G9", "Am9", "–"], Names(CMajor, ChordType.Ninth));
+        Assert.Equal(["Am9", "–", "Cmaj9", "Dm9", "–", "Fmaj9", "G9"], Names(AMinor, ChordType.Ninth));
 
         Assert.Equal(["Isus2", "iisus4", "V9", "Imaj9", "ii6", "viadd9"],
             new[] { (0, ChordType.Sus2), (1, ChordType.Sus4), (4, ChordType.Ninth), (0, ChordType.Ninth), (1, ChordType.Sixth), (5, ChordType.Add9) }
