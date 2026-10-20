@@ -1,0 +1,117 @@
+name: release
+
+# Push a tag to release: v1.0.0 → the release "Trellis 1.0.0" with installers for Windows, macOS (Apple Silicon +
+# Intel) and Linux. A tag with a dash (v1.0.0-rc.1) becomes a pre-release, which installed copies don't update to.
+# Each OS is built and packed on that OS (macOS packages can only be made on a Mac); one job then uploads them all
+# to the same GitHub release, channel by channel, and publishes it.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  APP_PROJECT: src/GuitarPractice.App/GuitarPractice.App.csproj
+  ICONS: src/GuitarPractice.App/Assets/Icon
+  # Must never be GuitarPractice: Velopack installs into a folder named after it, and that's the data folder's name.
+  PACK_ID: Trellis
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64,   channel: win,       exe: Trellis.exe }
+          - { os: ubuntu-latest,  rid: linux-x64, channel: linux,     exe: Trellis }
+          - { os: macos-latest,   rid: osx-arm64, channel: osx-arm64, exe: Trellis }
+          - { os: macos-latest,   rid: osx-x64,   channel: osx-x64,   exe: Trellis }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+      - run: dotnet tool restore
+
+      - name: Version from the tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          if [[ "$version" == *-* ]]; then echo "PRE=--pre" >> "$GITHUB_ENV"; else echo "PRE=" >> "$GITHUB_ENV"; fi
+
+      - name: Test
+        run: dotnet test GuitarPractice.slnx -c Release
+
+      - name: Publish (self-contained)
+        run: dotnet publish "$APP_PROJECT" -c Release -r ${{ matrix.rid }} --self-contained -p:Version="$VERSION" -o publish
+
+      # The previous release lets vpk make a small delta update. The first release has none, so this may find nothing.
+      - name: Previous release (for deltas)
+        continue-on-error: true
+        env:
+          VPK_TOKEN: ${{ github.token }}
+        run: dotnet vpk download github --repoUrl "https://github.com/${{ github.repository }}" --channel ${{ matrix.channel }} -o Releases $PRE
+
+      - name: Pack (Windows)
+        if: runner.os == 'Windows'
+        run: >
+          dotnet vpk pack --packId "$PACK_ID" --packVersion "$VERSION" --packTitle Trellis --packAuthors "Adam Altemus"
+          --packDir publish --mainExe ${{ matrix.exe }} --icon "$ICONS/trellis.ico"
+          --runtime ${{ matrix.rid }} --channel ${{ matrix.channel }} -o Releases
+
+      - name: Pack (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          dotnet vpk pack --packId "$PACK_ID" --packVersion "$VERSION" --packTitle Trellis --packAuthors "Adam Altemus"
+          --packDir publish --mainExe ${{ matrix.exe }} --icon "$ICONS/trellis-512.png" --categories "Audio;Music;Education"
+          --runtime ${{ matrix.rid }} --channel ${{ matrix.channel }} -o Releases
+
+      - name: Pack (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          sed "s/VERSION_PLACEHOLDER/$VERSION/g" packaging/macos/Info.plist > Info.plist
+          dotnet vpk pack --packId "$PACK_ID" --packVersion "$VERSION" --packTitle Trellis --packAuthors "Adam Altemus" \
+            --packDir publish --mainExe ${{ matrix.exe }} --icon "$ICONS/trellis.icns" --plist Info.plist \
+            --runtime ${{ matrix.rid }} --channel ${{ matrix.channel }} -o Releases
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: releases-${{ matrix.channel }}
+          path: Releases/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+      - run: dotnet tool restore
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+
+      # One channel at a time into the same release (draft until all four are there).
+      - name: Upload to the GitHub release
+        env:
+          VPK_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          pre=""; if [[ "$version" == *-* ]]; then pre="--pre"; fi
+          for channel in win linux osx-arm64 osx-x64; do
+            dotnet vpk upload github --repoUrl "https://github.com/${{ github.repository }}" \
+              --channel "$channel" -o "artifacts/releases-$channel" --tag "$GITHUB_REF_NAME" \
+              --releaseName "Trellis $version" --merge $pre
+          done
+
+      - name: Publish the release with install notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "${{ github.repository }}" --notes-file packaging/release-notes.md --draft=false

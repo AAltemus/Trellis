@@ -111,7 +111,22 @@
         <Separator />
         <MenuItem Header="_Progress…" Command="{Binding OpenProgressCommand}" InputGesture="Ctrl+P" />
       </MenuItem>
+      <MenuItem Header="_Help">
+        <MenuItem Header="Check for _updates" Click="OnCheckForUpdates" />
+      </MenuItem>
     </Menu>
+
+    <!-- Update banner: its DataContext (the shared UpdateViewModel) is set by the app; hidden without one. -->
+    <Border x:Name="UpdateBar" x:DataType="vm:UpdateViewModel" DockPanel.Dock="Top" Margin="16,8,16,0" Padding="12,8"
+            CornerRadius="8" Background="#2242A5F5" IsVisible="{Binding IsBannerVisible, FallbackValue=False}">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock Text="{Binding BannerText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Content="Update and restart" Command="{Binding UpdateAndRestartCommand}"
+                IsVisible="{Binding HasUpdate}" VerticalAlignment="Center" Margin="12,0,0,0"
+                ToolTip.Tip="Downloads the new version, closes Trellis the normal way (your session is saved) and restarts it" />
+        <Button Grid.Column="2" Content="Later" Command="{Binding DismissCommand}" VerticalAlignment="Center" Margin="8,0,0,0" />
+      </Grid>
+    </Border>
 
   <Grid ColumnDefinitions="420,*">
 

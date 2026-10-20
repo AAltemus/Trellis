@@ -10,13 +10,18 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ThemeService _theme;
 
-    public SettingsViewModel(ThemeService theme)
+    public SettingsViewModel(ThemeService theme, UpdateViewModel updates)
     {
         ArgumentNullException.ThrowIfNull(theme);
+        ArgumentNullException.ThrowIfNull(updates);
         _theme = theme;
+        Updates = updates;
         _isLight = theme.Current == ThemeMode.Light;
         _isDark = theme.Current == ThemeMode.Dark;
     }
+
+    /// <summary>Version, check-on-startup and Check now (shared with the main window's update banner).</summary>
+    public UpdateViewModel Updates { get; }
 
     // One bool per radio button (Avalonia radio buttons bind IsChecked); only the one turned on acts.
 

@@ -15,3 +15,6 @@ Releases/
 # Local-only Claude session notes (kept on disk, not in git)
 plans/
 CLAUDE.md
+
+# Local release builds (vpk)
+publish/

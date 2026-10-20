@@ -19,6 +19,19 @@
                  Text="Applies to every window right away and is remembered next time." />
     </StackPanel>
 
+    <StackPanel Spacing="6">
+      <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Updates.VersionText}" TextWrapping="Wrap" />
+      <CheckBox IsChecked="{Binding Updates.CheckOnStartup}" Content="Check for updates when Trellis starts" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Check now" Command="{Binding Updates.CheckNowCommand}" />
+        <Button Content="Update and restart" Command="{Binding Updates.UpdateAndRestartCommand}"
+                IsVisible="{Binding Updates.HasUpdate}" />
+      </StackPanel>
+      <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Updates.Status}"
+                 IsVisible="{Binding Updates.Status, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
+
     <Button Content="Close" HorizontalAlignment="Right" MinWidth="80" IsDefault="True" IsCancel="True" Click="OnClose" />
   </StackPanel>
 </Window>

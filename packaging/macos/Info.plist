@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- macOS app bundle metadata for the Velopack package (vpk pack, plist option). Based on the plist Velopack generates, plus
+     the microphone text macOS requires before the Tuner, Recorder and Looper can listen. The release workflow replaces
+     VERSION_PLACEHOLDER with the release version. -->
+<plist version="1.0">
+  <dict>
+    <key>CFBundleName</key>
+    <string>Trellis</string>
+    <key>CFBundleDisplayName</key>
+    <string>Trellis</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.aaltemus.trellis</string>
+    <key>CFBundleVersion</key>
+    <string>VERSION_PLACEHOLDER</string>
+    <key>CFBundleShortVersionString</key>
+    <string>VERSION_PLACEHOLDER</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleExecutable</key>
+    <string>Trellis</string>
+    <key>CFBundleIconFile</key>
+    <string>trellis.icns</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true />
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Trellis listens to your guitar for the tuner, the recorder and the looper.</string>
+  </dict>
+</plist>

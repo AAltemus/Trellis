@@ -50,6 +50,38 @@ public class WavFileTests
     }
 
     [Fact]
+    public void Broken_or_crafted_headers_are_refused_without_hanging_or_huge_allocations()
+    {
+        // A chunk whose size reads as -8 (0xFFFFFFF8) used to send ReadInfo back to the same header forever (the
+        // Recorder reads every WAV in its folder when it opens). Now the size is unsigned and clamped to the file.
+        var ok = Wav(1, 1, 48_000, 16, new byte[64]);
+        byte[] crafted = [.. ok[..12], .. "junk"u8, .. BitConverter.GetBytes(0xFFFFFFF8u), .. ok[12..]];
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllBytes(path, crafted);
+            var info = Task.Run(() => Record.Exception(() => WavFile.ReadInfo(path)));
+            Assert.True(info.Wait(TimeSpan.FromSeconds(10)), "ReadInfo must not hang on a negative chunk size");
+            Assert.IsType<InvalidDataException>(info.Result);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+        Assert.Throws<InvalidDataException>(() => WavFile.Read(new MemoryStream(crafted)));
+
+        // A data chunk claiming ~2 GB in a tiny file: only what is there is read (no 2 GB buffer).
+        var liar = Wav(1, 1, 48_000, 16, new byte[200]);
+        BitConverter.GetBytes(int.MaxValue - 1).CopyTo(liar, liar.Length - 200 - 4);
+        Assert.Equal(100, WavFile.Read(new MemoryStream(liar)).Samples.Length);
+
+        // Formats the decoder can't handle are refused before any data is read.
+        Assert.Throws<InvalidDataException>(() => WavFile.Read(new MemoryStream(Wav(1, 1, 48_000, 20, new byte[60]))));
+        Assert.Throws<InvalidDataException>(() => WavFile.Read(new MemoryStream(Wav(1, 0, 48_000, 16, new byte[60]))));
+        Assert.Throws<InvalidDataException>(() => WavFile.Read(new MemoryStream(Wav(3, 1, 48_000, 16, new byte[60]))));
+    }
+
+    [Fact]
     public void Reads_stereo_float_and_mixes_to_mono()
     {
         var data = new byte[4 * 4]; // 2 frames × 2 channels × float

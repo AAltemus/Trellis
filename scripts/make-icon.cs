@@ -1,7 +1,8 @@
 #:property ManagePackageVersionsCentrally=false
 #:package Svg.Skia@5.2.3
 // Builds the Trellis app icon from its SVG sources: renders each size with Skia and packs them into one .ico
-// (PNG-compressed entries, supported by Windows Vista and later), plus a 256 px PNG for docs.
+// (PNG-compressed entries, supported by Windows Vista and later), plus a 256 px PNG for docs, trellis.icns (macOS
+// installer) and trellis-512.png (Linux AppImage).
 // 16–32 px use the simplified trellis-small.svg; 48 px and up use trellis.svg.
 //   dotnet run scripts/make-icon.cs -- src/GuitarPractice.App/Assets/Icon [preview.png]
 // With a second argument it also writes a preview sheet: every size at 1:1, and 16/32 px enlarged ×8, on light and dark.
@@ -35,6 +36,27 @@ using (var ico = new BinaryWriter(File.Create(Path.Combine(dir, "trellis.ico")))
 }
 File.WriteAllBytes(Path.Combine(dir, "trellis-256.png"), entries.Single(e => e.Size == 256).Png);
 Console.WriteLine($"Wrote {Path.Combine(dir, "trellis.ico")} ({string.Join(", ", sizes)} px) and trellis-256.png");
+
+// macOS app icon (.icns, the installer's --icon): big-endian "icns" + length, then PNG entries by OSType.
+// icp4/icp5 = 16/32, ic11/ic12 = 16@2x/32@2x, ic07/ic13 = 128 and @2x, ic08/ic14 = 256 and @2x, ic09/ic10 = 512 and @2x.
+(string Type, int Size)[] icnsEntries =
+    [("icp4", 16), ("icp5", 32), ("ic11", 32), ("ic12", 64), ("ic07", 128), ("ic13", 256), ("ic08", 256), ("ic14", 512), ("ic09", 512), ("ic10", 1024)];
+var icns = icnsEntries.Select(e => (e.Type, Png: Render(Path.Combine(dir, e.Size <= 32 ? "trellis-small.svg" : "trellis.svg"), e.Size))).ToList();
+using (var file = new BinaryWriter(File.Create(Path.Combine(dir, "trellis.icns"))))
+{
+    static void BigEndian(BinaryWriter w, int v) => w.Write(new[] { (byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v });
+    file.Write("icns"u8);
+    BigEndian(file, 8 + icns.Sum(e => 8 + e.Png.Length));
+    foreach (var (type, png) in icns)
+    {
+        file.Write(System.Text.Encoding.ASCII.GetBytes(type));
+        BigEndian(file, 8 + png.Length);
+        file.Write(png);
+    }
+}
+// Linux AppImage icon (the installer's --icon): one large PNG.
+File.WriteAllBytes(Path.Combine(dir, "trellis-512.png"), Render(Path.Combine(dir, "trellis.svg"), 512));
+Console.WriteLine("Wrote trellis.icns (16–1024 px) and trellis-512.png");
 
 if (args.Length > 1) WritePreview(args[1], entries);
 

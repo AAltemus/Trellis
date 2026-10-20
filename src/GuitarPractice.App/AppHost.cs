@@ -21,6 +21,8 @@ internal static class AppHost
         builder.Services.AddSingleton<IToolWindows, ToolWindows>();
         builder.Services.AddSingleton<WindowPlacementService>();
         builder.Services.AddSingleton<ThemeService>();
+        builder.Services.AddSingleton<UpdateService>();
+        builder.Services.AddSingleton<UpdateViewModel>(); // one instance: main window banner + Settings → Updates
         builder.Services.AddTransient<SettingsViewModel>();
         builder.Services.AddTransient<MidiPlayerViewModel>();
         builder.Services.AddTransient<MetronomeViewModel>();

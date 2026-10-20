@@ -1,5 +1,6 @@
 using GuitarPractice.Domain;
 using GuitarPractice.Domain.Practice;
+using GuitarPractice.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +18,7 @@ public sealed class MigrationTests : IDisposable
     {
         using var db = _db.CreateDbContext();
         Assert.NotEmpty(db.Database.GetMigrations());
-        Assert.False(db.Database.HasPendingModelChanges(), "Run scripts/sync-db.ps1 to add a migration.");
+        Assert.False(db.Database.HasPendingModelChanges(), "Run scripts/sync-db.cs (dotnet run --file scripts/sync-db.cs) to add a migration.");
     }
 
     [Fact]
@@ -37,6 +38,28 @@ public sealed class MigrationTests : IDisposable
         _db.Weeks.Save("Block A", plan, request, routine.Id);
         Assert.NotNull(_db.Weeks.LoadLocked(plan.WeekStart));
         Assert.Single(_db.Weeks.ListSaved());
+    }
+
+    [Fact]
+    public void A_database_upgraded_by_a_newer_version_is_refused_with_a_clear_message()
+    {
+        using var db = _db.CreateDbContext();
+        db.Database.Migrate();
+        DatabaseInitializer.EnsureNotNewer(db); // up to date: fine
+
+        db.Database.ExecuteSql($"""
+            INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion") VALUES ('20991231000000_Auto_From_The_Future', '10.0.13');
+            """);
+        var error = Assert.Throws<NewerDatabaseException>(() => DatabaseInitializer.EnsureNotNewer(db));
+        Assert.Equal(["20991231000000_Auto_From_The_Future"], error.UnknownMigrations);
+        Assert.Contains("newer version of Trellis", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_brand_new_database_is_not_newer()
+    {
+        using var db = _db.CreateDbContext(); // nothing created yet: a friend's first start
+        DatabaseInitializer.EnsureNotNewer(db);
     }
 
     private const string SingleBpmMigration = "20261017005301_Auto_20261016_205259";

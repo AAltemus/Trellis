@@ -2,7 +2,11 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <RootNamespace>GuitarPractice.App</RootNamespace>
-    <AssemblyName>GuitarPractice</AssemblyName>
+    <!-- The exe is Trellis(.exe). The data folder stays %LOCALAPPDATA%\GuitarPractice (AppPaths): never rename it. -->
+    <AssemblyName>Trellis</AssemblyName>
+    <!-- Release builds get the tag's version from CI (-p:Version=…); this is the default for local builds. -->
+    <Version>1.0.0</Version>
+    <Authors>Adam Altemus</Authors>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -19,9 +23,10 @@
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Velopack" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Window title-bar icon (avares://GuitarPractice/Assets/Icon/trellis.ico). Sources + generator: trellis*.svg, scripts/make-icon.cs. -->
+    <!-- Window title-bar icon (avares://Trellis/Assets/Icon/trellis.ico). Sources + generator: trellis*.svg, scripts/make-icon.cs. -->
     <AvaloniaResource Include="Assets/Icon/trellis.ico" />
   </ItemGroup>
   <ItemGroup>

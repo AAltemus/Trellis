@@ -196,6 +196,29 @@ public class MidiTests
         Assert.Contains("format 2", Assert.Throws<InvalidDataException>(() => MidiFileReader.Read(format2)).Message);
     }
 
+    [Fact]
+    public void Crafted_lengths_and_huge_files_are_handled_cleanly()
+    {
+        // A header length of ~2 GB used to overflow the read position (IndexOutOfRangeException); now it skips to the end.
+        var bogus = Song();
+        bogus[4] = 0x7F;
+        bogus[5] = bogus[6] = bogus[7] = 0xFF;
+        var ex = Record.Exception(() => MidiFileReader.Read(bogus));
+        Assert.True(ex is null or InvalidDataException, $"clean result or a clear error, not {ex?.GetType().Name}");
+
+        // Files over the size limit are refused before being read.
+        var path = Path.GetTempFileName();
+        try
+        {
+            using (var file = File.OpenWrite(path)) file.SetLength(MidiFileReader.MaxFileBytes + 1);
+            Assert.Contains("too large", Assert.Throws<InvalidDataException>(() => MidiFileReader.Read(path)).Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     // ---- Playing ----
 
     [Fact]

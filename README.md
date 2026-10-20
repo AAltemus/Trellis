@@ -9,10 +9,29 @@ tracks: import songs exported from Guitar Pro (or any MIDI file), slow them down
 part, loop the bars you're working on, and link a song to a practice item so it's one click away. Cross-platform
 desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 12, EF Core + SQLite.
 
+## Install
+
+Download the installer for your computer from the
+[latest release](https://github.com/AAltemus/GuitarTrainer/releases/latest):
+
+| Your computer | Download |
+|---|---|
+| Windows 10 or 11 | `Trellis-win-Setup.exe` |
+| Mac with Apple silicon (M1 or later) | the `Setup.pkg` with `osx-arm64` in its name |
+| Mac with an Intel processor | the `Setup.pkg` with `osx-x64` in its name |
+| Linux (64-bit) | `Trellis.AppImage` (`chmod +x`, then run it) |
+
+The installers aren't signed with a paid certificate, so the first start shows a warning: on Windows click
+**More info → Run anyway**; on macOS go to **System Settings → Privacy & Security → Open Anyway**. After that Trellis
+starts normally and updates itself: when a new release is out it offers to update when it starts (or **Help → Check
+for updates**; **File → Settings → Updates** turns the check off). Your practice data stays in its own folder (see
+[Building from source](#building-from-source)); installing, updating and uninstalling never touch it.
+
 The icon is a sprout growing up a rosewood fretboard (simplified to a "T" made of a nut and a string at 16–32 px).
-Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg`; rebuild the `.ico` with
-`dotnet run scripts/make-icon.cs -- src/GuitarPractice.App/Assets/Icon`. The code keeps its `GuitarPractice.*`
-project names and the data folder stays `GuitarPractice`.
+Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg`; rebuild the `.ico` (Windows),
+`.icns` (macOS) and PNGs with `dotnet run scripts/make-icon.cs -- src/GuitarPractice.App/Assets/Icon`. The program
+is `Trellis` (`Trellis.exe`); the code keeps its `GuitarPractice.*` project names and the data folder stays
+`GuitarPractice`.
 
 ## Screenshots
 
@@ -192,22 +211,44 @@ Every window reopens where you left it: the main window, Progress, Recorder and 
 position (and maximized if they were); the Metronome and Tuner, which size themselves, at their last position. If a saved
 spot is no longer on any screen (e.g. a monitor was unplugged), the window opens centred, shrunk to fit if needed.
 
-## First run
+## Building from source
 
 Requires the .NET 10 SDK.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\bootstrap.ps1   # Windows (-Reset to rebuild migrations + DB)
-./scripts/bootstrap.sh                                            # macOS / Linux
+```bash
+dotnet run --file scripts/bootstrap.cs
 dotnet run --project src/GuitarPractice.App
 ```
 
-The bootstrap restores `dotnet-ef`, creates the `InitialCreate` migration (built-in library + tunings
-are seeded through it), builds, and runs the tests. Commit the generated `Persistence/Migrations` folder.
+The same commands work on Windows, macOS and Linux (the scripts are C# files run by the .NET SDK). The bootstrap
+restores the local tools (`dotnet-ef`, `vpk`), builds and runs the tests. `-- --reset` also deletes your local
+database (not the migrations: released versions depend on them).
+
+Model changes: `dotnet run --file scripts/sync-db.cs` adds an `Auto_<timestamp>` migration when the model changed (VS
+Code runs it before every F5 launch); commit the new files in `Persistence/Migrations`.
 
 The database lives at `%LOCALAPPDATA%\GuitarPractice\practice.db` (Windows) or
 `~/Library/Application Support/GuitarPractice/practice.db` (macOS) or `~/.local/share/GuitarPractice/practice.db` (Linux). It is backed up to `practice.db.bak` before any
-migration runs. Delete it to start fresh.
+migration runs. Delete it to start fresh. The same folder holds `recordings`, `midi` and `diagnostics`. The installed
+app and a build from source share it. If a newer version has already upgraded the database, an older one refuses to
+open it (with a message) instead of failing halfway.
+
+## Releasing
+
+Push a version tag and GitHub Actions (`.github/workflows/release.yml`) does the rest:
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+Each OS is built and packed on that OS with [Velopack](https://velopack.io) (`dotnet vpk`, a local tool: `dotnet tool
+restore`): a Setup.exe for Windows, a .pkg for Apple silicon and one for Intel Macs, an AppImage for Linux. One job
+then uploads all of them to the release `Trellis 1.0.1` and publishes it with `packaging/release-notes.md` as its
+description. Installed copies find the release through the GitHub releases API and download only what changed. A tag
+with a dash (`v1.1.0-rc.1`) makes a pre-release, which installed copies ignore. The macOS bundle's `Info.plist`
+(including the microphone permission text) is `packaging/macos/Info.plist`. The package id must stay `Trellis`:
+Velopack installs into a folder named after it, and `GuitarPractice` is the data folder.
 
 ## Layout
 
@@ -251,7 +292,7 @@ Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regen
 - [x] **M1** Domain model, planner and property tests; solution scaffold
 - [x] **M2** Library and routine editing (categories, subcategories, songs, weights, per-weekday minutes)
 - [~] **M3** Week view and session runner, week lock/save/load/navigation — drag between days not built
-- [x] **M4** PortAudio backend and sample-accurate metronome (gap training, tempo trainer) — macOS packaging/mic entitlement not proven yet
+- [x] **M4** PortAudio backend and sample-accurate metronome (gap training, tempo trainer)
 - [x] **M5** YIN tuner with DSP tests; bend-accuracy mode
 - [x] Recorder (record, playback, A–B loop with count-in) and progress tracking (exercises per block with BPM and note
   value, own targets, rating, notes; charts; remove an exercise keeping its history)
@@ -262,6 +303,7 @@ Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regen
 - [x] Recorder slow-down (50–100 %, pitch kept), takes attached to practice items, overdub looper with latency calibration
 - [x] Tuner sensitivity + strobe; ear trainer sus/add9/6/9th chords, melodic dictation, score logging; metronome output
   picker; MIDI per-track volume and bar map; category remove/restore; exercise rename/merge; choose what Progress tracks
-- [ ] **M6** Velopack installers and release pipeline (a CI build/test matrix exists)
+- [~] **M6** Velopack installers for Windows, macOS (Apple silicon + Intel) and Linux, self-update from GitHub releases,
+  release workflow on tags — built, not yet released
 
 Development notes for Claude sessions (`plans/`, `CLAUDE.md`) are kept locally and are not in this repository.

@@ -65,34 +65,8 @@ public static class WavFile
     {
         using var stream = File.OpenRead(path);
         using var r = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-        if (Encoding.ASCII.GetString(r.ReadBytes(4)) != "RIFF") throw new InvalidDataException("Not a RIFF file.");
-        r.ReadInt32();
-        if (Encoding.ASCII.GetString(r.ReadBytes(4)) != "WAVE") throw new InvalidDataException("Not a WAVE file.");
-        int rate = 0, blockAlign = 0;
-        while (stream.Position + 8 <= stream.Length)
-        {
-            var id = Encoding.ASCII.GetString(r.ReadBytes(4));
-            var size = r.ReadInt32();
-            if (id == "fmt ")
-            {
-                r.ReadInt16();
-                r.ReadInt16();
-                rate = r.ReadInt32();
-                r.ReadInt32();
-                blockAlign = r.ReadInt16();
-                r.ReadBytes(size - 14);
-            }
-            else if (id == "data")
-            {
-                if (rate <= 0 || blockAlign <= 0) throw new InvalidDataException("WAV data before a valid fmt chunk.");
-                return (rate, TimeSpan.FromSeconds(size / (double)blockAlign / rate));
-            }
-            else
-            {
-                stream.Seek(size + (size & 1), SeekOrigin.Current);
-            }
-        }
-        throw new InvalidDataException("WAV file has no data chunk.");
+        var format = ReadHeader(r, stream, out var dataBytes);
+        return (format.Rate, TimeSpan.FromSeconds(dataBytes / (double)(format.Channels * format.Bits / 8) / format.Rate));
     }
 
     public static AudioTake Read(string path)
@@ -105,36 +79,53 @@ public static class WavFile
     {
         ArgumentNullException.ThrowIfNull(stream);
         using var r = new BinaryReader(stream, Encoding.ASCII, leaveOpen: true);
-        if (Encoding.ASCII.GetString(r.ReadBytes(4)) != "RIFF") throw new InvalidDataException("Not a RIFF file.");
-        r.ReadInt32();
+        var format = ReadHeader(r, stream, out var dataBytes);
+        var bytes = r.ReadBytes((int)dataBytes);
+        return new AudioTake(Decode(bytes, format.Format, format.Channels, format.Bits), format.Rate);
+    }
+
+    private readonly record struct WavFormat(int Format, int Channels, int Rate, int Bits);
+
+    /// <summary>
+    /// Walks the RIFF chunks up to the start of the sample data and checks the format. Safe on broken or crafted files:
+    /// chunk sizes are unsigned and clamped to what is left in the file (so a lying header can't make us allocate more
+    /// than the file holds), every step moves forward (no endless loop), and only formats <see cref="Decode"/> handles
+    /// get through. Leaves the stream at the first sample; <paramref name="dataBytes"/> is how many bytes follow.
+    /// </summary>
+    private static WavFormat ReadHeader(BinaryReader r, Stream stream, out long dataBytes)
+    {
+        if (stream.Length < 12 || Encoding.ASCII.GetString(r.ReadBytes(4)) != "RIFF") throw new InvalidDataException("Not a RIFF file.");
+        r.ReadUInt32();
         if (Encoding.ASCII.GetString(r.ReadBytes(4)) != "WAVE") throw new InvalidDataException("Not a WAVE file.");
 
-        int format = 0, channels = 0, rate = 0, bits = 0;
-        while (stream.Position + 8 <= stream.Length)
+        WavFormat? format = null;
+        while (stream.Length - stream.Position >= 8)
         {
             var id = Encoding.ASCII.GetString(r.ReadBytes(4));
-            var size = r.ReadInt32();
+            var size = Math.Min(r.ReadUInt32(), stream.Length - stream.Position); // a truncated file: use what's there
+            var start = stream.Position;
             if (id == "fmt ")
             {
-                format = r.ReadInt16();
-                channels = r.ReadInt16();
-                rate = r.ReadInt32();
-                r.ReadInt32();
-                r.ReadInt16();
-                bits = r.ReadInt16();
-                if (size > 16) r.ReadBytes(size - 16);
-                if (format == unchecked((short)0xFFFE) && size >= 26) format = bits == 32 ? 3 : 1; // WAVE_FORMAT_EXTENSIBLE (approx.)
+                if (size < 16) throw new InvalidDataException("WAV fmt chunk too short.");
+                int tag = r.ReadUInt16(), channels = r.ReadUInt16();
+                var rate = r.ReadInt32();
+                r.ReadInt32(); // byte rate
+                r.ReadUInt16(); // block align
+                int bits = r.ReadUInt16();
+                if (tag == 0xFFFE && size >= 26) tag = bits == 32 ? 3 : 1; // WAVE_FORMAT_EXTENSIBLE (approx.)
+                if (channels is < 1 or > 64 || rate is < 1 or > 1_000_000 || bits is not (16 or 24 or 32)
+                    || (tag != 1 && tag != 3) || (tag == 3 && bits != 32))
+                    throw new InvalidDataException($"Unsupported WAV format {tag}, {bits}-bit, {channels} channels, {rate} Hz.");
+                format = new WavFormat(tag, channels, rate, bits);
             }
             else if (id == "data")
             {
-                if (channels <= 0 || rate <= 0) throw new InvalidDataException("WAV data before a valid fmt chunk.");
-                var bytes = r.ReadBytes(size);
-                return new AudioTake(Decode(bytes, format, channels, bits), rate);
+                if (format is not { } f) throw new InvalidDataException("WAV data before a valid fmt chunk.");
+                if (size > int.MaxValue) throw new InvalidDataException("WAV file too large.");
+                dataBytes = size;
+                return f;
             }
-            else
-            {
-                r.ReadBytes(size + (size & 1));
-            }
+            stream.Position = Math.Min(stream.Length, start + size + (size & 1)); // chunks are padded to even sizes
         }
         throw new InvalidDataException("WAV file has no data chunk.");
     }

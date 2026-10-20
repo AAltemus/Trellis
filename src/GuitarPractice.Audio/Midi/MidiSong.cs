@@ -179,7 +179,19 @@ public sealed class MidiSong
 /// <summary>Reads standard MIDI files (SMF format 0 and 1, ticks-per-quarter timing) such as Guitar Pro exports.</summary>
 public static class MidiFileReader
 {
-    public static MidiSong Read(string path) => Read(File.ReadAllBytes(path));
+    /// <summary>
+    /// Larger files are refused before reading: real MIDI files are kilobytes (a long Guitar Pro export ~200 KB), and a
+    /// huge or crafted file would otherwise be read whole and expanded into millions of events.
+    /// </summary>
+    public const long MaxFileBytes = 16 * 1024 * 1024;
+
+    public static MidiSong Read(string path)
+    {
+        var length = new FileInfo(path).Length;
+        if (length > MaxFileBytes)
+            throw new InvalidDataException($"This file is too large for a MIDI file ({length / (1024 * 1024)} MB; the limit is {MaxFileBytes / (1024 * 1024)} MB).");
+        return Read(File.ReadAllBytes(path));
+    }
 
     public static MidiSong Read(byte[] data)
     {
@@ -190,7 +202,7 @@ public static class MidiFileReader
         var format = r.UInt16();
         var trackCount = r.UInt16();
         var division = r.UInt16();
-        r.Skip((int)headerLength - 6);
+        r.Skip(headerLength - 6L); // a bogus ~4 GB length just skips to the end (no tracks)
         if (format > 1) throw new InvalidDataException($"MIDI format {format} isn't supported (only 0 and 1).");
         if ((division & 0x8000) != 0) throw new InvalidDataException("SMPTE-timed MIDI files aren't supported.");
         if (division == 0) throw new InvalidDataException("Invalid MIDI timing (0 ticks per quarter).");
@@ -270,7 +282,7 @@ public static class MidiFileReader
             if (status is 0xF0 or 0xF7)
             {
                 running = 0;
-                r.Skip((int)r.VarLen());
+                r.Skip(r.VarLen());
                 continue;
             }
 
@@ -314,7 +326,8 @@ public static class MidiFileReader
             return result;
         }
 
-        public void Skip(int count) => _pos = Math.Min(_end, _pos + Math.Max(0, count));
+        /// <summary>Never past the end, never backwards; in long so a huge count can't overflow the position.</summary>
+        public void Skip(long count) => _pos = (int)Math.Min(_end, _pos + Math.Max(0L, count));
         public string Ascii(int count) => Encoding.ASCII.GetString(Bytes(count));
         public ushort UInt16() => (ushort)((Byte() << 8) | Byte());
         public uint UInt32() => ((uint)Byte() << 24) | ((uint)Byte() << 16) | ((uint)Byte() << 8) | Byte();
