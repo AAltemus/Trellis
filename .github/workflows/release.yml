@@ -24,7 +24,8 @@ jobs:
       matrix:
         include:
           - { os: windows-latest, rid: win-x64,   channel: win,       exe: Trellis.exe }
-          - { os: ubuntu-latest,  rid: linux-x64, channel: linux,     exe: Trellis }
+          # 22.04: libraries built here (PortAudio below) need only its older glibc, so they run on more distributions.
+          - { os: ubuntu-22.04,   rid: linux-x64, channel: linux,     exe: Trellis }
           - { os: macos-latest,   rid: osx-arm64, channel: osx-arm64, exe: Trellis }
           - { os: macos-latest,   rid: osx-x64,   channel: osx-x64,   exe: Trellis }
     runs-on: ${{ matrix.os }}
@@ -49,6 +50,22 @@ jobs:
 
       - name: Publish (self-contained)
         run: dotnet publish "$APP_PROJECT" -c Release -r ${{ matrix.rid }} --self-contained -p:Version="$VERSION" -o publish
+
+      # PortAudioSharp2's Linux libportaudio.so links libjack.so.0, which desktop distributions don't install, so audio
+      # failed to load ("libjack.so.0: cannot open shared object file", Ubuntu, 2026-10-20). Ship our own build of the
+      # same PortAudio version with ALSA only (PipeWire and PulseAudio are reached through their ALSA plugins).
+      - name: PortAudio without JACK (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+          git clone --depth 1 --branch v19.7.0 https://github.com/PortAudio/portaudio.git pa-src
+          test "$(git -C pa-src rev-parse HEAD)" = "147dd722548358763a8b649b3e4b41dfffbcfbb6"
+          (cd pa-src && ./configure --with-alsa --without-jack --without-oss --disable-static && make -j"$(nproc)")
+          cp pa-src/lib/.libs/libportaudio.so.2.0.0 publish/libportaudio.so
+          readelf -d publish/libportaudio.so | grep NEEDED
+          readelf -d publish/libportaudio.so | grep -q 'libasound.so.2'
+          if readelf -d publish/libportaudio.so | grep -q 'libjack'; then echo "libportaudio.so still needs JACK"; exit 1; fi
 
       # The previous release lets vpk make a small delta update. The first release has none, so this may find nothing.
       - name: Previous release (for deltas)

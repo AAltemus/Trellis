@@ -218,6 +218,10 @@ The same commands work on Windows, macOS and Linux (the scripts are C# files run
 restores the local tools (`dotnet-ef`, `vpk`), builds and runs the tests. `-- --reset` also deletes your local
 database (not the migrations: released versions depend on them).
 
+On Linux, a build from source uses the PortAudio library from the `PortAudioSharp2` package, which needs JACK's client
+library: `sudo apt install libjack-jackd2-0` (Debian/Ubuntu). The released AppImage doesn't: it ships its own
+PortAudio build with ALSA only.
+
 Model changes: `dotnet run --file scripts/sync-db.cs` adds an `Auto_<timestamp>` migration when the model changed (VS
 Code runs it before every F5 launch); commit the new files in `Persistence/Migrations`.
 
