@@ -3,8 +3,8 @@
 | Your computer | Download |
 |---|---|
 | Windows 10 or 11 | **Trellis-win-Setup.exe** |
-| Mac with Apple silicon (M1 or later) | the **Setup.pkg** with **osx-arm64** in its name |
-| Mac with an Intel processor | the **Setup.pkg** with **osx-x64** in its name |
+| Mac with Apple silicon (M1 or later) | **Trellis-osx-arm64-Setup.pkg** |
+| Mac with an Intel processor | **Trellis-osx-x64-Setup.pkg** |
 | Linux (64-bit) | **Trellis.AppImage** |
 
 Not sure which Mac you have?  → About This Mac: "Chip: Apple M…" means Apple silicon; "Processor: Intel" means Intel.

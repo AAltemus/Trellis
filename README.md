@@ -12,13 +12,13 @@ desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 12, EF Core + SQLi
 ## Install
 
 Download the installer for your computer from the
-[latest release](https://github.com/AAltemus/GuitarTrainer/releases/latest):
+[latest release](https://github.com/AAltemus/Trellis/releases/latest):
 
 | Your computer | Download |
 |---|---|
 | Windows 10 or 11 | `Trellis-win-Setup.exe` |
-| Mac with Apple silicon (M1 or later) | the `Setup.pkg` with `osx-arm64` in its name |
-| Mac with an Intel processor | the `Setup.pkg` with `osx-x64` in its name |
+| Mac with Apple silicon (M1 or later) | `Trellis-osx-arm64-Setup.pkg` |
+| Mac with an Intel processor | `Trellis-osx-x64-Setup.pkg` |
 | Linux (64-bit) | `Trellis.AppImage` (`chmod +x`, then run it) |
 
 The installers aren't signed with a paid certificate, so the first start shows a warning: on Windows click
@@ -26,12 +26,6 @@ The installers aren't signed with a paid certificate, so the first start shows a
 starts normally and updates itself: when a new release is out it offers to update when it starts (or **Help → Check
 for updates**; **File → Settings → Updates** turns the check off). Your practice data stays in its own folder (see
 [Building from source](#building-from-source)); installing, updating and uninstalling never touch it.
-
-The icon is a sprout growing up a rosewood fretboard (simplified to a "T" made of a nut and a string at 16–32 px).
-Sources: `src/GuitarPractice.App/Assets/Icon/trellis.svg` and `trellis-small.svg`; rebuild the `.ico` (Windows),
-`.icns` (macOS) and PNGs with `dotnet run scripts/make-icon.cs -- src/GuitarPractice.App/Assets/Icon`. The program
-is `Trellis` (`Trellis.exe`); the code keeps its `GuitarPractice.*` project names and the data folder stays
-`GuitarPractice`.
 
 ## Screenshots
 
@@ -233,23 +227,6 @@ migration runs. Delete it to start fresh. The same folder holds `recordings`, `m
 app and a build from source share it. If a newer version has already upgraded the database, an older one refuses to
 open it (with a message) instead of failing halfway.
 
-## Releasing
-
-Push a version tag and GitHub Actions (`.github/workflows/release.yml`) does the rest:
-
-```bash
-git tag v1.0.1
-git push origin v1.0.1
-```
-
-Each OS is built and packed on that OS with [Velopack](https://velopack.io) (`dotnet vpk`, a local tool: `dotnet tool
-restore`): a Setup.exe for Windows, a .pkg for Apple silicon and one for Intel Macs, an AppImage for Linux. One job
-then uploads all of them to the release `Trellis 1.0.1` and publishes it with `packaging/release-notes.md` as its
-description. Installed copies find the release through the GitHub releases API and download only what changed. A tag
-with a dash (`v1.1.0-rc.1`) makes a pre-release, which installed copies ignore. The macOS bundle's `Info.plist`
-(including the microphone permission text) is `packaging/macos/Info.plist`. The package id must stay `Trellis`:
-Velopack installs into a folder named after it, and `GuitarPractice` is the data folder.
-
 ## Layout
 
 | Project | Role |
@@ -261,6 +238,7 @@ Velopack installs into a folder named after it, and `GuitarPractice` is the data
 | `GuitarPractice.Domain.Tests` | xUnit + FsCheck: planner properties and examples, progress math, week cloning, timer. |
 | `GuitarPractice.Infrastructure.Tests` | xUnit on in-memory SQLite: stores, week rules, settings, MIDI library, migrations up/down. |
 | `GuitarPractice.Audio.Tests` | xUnit: metronome timing (sample positions, no drift, no allocation), YIN accuracy, tuner, bends, drums, MIDI reading and playback (incl. the real SoundFont). |
+
 ## Planner
 
 `WeeklyPlanner.Generate(PlanRequest) → PlanResult` is a pure, deterministic function.
@@ -286,24 +264,3 @@ Property-tested invariants:
 - Pinned tasks come first and last.
 
 Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regenerate on every slider change.
-
-## Milestones
-
-- [x] **M1** Domain model, planner and property tests; solution scaffold
-- [x] **M2** Library and routine editing (categories, subcategories, songs, weights, per-weekday minutes)
-- [~] **M3** Week view and session runner, week lock/save/load/navigation — drag between days not built
-- [x] **M4** PortAudio backend and sample-accurate metronome (gap training, tempo trainer)
-- [x] **M5** YIN tuner with DSP tests; bend-accuracy mode
-- [x] Recorder (record, playback, A–B loop with count-in) and progress tracking (exercises per block with BPM and note
-  value, own targets, rating, notes; charts; remove an exercise keeping its history)
-- [x] Metronome drums (kick/snare/hat step grid, saved patterns); practice-with-metronome for the selected item
-- [x] Ear trainer (intervals and diatonic chords in a chosen key, scored)
-- [x] MIDI player for playing along (Guitar Pro exports, speed, mute/solo, bar loops, count-in, linked to practice items)
-- [x] Trellis name and icon; Settings (Light/Dark theme); windows remember their size and position
-- [x] Recorder slow-down (50–100 %, pitch kept), takes attached to practice items, overdub looper with latency calibration
-- [x] Tuner sensitivity + strobe; ear trainer sus/add9/6/9th chords, melodic dictation, score logging; metronome output
-  picker; MIDI per-track volume and bar map; category remove/restore; exercise rename/merge; choose what Progress tracks
-- [~] **M6** Velopack installers for Windows, macOS (Apple silicon + Intel) and Linux, self-update from GitHub releases,
-  release workflow on tags — built, not yet released
-
-Development notes for Claude sessions (`plans/`, `CLAUDE.md`) are kept locally and are not in this repository.

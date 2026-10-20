@@ -14,7 +14,7 @@ public sealed record UpdateSettings(bool CheckOnStartup = true);
 /// </summary>
 public sealed class UpdateService
 {
-    public const string RepoUrl = "https://github.com/AAltemus/GuitarTrainer";
+    public const string RepoUrl = "https://github.com/AAltemus/Trellis";
 
     // Only when VelopackApp.Build().Run() has run (Program.Main always does it first): UpdateManager throws without it,
     // e.g. under the XAML previewer or in headless checks, which then simply count as "not installed".
