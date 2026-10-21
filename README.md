@@ -109,6 +109,12 @@ scrolled so today is in view.
   is shared: weight changes apply to every unlocked week.
 - **Lock week** (Ctrl+L) freezes the displayed plan. Weight/minute changes are still saved to the routine but a locked
   week doesn't regenerate until you unlock it.
+- **Swap two items**: drag an item onto another (on any day, or the same day), or right-click it → **Swap with**. The
+  exercises trade places and each slot keeps its minutes: 10 min Theory on Monday ↔ 15 min Legato on Tuesday gives 10
+  min Legato on Monday and 15 min Theory on Tuesday, so every day's total stays the same. The first swap locks the week
+  (an unlocked week would regenerate and undo it). Warmups, items that already have practice time or a progress log on
+  their day, and the item in a running timer stay put; a swap that would put an exercise on a day twice is refused. The
+  line next to the week title says what happened, or why not.
 - **Save week as…** (Ctrl+S) stores the displayed week under a name (same name replaces). Only the plan is saved,
   never practised time.
 - **Load saved week** copies a saved week onto the displayed week, weekday for weekday, and locks it.

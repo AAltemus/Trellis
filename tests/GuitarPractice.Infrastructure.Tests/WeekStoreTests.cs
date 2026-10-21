@@ -37,6 +37,36 @@ public sealed class WeekStoreTests : IDisposable
     private int PlanCount(bool template) => _db.Query(db => db.WeeklyPlans.Count(p => p.IsTemplate == template));
 
     [Fact]
+    public void Swap_trades_two_items_of_the_locked_plan_and_keeps_every_slot()
+    {
+        Assert.Equal(Domain.Planning.SwapRefusal.NotFound, _db.Weeks.Swap(ThisWeek, (ThisWeek, 1), (ThisWeek, 2))); // not locked
+        LockWeek(ThisWeek);
+        var before = _db.Weeks.LoadLocked(ThisWeek)!;
+        // Two unpinned items with different minutes on one day (always allowed; the cross-day rules are in PlanSwapTests).
+        var pair = (from d in before.Days
+                    let items = d.Entries.Where(e => !e.IsPinned).ToList()
+                    from e1 in items
+                    from e2 in items
+                    where e1.Order < e2.Order && e1.PlannedMinutes != e2.PlannedMinutes
+                    select (A: (d.Date, e1.SubcategoryId, e1.PlannedMinutes, e1.Order), B: (d.Date, e2.SubcategoryId, e2.PlannedMinutes, e2.Order))).First();
+
+        Assert.Equal(Domain.Planning.SwapRefusal.None,
+            _db.Weeks.Swap(ThisWeek, (pair.A.Date, pair.A.SubcategoryId), (pair.B.Date, pair.B.SubcategoryId)));
+
+        var after = _db.Weeks.LoadLocked(ThisWeek)!;
+        PlanEntry At(WeeklyPlan p, DateOnly date, int order) => p.Days.Single(d => d.Date == date).Entries.Single(e => e.Order == order);
+        Assert.Equal((pair.B.SubcategoryId, pair.A.PlannedMinutes), (At(after, pair.A.Date, pair.A.Order).SubcategoryId, At(after, pair.A.Date, pair.A.Order).PlannedMinutes));
+        Assert.Equal((pair.A.SubcategoryId, pair.B.PlannedMinutes), (At(after, pair.B.Date, pair.B.Order).SubcategoryId, At(after, pair.B.Date, pair.B.Order).PlannedMinutes));
+        Assert.Equal(before.Days.Select(d => d.Entries.Sum(e => e.PlannedMinutes)), after.Days.Select(d => d.Entries.Sum(e => e.PlannedMinutes)));
+        Assert.Equal(At(after, pair.B.Date, pair.B.Order).Subcategory.Id, pair.A.SubcategoryId); // navigation follows on reload
+
+        // A pinned warmup is refused and nothing changes.
+        var warmup = after.Days.SelectMany(d => d.Entries.Where(e => e.IsPinned).Select(e => (d.Date, e.SubcategoryId))).First();
+        Assert.Equal(Domain.Planning.SwapRefusal.Pinned, _db.Weeks.Swap(ThisWeek, warmup, (pair.A.Date, pair.B.SubcategoryId)));
+        Assert.Equal(Shape(after), Shape(_db.Weeks.LoadLocked(ThisWeek)!));
+    }
+
+    [Fact]
     public void Lock_stores_the_plan_and_LoadLocked_returns_it_with_navigation_loaded()
     {
         var (plan, request) = _db.MakePlan(ThisWeek, seed: 7);

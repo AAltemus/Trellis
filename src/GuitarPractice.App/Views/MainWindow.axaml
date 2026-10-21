@@ -52,6 +52,16 @@
     <Style Selector="Button.entry.done">
       <Setter Property="Opacity" Value="0.55" />
     </Style>
+    <!-- While dragging an item: where it can be dropped (swap), and where it can't. -->
+    <Style Selector="Button.entry.droptarget /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#5560A5FA" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Button.entry.dropblocked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="#99E53935" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
   </Window.Styles>
 
   <Panel>
@@ -397,6 +407,10 @@
         <TextBlock Text="{Binding WeekTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
         <Button Content="Back to this week" Command="{Binding ShowThisWeekCommand}"
                 IsVisible="{Binding !IsViewingCurrentWeek}" ToolTip.Tip="Alt+Home" />
+        <TextBlock Classes="caption" Text="{Binding BoardMessage}" VerticalAlignment="Center" Margin="8,0,0,0"
+                   ToolTip.Tip="Drag an item onto another (or right-click it) to swap them: the exercises trade places, each keeps its day's minutes." />
+        <TextBlock Classes="caption" Text="Drag an item onto another to swap them" VerticalAlignment="Center" Margin="8,0,0,0"
+                   IsVisible="{Binding BoardMessage, Converter={x:Static ObjectConverters.IsNull}}" />
       </StackPanel>
 
       <Border Grid.Row="2" IsVisible="{Binding IsLocked}" Margin="16,8,16,0" Padding="12,8" CornerRadius="8" Background="#26FFB300">
@@ -453,9 +467,15 @@
                   <ItemsControl ItemsSource="{Binding Entries}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="vm:EntryViewModel">
+                        <!-- Drag onto another item (or right-click → Swap with…) to swap them: see MainWindow.axaml.cs. -->
                         <Button Classes="flat entry" Classes.selected="{Binding IsSelected}" Classes.done="{Binding IsDone}"
-                                Command="{Binding SelectCommand}" Margin="0,2"
+                                Command="{Binding SelectCommand}" Margin="0,2" DragDrop.AllowDrop="True"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                          <Button.ContextMenu>
+                            <ContextMenu Opened="OnEntryMenuOpened">
+                              <MenuItem Header="Swap with" />
+                            </ContextMenu>
+                          </Button.ContextMenu>
                           <Grid ColumnDefinitions="4,*">
                             <Border Background="{Binding Brush}" CornerRadius="2" />
                             <StackPanel Grid.Column="1" Margin="8,2,0,2">

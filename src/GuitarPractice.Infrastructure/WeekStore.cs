@@ -33,6 +33,26 @@ public sealed class WeekStore(IDbContextFactory<PracticeDbContext> contextFactor
         db.SaveChanges();
     }
 
+    /// <summary>
+    /// Swaps two items of the week's locked plan (see <see cref="PlanSwap"/>): the exercises trade places, each slot
+    /// keeps its day, position and minutes. Returns why not when refused (nothing changes then).
+    /// </summary>
+    public SwapRefusal Swap(DateOnly weekStart, (DateOnly Date, int SubcategoryId) a, (DateOnly Date, int SubcategoryId) b)
+    {
+        using var db = contextFactory.CreateDbContext();
+        var plan = db.WeeklyPlans
+            .Include(p => p.Days).ThenInclude(d => d.Entries)
+            .Where(p => !p.IsTemplate && p.WeekStart == weekStart)
+            .OrderByDescending(p => p.Id)
+            .FirstOrDefault();
+        if (plan is null) return SwapRefusal.NotFound;
+        var refusal = PlanSwap.Check(plan, a, b);
+        if (refusal != SwapRefusal.None) return refusal;
+        PlanSwap.Apply(plan, a, b);
+        db.SaveChanges();
+        return SwapRefusal.None;
+    }
+
     public void Unlock(DateOnly weekStart)
     {
         using var db = contextFactory.CreateDbContext();

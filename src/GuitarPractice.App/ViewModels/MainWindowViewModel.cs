@@ -350,7 +350,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
                 var s = byId[e.TaskId];
                 var key = new PracticeKey(day.Date, e.TaskId);
                 dayVm.Entries.Add(new EntryViewModel(
-                    this, dayVm, key, s.Owner.Name, s.DisplayName, e.Minutes, s.Owner.Brush, _progress.GetValueOrDefault(key)));
+                    this, dayVm, key, s.Owner.Name, s.DisplayName, e.Minutes, s.Owner.Brush, _progress.GetValueOrDefault(key),
+                    e.Pin != GuitarPractice.Domain.PinMode.None));
             }
             dayVm.RefreshRemaining();
             Days.Add(dayVm);

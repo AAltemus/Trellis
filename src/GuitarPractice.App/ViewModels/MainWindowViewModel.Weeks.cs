@@ -131,7 +131,7 @@ public sealed partial class MainWindowViewModel
                 var category = e.Subcategory.Category;
                 dayVm.Entries.Add(new EntryViewModel(
                     this, dayVm, key, category.Name, e.Subcategory.DisplayName, e.PlannedMinutes,
-                    Avalonia.Media.Brush.Parse(category.ColorHex ?? "#888888"), _progress.GetValueOrDefault(key)));
+                    Avalonia.Media.Brush.Parse(category.ColorHex ?? "#888888"), _progress.GetValueOrDefault(key), e.IsPinned));
             }
             dayVm.RefreshRemaining();
             Days.Add(dayVm);

@@ -61,7 +61,7 @@ public sealed partial class EntryViewModel : ObservableObject
 
     public EntryViewModel(
         MainWindowViewModel main, DayViewModel day, PracticeKey key,
-        string category, string name, int plannedMinutes, IBrush brush, PracticeState state)
+        string category, string name, int plannedMinutes, IBrush brush, PracticeState state, bool isPinned = false)
     {
         _main = main;
         Day = day;
@@ -70,6 +70,7 @@ public sealed partial class EntryViewModel : ObservableObject
         Name = name;
         PlannedMinutes = plannedMinutes;
         Brush = brush;
+        IsPinned = isPinned;
         _elapsedSeconds = state.ElapsedSeconds;
         _completed = state.Completed;
     }
@@ -80,6 +81,9 @@ public sealed partial class EntryViewModel : ObservableObject
     public string Name { get; }
     public int PlannedMinutes { get; }
     public IBrush Brush { get; }
+
+    /// <summary>A warmup pinned to the start of the day: stays put (no swapping).</summary>
+    public bool IsPinned { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RemainingSeconds), nameof(IsDone), nameof(Fraction), nameof(StatusLabel))]
