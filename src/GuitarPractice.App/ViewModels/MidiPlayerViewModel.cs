@@ -71,7 +71,7 @@ public sealed partial class MidiBeatViewModel(int number) : ObservableObject
 }
 
 /// <summary>
-/// Tools → MIDI Player: a library of imported MIDI files (e.g. Guitar Pro exports, kept in Trellis's data folder),
+/// Tools → MIDI Player: a library of imported MIDI files (kept in Trellis's data folder),
 /// played through the bundled SoundFont with speed (pitch unchanged), track mute/solo, a bar loop and a count-in. Each
 /// file remembers its settings; a file can be linked to a practice item and opened from the timer ("♫ Play along").
 /// </summary>
@@ -139,7 +139,7 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     private string _songTitle = "No file selected";
 
     [ObservableProperty]
-    private string _songInfo = "Import a .mid file (e.g. File → Export → MIDI in Guitar Pro).";
+    private string _songInfo = "Import songs or routines from any MIDI file (.mid).";
 
     [ObservableProperty]
     private int _barCount = 1;
@@ -372,7 +372,7 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         if (file is null)
         {
             SongTitle = "No file selected";
-            SongInfo = Files.Count == 0 ? "Import a .mid file (e.g. File → Export → MIDI in Guitar Pro)." : "Pick a file on the left.";
+            SongInfo = Files.Count == 0 ? "Import songs or routines from any MIDI file (.mid)." : "Pick a file on the left.";
             RenameText = "";
             _engine?.Load(null);
             OnPropertyChanged(nameof(HasFile));

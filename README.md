@@ -5,7 +5,7 @@
 A routine to grow your playing along. Trellis turns a weighted selection of practice tasks into a weekly plan and
 times each session, with the tools you'd otherwise switch apps for in one place: metronome (clicks or drums), tuner and
 bend trainer, recorder with looping, ear trainer, progress tracking, and a MIDI player for playing along with backing
-tracks: import songs exported from Guitar Pro (or any MIDI file), slow them down without changing pitch, mute your
+tracks: import songs or routines from any MIDI file, slow them down without changing pitch, mute your
 part, loop the bars you're working on, and link a song to a practice item so it's one click away. Cross-platform
 desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 12, EF Core + SQLite.
 
@@ -176,7 +176,7 @@ scrolled so today is in view.
   - *Melodies* (dictation): hear a 3–8 note melody in the key (after the key chord) and write it down with the degree
     buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
   - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
-- **MIDI Player…** (Ctrl+I): play along with MIDI files, e.g. Guitar Pro → File → Export → MIDI. **Import MIDI…** (or drop
+- **MIDI Player…** (Ctrl+I): play along with songs or routines from any MIDI file. **Import MIDI…** (or drop
   .mid files on the window) copies them into Trellis's library (`%LOCALAPPDATA%\GuitarPractice\midi`) so they're there
   every time; rename or delete them there (your original is never touched). Sounds come from the bundled GeneralUser GS
   SoundFont (see `src/GuitarPractice.App/Assets/SoundFont/README.md`). Practice controls: **Speed** 25–150 % (pitch

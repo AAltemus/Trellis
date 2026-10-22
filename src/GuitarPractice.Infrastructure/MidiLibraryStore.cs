@@ -30,7 +30,7 @@ public sealed record MidiLibraryData(Dictionary<string, MidiFileSettings> Files,
 
 /// <summary>
 /// The MIDI player's library: imported files are copied into <c>%LOCALAPPDATA%\GuitarPractice\midi</c> so they stay
-/// available after the original (e.g. a Guitar Pro export) moves. Keeps each file's playback settings and which practice
+/// available after the original moves. Keeps each file's playback settings and which practice
 /// item (subcategory) each file is linked to. Synchronous, like the other stores.
 /// </summary>
 public sealed class MidiLibraryStore(SettingsStore settings, string? directory = null)
