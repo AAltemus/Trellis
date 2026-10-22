@@ -176,11 +176,11 @@ public sealed class MidiSong
     }
 }
 
-/// <summary>Reads standard MIDI files (SMF format 0 and 1, ticks-per-quarter timing) such as Guitar Pro exports.</summary>
+/// <summary>Reads standard MIDI files (SMF format 0 and 1, ticks-per-quarter timing).</summary>
 public static class MidiFileReader
 {
     /// <summary>
-    /// Larger files are refused before reading: real MIDI files are kilobytes (a long Guitar Pro export ~200 KB), and a
+    /// Larger files are refused before reading: real MIDI files are kilobytes (a long multi-track song ~200 KB), and a
     /// huge or crafted file would otherwise be read whole and expanded into millions of events.
     /// </summary>
     public const long MaxFileBytes = 16 * 1024 * 1024;

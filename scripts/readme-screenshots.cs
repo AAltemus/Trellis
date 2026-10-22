@@ -136,7 +136,7 @@ links.Set("3nps scale at 132.wav", new TakeLink(picking.Id, today, "3nps scale")
 links.Set("Little Wing intro.wav", new TakeLink(song.Id, today.AddDays(-1)));
 
 // ---- MIDI file: 16 bars, guitar + bass + drums ----
-var midiPath = Path.Combine(temp, "Groove in E (Guitar Pro export).mid");
+var midiPath = Path.Combine(temp, "Groove in E.mid");
 File.WriteAllBytes(midiPath, DemoMidi.Build());
 var midiStore = new MidiLibraryStore(settings, midiDir);
 midiStore.Import(midiPath);
