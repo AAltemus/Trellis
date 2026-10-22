@@ -12,6 +12,9 @@ public static class AppPaths
 
     public static string DatabasePath => Path.Combine(DataDirectory, "practice.db");
 
+    /// <summary>Tuner input recordings and crash reports.</summary>
+    public static string DiagnosticsDirectory => Path.Combine(DataDirectory, "diagnostics");
+
     public static string ConnectionString => new SqliteConnectionStringBuilder
     {
         DataSource = DatabasePath,

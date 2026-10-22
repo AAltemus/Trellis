@@ -379,7 +379,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var directory = Path.Combine(AppPaths.DataDirectory, "diagnostics");
+            var directory = AppPaths.DiagnosticsDirectory;
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, $"tuner-{DateTime.Now:yyyyMMdd-HHmmss}.wav");
             var samples = _engine.SaveRecording(path);
