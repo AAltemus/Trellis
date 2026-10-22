@@ -56,9 +56,6 @@ Ear trainer: chords in a key, with the round's score (dark):
 
 <img src="docs/screenshots/ear-trainer.png" alt="Ear trainer" width="600">
 
-The screenshots are rendered from demo data by `dotnet run --file scripts/readme-screenshots.cs` (from the repo root;
-in-memory database and temp folders, so your own data is never used); run it again after UI changes.
-
 ## Library model
 
 `Category` (Legato, Rhythm, Songs…) → `Subcategory` (the weighted, schedulable unit).
