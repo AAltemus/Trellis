@@ -29,3 +29,6 @@ For guitar input, pick your audio interface in the Tuner and Recorder (the syste
 Your practice data stays on your computer (`%LOCALAPPDATA%\GuitarPractice` on Windows,
 `~/Library/Application Support/GuitarPractice` on macOS, `~/.local/share/GuitarPractice` on Linux); updates and
 uninstalling never touch it.
+
+If Trellis ever crashes, it leaves a `crash-….txt` file in that folder's `diagnostics` folder: send it along with what
+you were doing.

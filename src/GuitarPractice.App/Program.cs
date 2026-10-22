@@ -12,6 +12,7 @@ internal static class Program
         // First: lets Velopack's installer/updater run its install/update/uninstall hooks (they exit straight away).
         // A build run from VS Code isn't installed, so this returns at once.
         VelopackApp.Build().Run();
+        CrashReporter.HookProcess(); // crash reports in the diagnostics folder
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

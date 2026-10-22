@@ -19,6 +19,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            CrashReporter.HookDispatcher();
             try
             {
                 desktop.MainWindow = StartMainWindow(desktop);
@@ -27,6 +28,7 @@ public partial class App : Application
             catch (Exception ex)
 #pragma warning restore CA1031
             {
+                CrashReporter.Write(ex, "startup");
                 _host?.Dispose();
                 _host = null;
                 desktop.MainWindow = new StartupErrorWindow(ex, AppPaths.DataDirectory);

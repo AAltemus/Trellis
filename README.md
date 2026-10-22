@@ -230,7 +230,8 @@ Code runs it before every F5 launch); commit the new files in `Persistence/Migra
 
 The database lives at `%LOCALAPPDATA%\GuitarPractice\practice.db` (Windows) or
 `~/Library/Application Support/GuitarPractice/practice.db` (macOS) or `~/.local/share/GuitarPractice/practice.db` (Linux). It is backed up to `practice.db.bak` before any
-migration runs. Delete it to start fresh. The same folder holds `recordings`, `midi` and `diagnostics`. The installed
+migration runs. Delete it to start fresh. The same folder holds `recordings`, `midi` and `diagnostics` (Tuner input
+recordings and `crash-….txt` reports: the newest 20 crashes, with the stack trace). The installed
 app and a build from source share it. If a newer version has already upgraded the database, an older one refuses to
 open it (with a message) instead of failing halfway.
 
