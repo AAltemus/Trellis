@@ -107,6 +107,18 @@ public static class RoutinePlanning
         return plan;
     }
 
+    /// <summary>A stored week as planner days (for <see cref="WeeklyPlanner.Replan"/>). Needs Entries → Subcategory loaded.</summary>
+    public static IReadOnlyList<PlannedDay> ToPlannedDays(this WeeklyPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.Days.OrderBy(d => d.Date).Select(d => new PlannedDay(
+            d.Date, d.BudgetMinutes, d.PinnedMinutes, d.FlexMinutes,
+            d.Entries.OrderBy(e => e.Order)
+                .Select(e => new PlannedEntry(e.SubcategoryId, e.Subcategory?.CategoryId ?? 0, e.Order, e.PlannedMinutes,
+                    e.IsPinned ? PinMode.DailyFirst : PinMode.None))
+                .ToList())).ToList();
+    }
+
     public static PlanRequest? ReadSnapshot(this WeeklyPlan plan) =>
         string.IsNullOrEmpty(plan?.RoutineSnapshotJson)
             ? null

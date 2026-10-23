@@ -298,6 +298,14 @@ public sealed partial class MainWindowViewModel : ObservableObject
         RefreshRemoved();
     }
 
+    /// <summary>The displayed week's plan request from the routine as it stands in the library panel.</summary>
+    private PlanRequest BuildRequest(int seed) => new(
+        _weekStart,
+        BudgetsByDay,
+        AllSubcategories.Where(s => s.WeightValue > 0).Select(s => s.ToSpec()).ToList(),
+        new PlannerOptions(PinnedTimeOnTopOfBudget: PinnedTimeOnTopOfBudget),
+        seed);
+
     private void Regenerate()
     {
         if (_loading) return;
@@ -309,14 +317,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         _lastPlan = null;
         _lastRequest = null;
-        var selected = AllSubcategories.Where(s => s.WeightValue > 0).ToList();
-        var byId = selected.ToDictionary(s => s.Id);
-        var request = new PlanRequest(
-            _weekStart,
-            BudgetsByDay,
-            selected.Select(s => s.ToSpec()).ToList(),
-            new PlannerOptions(PinnedTimeOnTopOfBudget: PinnedTimeOnTopOfBudget),
-            _seed);
+        var byId = AllSubcategories.Where(s => s.WeightValue > 0).ToDictionary(s => s.Id);
+        var request = BuildRequest(_seed);
 
         Days.Clear();
         Warnings.Clear();

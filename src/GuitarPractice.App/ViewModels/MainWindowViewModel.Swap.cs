@@ -39,10 +39,14 @@ public sealed partial class MainWindowViewModel
     {
         if (entry.IsPinned) return $"{entry.Category} stays at the start of each day.";
         if (IsRunning && ReferenceEquals(entry, Current)) return $"{entry.Name} is running in the timer: pause or stop it first.";
-        if (entry.ElapsedSeconds > 0 || entry.Completed || _progressStore.Get(entry.Key.Date, entry.Key.SubcategoryId) is not null)
+        if (HasPracticeLogged(entry))
             return $"{entry.Name} already has practice logged on {DayName(entry)}, so it stays there.";
         return null;
     }
+
+    /// <summary>Practice time, done, or a progress log on its day: such an item never moves off that day.</summary>
+    private bool HasPracticeLogged(EntryViewModel entry) =>
+        entry.ElapsedSeconds > 0 || entry.Completed || _progressStore.Get(entry.Key.Date, entry.Key.SubcategoryId) is not null;
 
     private static string DayName(EntryViewModel entry) => entry.Key.Date.DayOfWeek.ToString();
 

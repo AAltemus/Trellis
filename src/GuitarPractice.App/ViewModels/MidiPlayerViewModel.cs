@@ -169,6 +169,13 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _countInEachLoop;
 
+    /// <summary>A metronome click on every beat of the song: follows its tempo changes, time signatures and the speed.</summary>
+    [ObservableProperty]
+    private bool _click;
+
+    [ObservableProperty]
+    private double _clickVolume = 80;
+
     [ObservableProperty]
     private double _volume = 100;
 
@@ -422,6 +429,8 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
             LoopToBar = Math.Clamp(saved.LoopToBar, (int)LoopFromBar, song.BarCount);
             CountIn = saved.CountIn;
             CountInEachLoop = saved.CountInEachLoop;
+            Click = saved.Click;
+            ClickVolume = Math.Clamp(saved.ClickVolumePercent, 0, 200);
             Volume = Math.Clamp(saved.VolumePercent, 0, 200);
             for (var bar = 1; bar <= song.BarCount; bar++) Bars.Add(new MidiBarViewModel(this, bar));
         }
@@ -445,6 +454,8 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     partial void OnLoopToBarChanged(decimal? value) => PushSettings();
     partial void OnCountInChanged(bool value) => PushSettings();
     partial void OnCountInEachLoopChanged(bool value) => PushSettings();
+    partial void OnClickChanged(bool value) => PushSettings();
+    partial void OnClickVolumeChanged(double value) => PushSettings();
     partial void OnVolumeChanged(double value) => PushSettings();
 
     private MidiPlayerSettings CurrentSettings()
@@ -459,7 +470,7 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         var to = (int)Math.Clamp(LoopToBar ?? from, from, Math.Max(1, BarCount));
         float[] trackVolumes = [.. Tracks.OrderBy(t => t.Slot).Select(t => (float)(t.Volume / 100.0))]; // a new array each time
         return new MidiPlayerSettings(SpeedPercent / 100.0, LoopEnabled, from, to, CountIn, (float)(Volume / 100.0), muted, soloed,
-            CountInEachLoop, trackVolumes);
+            CountInEachLoop, trackVolumes, Click, (float)(ClickVolume / 100.0));
     }
 
     private void PushSettings()
@@ -494,7 +505,8 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
                 [.. Tracks.Where(t => t.IsMuted).Select(t => t.FileIndex)],
                 [.. Tracks.Where(t => t.IsSoloed).Select(t => t.FileIndex)],
                 s.CountInEachLoop,
-                Tracks.Where(t => Math.Round(t.Volume) < 100).ToDictionary(t => t.FileIndex, t => (int)Math.Round(t.Volume))));
+                Tracks.Where(t => Math.Round(t.Volume) < 100).ToDictionary(t => t.FileIndex, t => (int)Math.Round(t.Volume)),
+                s.Click, (int)Math.Round(ClickVolume)));
         }
 #pragma warning disable CA1031 // Losing a preference must not break playback.
         catch (Exception ex)

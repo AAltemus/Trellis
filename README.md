@@ -112,6 +112,11 @@ scrolled so today is in view.
   (an unlocked week would regenerate and undo it). Warmups, items that already have practice time or a progress log on
   their day, and the item in a running timer stay put; a swap that would put an exercise on a day twice is refused. The
   line next to the week title says what happened, or why not.
+- **Reshuffle from today** (this week, locked or not): the days before today stay as they are; today to Sunday are
+  planned again from the routine so the whole week still matches your weights. Something added mid-week (a new song)
+  catches up on the days left, items that already had their share get less, and the items furthest behind get full
+  sessions first (if not everything fits, the warning says how many were left out). Items you've already practised
+  today, and the one in a running timer, stay put. The week is locked afterwards.
 - **Save week as…** (Ctrl+S) stores the displayed week under a name (same name replaces). Only the plan is saved,
   never practised time.
 - **Load saved week** copies a saved week onto the displayed week, weekday for weekday, and locks it.
@@ -182,9 +187,10 @@ scrolled so today is in view.
   SoundFont (see `src/GuitarPractice.App/Assets/SoundFont/README.md`). Practice controls: **Speed** 25–150 % (pitch
   unchanged), **Mute** a track to play that part yourself or **Solo** one to learn it, **Loop bars** (or *Loop this
   bar*, or **All** for the whole song), a one-bar **Count-in** at the song's tempo (optionally before every loop
-  pass), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. A bar panel shows the bar and beat
+  pass), a **Click** on every beat that follows the song's tempo changes, time signatures and your speed (bar starts
+  accented; its own volume), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. A bar panel shows the bar and beat
   playing now and a map of the bars (loop tinted, click a bar to jump there). Each file remembers its speed, loop,
-  count-in, volumes and muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
+  count-in, click, volumes and muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
   - **♫ Play along** (timer row; Tools → Play along with MIDI, Ctrl+Shift+I) opens the player for the selected practice
     item; press **Link** to attach the current file to it, so next time it opens straight away.
 - **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best

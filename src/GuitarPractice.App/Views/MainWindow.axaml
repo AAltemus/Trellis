@@ -80,6 +80,7 @@
         <Separator />
         <MenuItem Header="{Binding LockMenuHeader}" Command="{Binding ToggleLockCommand}" InputGesture="Ctrl+L" />
         <MenuItem Header="_Reshuffle" Command="{Binding ReshuffleCommand}" />
+        <MenuItem Header="Reshuffle from _today" Command="{Binding ReshuffleFromTodayCommand}" />
         <Separator />
         <MenuItem Header="_Save week as…" Command="{Binding OpenSaveDialogCommand}" InputGesture="Ctrl+S" />
         <MenuItem Header="{Binding LoadMenuHeader}" ItemsSource="{Binding SavedWeeks}" IsEnabled="{Binding CanLoadIntoDisplayedWeek}">
@@ -174,15 +175,24 @@
                     ToolTip.Tip="Unchecked: warmup is taken out of each day's minutes. Checked: warmup is extra." />
           <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding DailyTotalSummary}" />
 
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <!-- Two even columns: the reshuffles side by side, lock/unlock across the full width under them. -->
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+            <Grid.Styles>
+              <Style Selector="Button">
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+              </Style>
+            </Grid.Styles>
             <Button Content="Reshuffle week" Command="{Binding ReshuffleCommand}" />
-            <Button Content="{Binding LockButtonText}" Command="{Binding ToggleLockCommand}" />
-          </StackPanel>
+            <Button Grid.Column="1" Content="Reshuffle from today" Command="{Binding ReshuffleFromTodayCommand}"
+                    ToolTip.Tip="This week only: days before today stay as they are; today to Sunday are planned again so the whole week matches your weights (new items catch up). Items you've already practised stay put. Locks the week." />
+            <Button Grid.Row="1" Grid.ColumnSpan="2" Content="{Binding LockButtonText}" Command="{Binding ToggleLockCommand}" />
+          </Grid>
 
           <ItemsControl ItemsSource="{Binding Warnings}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="sys:String">
-                <TextBlock Classes="warning" Text="{Binding}" Margin="0,2" />
+                <TextBlock Classes="warning" Text="{Binding}" Margin="0,2" TextWrapping="Wrap" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -401,17 +411,22 @@
       </Border>
 
       <!-- Week navigation -->
-      <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="16,10,16,0">
-        <Button Content="◀" Command="{Binding ShowPreviousWeekCommand}" ToolTip.Tip="Previous week (Alt+Left)" />
-        <Button Content="▶" Command="{Binding ShowNextWeekCommand}" ToolTip.Tip="Next week (Alt+Right)" />
-        <TextBlock Text="{Binding WeekTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
-        <Button Content="Back to this week" Command="{Binding ShowThisWeekCommand}"
-                IsVisible="{Binding !IsViewingCurrentWeek}" ToolTip.Tip="Alt+Home" />
-        <TextBlock Classes="caption" Text="{Binding BoardMessage}" VerticalAlignment="Center" Margin="8,0,0,0"
-                   ToolTip.Tip="Drag an item onto another (or right-click it) to swap them: the exercises trade places, each keeps its day's minutes." />
-        <TextBlock Classes="caption" Text="Drag an item onto another to swap them" VerticalAlignment="Center" Margin="8,0,0,0"
-                   IsVisible="{Binding BoardMessage, Converter={x:Static ObjectConverters.IsNull}}" />
-      </StackPanel>
+      <DockPanel Grid.Row="1" Margin="16,10,16,0">
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="6">
+          <Button Content="◀" Command="{Binding ShowPreviousWeekCommand}" ToolTip.Tip="Previous week (Alt+Left)" />
+          <Button Content="▶" Command="{Binding ShowNextWeekCommand}" ToolTip.Tip="Next week (Alt+Right)" />
+          <TextBlock Text="{Binding WeekTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
+          <Button Content="Back to this week" Command="{Binding ShowThisWeekCommand}"
+                  IsVisible="{Binding !IsViewingCurrentWeek}" ToolTip.Tip="Alt+Home" />
+        </StackPanel>
+        <!-- Fills the rest of the row and wraps, so a long message (swap, reshuffle from today) is never cut off. -->
+        <Panel VerticalAlignment="Center" Margin="14,0,0,0">
+          <TextBlock Classes="caption" Text="{Binding BoardMessage}" TextWrapping="Wrap"
+                     ToolTip.Tip="Drag an item onto another (or right-click it) to swap them: the exercises trade places, each keeps its day's minutes." />
+          <TextBlock Classes="caption" Text="Drag an item onto another to swap them" TextWrapping="Wrap"
+                     IsVisible="{Binding BoardMessage, Converter={x:Static ObjectConverters.IsNull}}" />
+        </Panel>
+      </DockPanel>
 
       <Border Grid.Row="2" IsVisible="{Binding IsLocked}" Margin="16,8,16,0" Padding="12,8" CornerRadius="8" Background="#26FFB300">
         <Grid ColumnDefinitions="*,Auto">

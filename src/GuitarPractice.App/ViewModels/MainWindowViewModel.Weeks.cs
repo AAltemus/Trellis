@@ -250,6 +250,7 @@ public sealed partial class MainWindowViewModel
     {
         ToggleLockCommand.NotifyCanExecuteChanged();
         OpenSaveDialogCommand.NotifyCanExecuteChanged();
+        ReshuffleFromTodayCommand.NotifyCanExecuteChanged();
     }
 
     // ---- File ----

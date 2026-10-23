@@ -15,7 +15,7 @@ namespace GuitarPractice.Domain.Planning;
 ///  5. Assign sub-quantum leftover minutes, then order each day: pinned-first, flexible tasks by category
 ///     sort order, pinned-last.
 /// </summary>
-public static class WeeklyPlanner
+public static partial class WeeklyPlanner
 {
     // Cost-model tuning. Costs per unit: the convex term is d/dk (k - target)^2 = 2k - 1 - 2*target.
     private const double FirstUnitOnPreferredDayBonus = 100;

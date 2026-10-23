@@ -23,7 +23,9 @@ public sealed record MidiFileSettings(
     List<int>? MutedTracks = null,
     List<int>? SoloTracks = null,
     bool CountInEachLoop = false,
-    Dictionary<int, int>? TrackVolumes = null);
+    Dictionary<int, int>? TrackVolumes = null,
+    bool Click = false,
+    int ClickVolumePercent = 80);
 
 /// <summary>Per-file settings and practice-item links (AppSettings key "midiLibrary").</summary>
 public sealed record MidiLibraryData(Dictionary<string, MidiFileSettings> Files, Dictionary<int, string> Links);

@@ -50,7 +50,9 @@ public sealed class SoundFontSynth : IMidiSynth
 /// clicks before playback starts, and with <see cref="CountInEachLoop"/> before every pass of the loop too.
 /// <see cref="Muted"/>/<see cref="Soloed"/>: bit n = <see cref="MidiSong.Tracks"/>[n] (first 64 tracks); any solo mutes
 /// every track that isn't soloed. <see cref="TrackVolumes"/>[n]: 0–1 for <see cref="MidiSong.Tracks"/>[n] (missing = 1);
-/// pass a new array to change it, never edit one the engine already has.
+/// pass a new array to change it, never edit one the engine already has. <see cref="Click"/>: a metronome click on every
+/// beat of the song (its tempo changes, time signatures and the speed), accented on each bar's first beat, at
+/// <see cref="ClickVolume"/> (0–2, separate from <see cref="Volume"/>).
 /// </summary>
 public sealed record MidiPlayerSettings(
     double Speed = 1.0,
@@ -62,7 +64,9 @@ public sealed record MidiPlayerSettings(
     ulong Muted = 0,
     ulong Soloed = 0,
     bool CountInEachLoop = false,
-    IReadOnlyList<float>? TrackVolumes = null)
+    IReadOnlyList<float>? TrackVolumes = null,
+    bool Click = false,
+    float ClickVolume = 0.8f)
 {
     public const double MinSpeed = 0.25;
     public const double MaxSpeed = 1.5;
@@ -76,6 +80,7 @@ public sealed record MidiPlayerSettings(
         LoopFromBar = Math.Max(1, LoopFromBar),
         LoopToBar = Math.Max(Math.Max(1, LoopFromBar), LoopToBar),
         Volume = float.IsFinite(Volume) ? Math.Clamp(Volume, 0f, MaxVolume) : 1f,
+        ClickVolume = float.IsFinite(ClickVolume) ? Math.Clamp(ClickVolume, 0f, MaxVolume) : 0.8f,
     };
 
     /// <summary>True when the track at <paramref name="trackSlot"/> (index into <see cref="MidiSong.Tracks"/>) is silenced.</summary>
@@ -157,6 +162,16 @@ public sealed class MidiPlayerEngine
     private long _countInOffSample = -1;
     private long _sample;      // samples rendered since construction
 
+    // Click: the song's next beat (kept up to date whether or not the click is on, so turning it on mid-song just works)
+    // and the click sounding now, from sample _clickStart (absolute).
+    private readonly float[] _accentClick;
+    private readonly float[] _beatClick;
+    private long _nextBeatTick = long.MaxValue;
+    private double _nextBeatSeconds = double.MaxValue;
+    private bool _nextBeatIsDownbeat;
+    private float[]? _click;
+    private long _clickStart;
+
     private enum CommandKind { Load, Play, Pause, Seek }
 
     private readonly record struct Command(CommandKind Kind, double Value);
@@ -170,6 +185,8 @@ public sealed class MidiPlayerEngine
         Array.Fill(_noteOwner, (sbyte)-1);
         Array.Fill(_fileVolume, DefaultChannelVolume);
         Array.Fill(_sentVolume, DefaultChannelVolume);
+        _accentClick = ClickSynth.Click(sampleRate, 1500, 1.0f); // the Metronome's sounds
+        _beatClick = ClickSynth.Click(sampleRate, 1000, 0.9f);
     }
 
     public int SampleRate { get; }
@@ -247,7 +264,7 @@ public sealed class MidiPlayerEngine
             var right = _right.AsSpan(0, n);
             _synth.Render(left, right);
             var gain = settings.Volume * MixGain;
-            for (var i = 0; i < n; i++) output[done + i] = SoftLimit((left[i] + right[i]) * gain);
+            for (var i = 0; i < n; i++) output[done + i] = SoftLimit((left[i] + right[i]) * gain + ClickSample(_sample + i, settings));
             done += n;
             _sample += n;
         }
@@ -288,6 +305,7 @@ public sealed class MidiPlayerEngine
             case CommandKind.Pause:
                 _playing = false;
                 _countInTotal = 0;
+                _click = null;
                 ReleaseAll();
                 break;
             case CommandKind.Seek when _song is not null:
@@ -301,6 +319,7 @@ public sealed class MidiPlayerEngine
     {
         var end = _position + samples / (double)SampleRate * settings.Speed;
         var loopEnd = settings.LoopEnabled ? song.BarEndSeconds(settings.LoopToBar) : double.MaxValue;
+        ClickBeats(song, settings, Math.Min(end, loopEnd));
         if (end >= loopEnd)
         {
             Dispatch(song, loopEnd);
@@ -388,7 +407,13 @@ public sealed class MidiPlayerEngine
         Array.Fill(_sentVolume, DefaultChannelVolume);
         _position = seconds;
         _next = 0;
+        _nextBeatTick = long.MaxValue;
+        _nextBeatSeconds = double.MaxValue;
         if (_song is not { } song) return;
+        // Exactly on a beat (bar starts: Play from the start, loop restarts) counts, so the downbeat clicks.
+        var firstTick = song.TickAt(seconds);
+        if (song.SecondsAt(firstTick) < seconds) firstTick++;
+        SetNextBeat(song, song.BeatAtOrAfter(firstTick));
         var events = song.Events;
         var times = song.EventSeconds;
         while (_next < events.Count && times[_next] < seconds)
@@ -423,6 +448,40 @@ public sealed class MidiPlayerEngine
     {
         for (var channel = 0; channel < 16; channel++) _synth.Send(channel, 0xB0, 123, 0); // all notes off (release tails)
         Array.Fill(_noteOwner, (sbyte)-1);
+    }
+
+    private void SetNextBeat(MidiSong song, (long Tick, bool Downbeat) beat)
+    {
+        _nextBeatTick = beat.Tick;
+        _nextBeatIsDownbeat = beat.Downbeat;
+        _nextBeatSeconds = beat.Tick == long.MaxValue ? double.MaxValue : song.SecondsAt(beat.Tick);
+    }
+
+    /// <summary>
+    /// Steps over the song's beats before <paramref name="until"/> (song seconds); with the click on, each one starts a
+    /// click at its exact sample in this block (song seconds → samples through the speed).
+    /// </summary>
+    private void ClickBeats(MidiSong song, MidiPlayerSettings settings, double until)
+    {
+        while (_nextBeatSeconds < until)
+        {
+            if (settings.Click)
+            {
+                _click = _nextBeatIsDownbeat ? _accentClick : _beatClick;
+                _clickStart = _sample + Math.Max(0, (long)Math.Round((_nextBeatSeconds - _position) / settings.Speed * SampleRate));
+            }
+            SetNextBeat(song, song.BeatAtOrAfter(_nextBeatTick + 1));
+        }
+    }
+
+    /// <summary>The click's sample at absolute sample <paramref name="sample"/> (0 when none is sounding).</summary>
+    private float ClickSample(long sample, MidiPlayerSettings settings)
+    {
+        if (_click is not { } click || sample < _clickStart) return 0f;
+        var i = sample - _clickStart;
+        if (i < click.Length) return settings.Click ? click[i] * settings.ClickVolume : 0f;
+        _click = null;
+        return 0f;
     }
 
     private bool CountingIn => _countInTotal > 0 && _sample < _countInEnd;

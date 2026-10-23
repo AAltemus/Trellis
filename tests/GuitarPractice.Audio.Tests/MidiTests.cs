@@ -458,12 +458,84 @@ public class MidiTests
         Assert.InRange(engine.Position, 0, 0.1);
     }
 
+    // ---- Click ----
+
+    /// <summary>Renders <paramref name="seconds"/> through a silent synth: the output is the click alone.</summary>
+    private static float[] ClickOutput(MidiPlayerSettings settings, double seconds)
+    {
+        var engine = Engine(MidiFileReader.Read(Song()), new SilentSynth(), settings);
+        engine.Play();
+        var output = new float[(int)(seconds * Rate)];
+        for (var done = 0; done < output.Length; done += 256) engine.Render(output.AsSpan(done, Math.Min(256, output.Length - done)));
+        return output;
+    }
+
+    /// <summary>Each click: start (seconds) and peak. A click starts after 0.1 s of silence.</summary>
+    private static List<(double Seconds, float Peak)> Clicks(float[] output)
+    {
+        var clicks = new List<(double, float)>();
+        var quiet = Rate; // samples of silence so far (the start counts as silence)
+        for (var i = 0; i < output.Length; i++)
+        {
+            if (output[i] == 0) { quiet = Math.Min(quiet + 1, Rate); continue; }
+            if (quiet > Rate / 10) clicks.Add((Math.Max(0, i - 1) / (double)Rate, 0f)); // the attack's first sample is 0
+            quiet = 0;
+            clicks[^1] = (clicks[^1].Item1, Math.Max(clicks[^1].Item2, Math.Abs(output[i])));
+        }
+        return clicks;
+    }
+
+    [Fact]
+    public void Click_follows_the_tempo_changes_and_time_signatures_with_each_bar_accented()
+    {
+        var clicks = Clicks(ClickOutput(new MidiPlayerSettings(Click: true), 18.5));
+
+        // Song(): bars 1–2 at 120 BPM 4/4 (0.5 s beats), bars 3–4 at 60 BPM (1 s beats), bars 5–6 in 3/4 at 60 BPM.
+        double[] expected = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
+        Assert.Equal(expected.Length, clicks.Count);
+        for (var i = 0; i < expected.Length; i++) Assert.Equal(expected[i], clicks[i].Seconds, 0.0001); // within 5 samples
+
+        double[] downbeats = [0, 2, 4, 8, 12, 15];
+        var accent = clicks.Where(c => downbeats.Any(d => Math.Abs(d - c.Seconds) < 0.001)).Select(c => c.Peak).ToList();
+        var other = clicks.Where(c => !downbeats.Any(d => Math.Abs(d - c.Seconds) < 0.001)).Select(c => c.Peak).ToList();
+        Assert.Equal(downbeats.Length, accent.Count);
+        Assert.True(accent.Min() > other.Max(), $"accents {accent.Min()} vs beats {other.Max()}");
+    }
+
+    [Fact]
+    public void Click_follows_the_speed()
+    {
+        var clicks = Clicks(ClickOutput(new MidiPlayerSettings(Click: true, Speed: 0.5), 4.5));
+        Assert.Equal([0.0, 1, 2, 3, 4], clicks.Select(c => Math.Round(c.Seconds, 3)));
+    }
+
+    [Fact]
+    public void Click_restarts_on_the_loop_downbeat_after_the_count_in()
+    {
+        // Loop bar 2 (2–4 s at 120 BPM) with a count-in before every pass: the song reaches 4 s, counts in for 2 s, and
+        // the loop's downbeat clicks at 6 s output time.
+        var settings = new MidiPlayerSettings(Click: true, LoopEnabled: true, LoopFromBar: 2, LoopToBar: 2, CountIn: true, CountInEachLoop: true);
+        var clicks = Clicks(ClickOutput(settings, 8.6));
+        // The first count-in (0–2 s) goes through the synth, so the click starts with the song at 2 s.
+        Assert.Equal([2.0, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 8, 8.5], clicks.Select(c => Math.Round(c.Seconds, 3)));
+    }
+
+    [Fact]
+    public void Click_volume_is_its_own_and_off_is_silent()
+    {
+        Assert.All(ClickOutput(new MidiPlayerSettings(Click: false), 2), s => Assert.Equal(0f, s));
+        var loud = Clicks(ClickOutput(new MidiPlayerSettings(Click: true, ClickVolume: 0.6f, Volume: 0f), 1)); // song volume 0
+        var quiet = Clicks(ClickOutput(new MidiPlayerSettings(Click: true, ClickVolume: 0.3f), 1));
+        Assert.Equal(2, loud.Count);
+        Assert.Equal(0.5, quiet[1].Peak / loud[1].Peak, 0.01);
+    }
+
     [Fact]
     public void Render_does_not_allocate()
     {
         // A synth that records nothing (FakeSynth's growing lists would be the only allocations).
         var engine = Engine(MidiFileReader.Read(Song()), new SilentSynth(), new MidiPlayerSettings(LoopEnabled: true, LoopFromBar: 5, LoopToBar: 6, CountIn: true,
-            CountInEachLoop: true, TrackVolumes: [0.5f, 0.3f])); // incl. the last bar, loop count-ins and scaled volumes
+            CountInEachLoop: true, TrackVolumes: [0.5f, 0.3f], Click: true)); // incl. the last bar, loop count-ins, scaled volumes, the click
         engine.Play();
         var buffer = new float[256];
         Allocations.AssertNone(() => engine.Render(buffer));
@@ -472,8 +544,8 @@ public class MidiTests
     [Fact]
     public void Settings_are_normalised()
     {
-        var s = new MidiPlayerSettings(Speed: 9, LoopFromBar: 0, LoopToBar: -3, Volume: 4).Normalized();
-        Assert.Equal((MidiPlayerSettings.MaxSpeed, 1, 1, MidiPlayerSettings.MaxVolume), (s.Speed, s.LoopFromBar, s.LoopToBar, s.Volume));
+        var s = new MidiPlayerSettings(Speed: 9, LoopFromBar: 0, LoopToBar: -3, Volume: 4, ClickVolume: -1).Normalized();
+        Assert.Equal((MidiPlayerSettings.MaxSpeed, 1, 1, MidiPlayerSettings.MaxVolume, 0f), (s.Speed, s.LoopFromBar, s.LoopToBar, s.Volume, s.ClickVolume));
         Assert.True(new MidiPlayerSettings(Muted: 0b10).IsSilenced(1));
         Assert.False(new MidiPlayerSettings(Muted: 0b10, Soloed: 0b10).IsSilenced(1));   // solo wins
     }
