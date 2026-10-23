@@ -142,6 +142,27 @@ public sealed class MidiSong
         return new BarBeat(bar, Math.Clamp(beat, 1, Math.Max(1, sig.Numerator)), Math.Max(1, sig.Numerator));
     }
 
+    /// <summary>
+    /// The first beat at or after <paramref name="tick"/> (a beat is the time signature's denominator, counted from each
+    /// bar start) and whether it is a downbeat; <see cref="long.MaxValue"/> past the last bar. Allocation-free (audio thread).
+    /// </summary>
+    public (long Tick, bool Downbeat) BeatAtOrAfter(long tick)
+    {
+        if (_barTicks.Length == 0) return (long.MaxValue, false);
+        var index = Array.BinarySearch(_barTicks, Math.Max(0, tick));
+        var bar = Math.Max(1, index >= 0 ? index + 1 : ~index); // 1-based bar holding the tick (bar 1 before the first start)
+        for (; bar <= _barTicks.Length; bar++)
+        {
+            var start = BarStartTick(bar);
+            var end = BarEndTick(bar);
+            var ticksPerBeat = TicksPerQuarter * 4.0 / TimeSignatureAt(start).Denominator;
+            var k = tick <= start ? 0 : (long)Math.Ceiling((tick - start) / ticksPerBeat);
+            var beatTick = start + (long)Math.Round(k * ticksPerBeat);
+            if (beatTick < end) return (beatTick, k == 0);
+        }
+        return (long.MaxValue, false);
+    }
+
     private int TempoIndexAtTick(long tick)
     {
         var i = 0;

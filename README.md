@@ -187,9 +187,10 @@ scrolled so today is in view.
   SoundFont (see `src/GuitarPractice.App/Assets/SoundFont/README.md`). Practice controls: **Speed** 25–150 % (pitch
   unchanged), **Mute** a track to play that part yourself or **Solo** one to learn it, **Loop bars** (or *Loop this
   bar*, or **All** for the whole song), a one-bar **Count-in** at the song's tempo (optionally before every loop
-  pass), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. A bar panel shows the bar and beat
+  pass), a **Click** on every beat that follows the song's tempo changes, time signatures and your speed (bar starts
+  accented; its own volume), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. A bar panel shows the bar and beat
   playing now and a map of the bars (loop tinted, click a bar to jump there). Each file remembers its speed, loop,
-  count-in, volumes and muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
+  count-in, click, volumes and muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
   - **♫ Play along** (timer row; Tools → Play along with MIDI, Ctrl+Shift+I) opens the player for the selected practice
     item; press **Link** to attach the current file to it, so next time it opens straight away.
 - **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best

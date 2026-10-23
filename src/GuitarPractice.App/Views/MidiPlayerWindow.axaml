@@ -165,7 +165,7 @@
 
         <!-- Practice controls -->
         <Border Padding="12,8" CornerRadius="8" Background="#14808080" IsEnabled="{Binding HasFile}">
-          <Grid ColumnDefinitions="Auto,*,60" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+          <Grid ColumnDefinitions="Auto,*,60" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
             <TextBlock Text="Speed" VerticalAlignment="Center" />
             <Slider Grid.Column="1" Minimum="25" Maximum="150" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding SpeedPercent}"
                     ToolTip.Tip="Slower or faster without changing the pitch" />
@@ -191,6 +191,13 @@
             <Slider Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="200" Value="{Binding Volume}"
                     ToolTip.Tip="Above 100 % a soft limiter keeps it from distorting" />
             <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center"
+                       HorizontalAlignment="Right" />
+
+            <CheckBox Grid.Row="4" Content="Click" IsChecked="{Binding Click}"
+                      ToolTip.Tip="A metronome click on every beat, following the song's tempo changes, time signatures and your speed (each bar's first beat accented)" />
+            <Slider Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="200" Value="{Binding ClickVolume}" IsEnabled="{Binding Click}"
+                    ToolTip.Tip="The click's own volume, separate from the song's" />
+            <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding ClickVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center"
                        HorizontalAlignment="Right" />
           </Grid>
         </Border>
