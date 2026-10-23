@@ -112,6 +112,11 @@ scrolled so today is in view.
   (an unlocked week would regenerate and undo it). Warmups, items that already have practice time or a progress log on
   their day, and the item in a running timer stay put; a swap that would put an exercise on a day twice is refused. The
   line next to the week title says what happened, or why not.
+- **Reshuffle from today** (this week, locked or not): the days before today stay as they are; today to Sunday are
+  planned again from the routine so the whole week still matches your weights. Something added mid-week (a new song)
+  catches up on the days left, items that already had their share get less, and the items furthest behind get full
+  sessions first (if not everything fits, the warning says how many were left out). Items you've already practised
+  today, and the one in a running timer, stay put. The week is locked afterwards.
 - **Save week as…** (Ctrl+S) stores the displayed week under a name (same name replaces). Only the plan is saved,
   never practised time.
 - **Load saved week** copies a saved week onto the displayed week, weekday for weekday, and locks it.
