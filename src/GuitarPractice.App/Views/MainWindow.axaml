@@ -22,6 +22,7 @@
     <KeyBinding Gesture="Ctrl+T" Command="{Binding OpenTunerCommand}" />
     <KeyBinding Gesture="Ctrl+R" Command="{Binding OpenRecorderCommand}" />
     <KeyBinding Gesture="Ctrl+E" Command="{Binding OpenEarTrainerCommand}" />
+    <KeyBinding Gesture="Ctrl+Y" Command="{Binding OpenRhythmTrainerCommand}" />
     <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding OpenSettingsCommand}" />
     <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMidiPlayerCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding PlayAlongCommand}" />
@@ -117,6 +118,7 @@
         <MenuItem Header="_Recorder…" Command="{Binding OpenRecorderCommand}" InputGesture="Ctrl+R" />
         <MenuItem Header="Record for this _item" Command="{Binding RecordForItemCommand}" InputGesture="Ctrl+Shift+R" />
         <MenuItem Header="_Ear Trainer…" Command="{Binding OpenEarTrainerCommand}" InputGesture="Ctrl+E" />
+        <MenuItem Header="Rh_ythm Trainer…" Command="{Binding OpenRhythmTrainerCommand}" InputGesture="Ctrl+Y" />
         <MenuItem Header="M_IDI Player…" Command="{Binding OpenMidiPlayerCommand}" InputGesture="Ctrl+I" />
         <MenuItem Header="Play _along with MIDI" Command="{Binding PlayAlongCommand}" InputGesture="Ctrl+Shift+I" />
         <Separator />

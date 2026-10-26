@@ -16,6 +16,7 @@ public interface IToolWindows
     /// <summary>Opens the Recorder; with a <paramref name="link"/>, new takes attach to that item and day; <paramref name="selectTake"/> = a take file name to select.</summary>
     void ShowRecorder(RecorderLink? link = null, string? selectTake = null);
     void ShowEarTrainer();
+    void ShowRhythmTrainer();
     void ShowSettings();
 
     /// <summary>Opens the MIDI player; with a <paramref name="link"/>, for that practice item (its linked file opens).</summary>
@@ -55,6 +56,8 @@ internal sealed class ToolWindows(IServiceProvider services) : IToolWindows
     }
 
     public void ShowEarTrainer() => _ = Show<EarTrainerWindow, EarTrainerViewModel>();
+
+    public void ShowRhythmTrainer() => _ = Show<RhythmTrainerWindow, RhythmTrainerViewModel>();
 
     public void ShowSettings() => _ = Show<SettingsWindow, SettingsViewModel>();
 

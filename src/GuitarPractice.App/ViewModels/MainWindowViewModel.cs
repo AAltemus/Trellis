@@ -190,6 +190,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private void OpenEarTrainer() => _tools.ShowEarTrainer();
 
     [RelayCommand]
+    private void OpenRhythmTrainer() => _tools.ShowRhythmTrainer();
+
+    [RelayCommand]
     private void OpenSettings() => _tools.ShowSettings();
 
     [RelayCommand]

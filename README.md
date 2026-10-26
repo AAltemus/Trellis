@@ -4,7 +4,7 @@
 
 A routine to grow your playing along. Trellis turns a weighted selection of practice tasks into a weekly plan and
 times each session, with the tools you'd otherwise switch apps for in one place: metronome (clicks or drums), tuner and
-bend trainer, recorder with looping, ear trainer, progress tracking, and a MIDI player for playing along with backing
+bend trainer, recorder with looping, ear trainer, rhythm trainer, progress tracking, and a MIDI player for playing along with backing
 tracks: import songs or routines from any MIDI file, slow them down without changing pitch, mute your
 part, loop the bars you're working on, and link a song to a practice item so it's one click away. Cross-platform
 desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 12, EF Core + SQLite.
@@ -181,6 +181,20 @@ scrolled so today is in view.
   - *Melodies* (dictation): hear a 3–8 note melody in the key (after the key chord) and write it down with the degree
     buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
   - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
+- **Rhythm Trainer…** (Ctrl+Y): read and play rhythms in 4/4, 3/4, 2/4, 6/8, 9/8, 12/8 and the odd meters 5/4, 7/4,
+  5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in one-bar rhythms from level 1 (quarters, eighths) to 5 (dotted
+  notes, ties across the beat, rests, syncopation, triplets, quintuplets, sextuplets, 32nds), shown as rhythm
+  notation with the beats numbered. A take is a count-in bar, the rhythm played once for you as a muted power chord
+  (optional), then 1–8 bars for you over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8)
+  and a kick/snare/hi-hat groove, each with its own volume. Tempo is the meter's note value (♩ in x/4, ♪ in x/8).
+  - **Score my playing** records your input during your bars on the same stream as the click, compensating the
+    latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm: full marks within
+    20 ms of where it should be, less up to the window's edge (100 ms, narrower for fast rhythms), missed notes and
+    extra notes count against you. The notation colours each note (green on time, amber off, red missed) with how many
+    ms early or late it was on average, and the take gets a score, e.g. "92 % (23/24 hit, avg 6 ms late, ±11 ms)".
+    Short, muted notes are detected most reliably.
+  - **Log score** adds the last take to today's notes of a Rhythm block (or Theory · Rhythm reading); odd meters pick
+    Rhythm · Odd meters by default.
 - **MIDI Player…** (Ctrl+I): play along with songs or routines from any MIDI file. **Import MIDI…** (or drop
   .mid files on the window) copies them into Trellis's library (`%LOCALAPPDATA%\GuitarPractice\midi`) so they're there
   every time; rename or delete them there (your original is never touched). Sounds come from the bundled GeneralUser GS
