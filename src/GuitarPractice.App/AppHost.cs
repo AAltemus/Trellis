@@ -30,6 +30,7 @@ internal static class AppHost
         builder.Services.AddTransient<RecorderViewModel>();
         builder.Services.AddTransient<ProgressViewModel>();
         builder.Services.AddTransient<EarTrainerViewModel>();
+        builder.Services.AddTransient<RhythmTrainerViewModel>();
         builder.Services.AddTransient<MainWindowViewModel>();
 
         return builder.Build();
