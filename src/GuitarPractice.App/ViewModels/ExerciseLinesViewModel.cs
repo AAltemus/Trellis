@@ -44,12 +44,14 @@ public sealed partial class ExerciseLineViewModel(ExerciseLinesViewModel owner) 
 
     public bool IsRemoved => RemovedRun is not null;
 
-    /// <summary>Exercise names used before in this block (shared with the owner).</summary>
-    public IReadOnlyList<string> Suggestions => owner.Suggestions;
+    /// <summary>
+    /// Exercise names used before in this block, as they were when this row was made. Never replaced afterwards: a new
+    /// ItemsSource makes AutoCompleteBox drop a suggestion picked with the mouse and put back the typed text ("i do"),
+    /// which the binding then writes into Name (bug seen after Save log, 2026-10-26). New rows get the latest names.
+    /// </summary>
+    public IReadOnlyList<string> Suggestions { get; } = owner.Suggestions;
 
     public IReadOnlyList<NoteValueOption> NoteValues { get; } = NoteValueOption.All; // instance: compiled bindings
-
-    internal void RefreshSuggestions() => OnPropertyChanged(nameof(Suggestions));
 
     [RelayCommand]
     private void Remove() => owner.Remove(this);
@@ -65,11 +67,8 @@ public sealed partial class ExerciseLinesViewModel : ObservableObject
 
     public IReadOnlyList<string> Suggestions { get; private set; } = [];
 
-    public void SetSuggestions(IReadOnlyList<string> names)
-    {
-        Suggestions = names;
-        foreach (var line in Lines) line.RefreshSuggestions();
-    }
+    /// <summary>Names for rows made from now on (Load, + Add exercise); existing rows keep theirs (see the row's Suggestions).</summary>
+    public void SetSuggestions(IReadOnlyList<string> names) => Suggestions = names;
 
     /// <summary>Shows the given lines, or one empty row when there are none (ready to type).</summary>
     public void Load(IEnumerable<ExerciseLog> logs)
