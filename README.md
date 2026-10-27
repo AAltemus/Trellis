@@ -292,3 +292,10 @@ Property-tested invariants:
 - Pinned tasks come first and last.
 
 Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regenerate on every slider change.
+
+## License
+
+Trellis is free software under the GNU Lesser General Public License, version 3 ([COPYING.LESSER](COPYING.LESSER)),
+which builds on the GNU General Public License, version 3 ([COPYING](COPYING)). Releases up to and including 1.0.3
+were published under the GPL-3.0. The bundled GeneralUser GS SoundFont has its own license
+([src/GuitarPractice.App/Assets/SoundFont/README.md](src/GuitarPractice.App/Assets/SoundFont/README.md)).
