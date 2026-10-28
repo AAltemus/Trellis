@@ -150,8 +150,11 @@
         <TextBlock Grid.Column="1" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
       </Grid>
 
-      <CheckBox Grid.Row="3" Grid.ColumnSpan="2" Content="Accent beat 1" IsChecked="{Binding AccentFirstBeat}"
-                IsVisible="{Binding !IsDrums}" />
+      <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16" IsVisible="{Binding !IsDrums}">
+        <CheckBox Content="Accent beat 1" IsChecked="{Binding AccentFirstBeat}" IsEnabled="{Binding !IsBackbeatOn}" />
+        <CheckBox Content="Only on 2 and 4" IsChecked="{Binding Backbeat}" IsEnabled="{Binding CanBackbeat}"
+                  ToolTip.Tip="Backbeat: beats 1 and 3 are silent (subdivisions still click), so you feel the downbeat yourself. Needs an even number of beats per bar." />
+      </StackPanel>
     </Grid>
 
     <!-- Sound: beep click or drums (kick / snare / closed hi-hat on a step grid, saved patterns) -->

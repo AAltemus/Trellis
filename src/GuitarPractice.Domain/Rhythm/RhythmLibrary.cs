@@ -36,6 +36,17 @@ public static class RhythmLibrary
         Add(m, 5, "Sextuplets", "[6 s s s s s s] q [6 s s s s s s] q");
         Add(m, 5, "Mixed groupings", "q [3 e e e] e. s [5 s s s s s]");
         Add(m, 5, "Thirty-second bursts", "t t t t e q t t t t e q");
+        // Syncopation (2026-10-28; good with the click on 2 and 4).
+        Add(m, 2, "Charleston", "q. e rh");
+        Add(m, 2, "Pushed quarters", "e q q q e");
+        Add(m, 3, "Tresillo (3+3+2)", "q. q. q");
+        Add(m, 3, "Around 2 and 4", "e e re e e e re e");
+        Add(m, 3, "Push over beat 3", "q e q. q");
+        Add(m, 4, "Ties over 2 and 4", "e e~ e e e e~ e e");
+        Add(m, 4, "Scotch snaps", "s e. s e. s e. s e.");
+        Add(m, 4, "Sixteenth offbeats", "rs s rs s rs s rs s rs s rs s rs s rs s");
+        Add(m, 5, "Displaced sixteenths", "s rs s s rs s rs s s rs s s rs s s rs");
+        Add(m, 5, "Sixteenth pushes", "e. s~ e e e. s~ e e");
 
         m = Meter.ThreeFour;
         Add(m, 1, "Quarter notes", "q q q");
@@ -54,6 +65,8 @@ public static class RhythmLibrary
         Add(m, 3, "Sixteenths and a quarter", "s s s s q");
         Add(m, 3, "Gallop", "e s s e s s");
         Add(m, 4, "Triplet and two eighths", "[3 e e e] e e");
+        Add(m, 3, "Syncopated", "e q e");
+        Add(m, 4, "Sixteenth offbeats", "rs s rs s rs s rs s");
 
         m = Meter.SixEight;
         Add(m, 1, "Eighth notes", "e e e e e e");

@@ -34,6 +34,8 @@ public enum ClickKind
 /// the bar after their own settings, or Bpm, last changed).
 /// Sound: the beep click, or the drum pattern <see cref="Drums"/> (null = <see cref="DrumPattern.BasicRock"/>); in drum mode
 /// the accent setting is not used (the pattern is the accent).
+/// <see cref="Backbeat"/>: the click sounds only on beats 2, 4, … (beats 1, 3, … are silent; subdivisions still click),
+/// with an even number of beats in the bar and the beep click (<see cref="IsBackbeat"/>).
 /// </summary>
 public sealed record MetronomeSettings(
     double Bpm = 120,
@@ -49,7 +51,8 @@ public sealed record MetronomeSettings(
     int TrainerEveryBars = 4,
     double TrainerTargetBpm = 160,
     MetronomeSound Sound = MetronomeSound.Click,
-    DrumPattern? Drums = null)
+    DrumPattern? Drums = null,
+    bool Backbeat = false)
 {
     public const double MinBpm = 20;
     public const double MaxBpm = 400;
@@ -62,6 +65,9 @@ public sealed record MetronomeSettings(
     public const double MaxTrainerStepBpm = 20;
 
     public int TicksPerBeat => (int)Subdivision;
+
+    /// <summary><see cref="Backbeat"/> is on and applies: beep click, even beats per bar.</summary>
+    public bool IsBackbeat => Backbeat && Sound == MetronomeSound.Click && BeatsPerBar >= 2 && BeatsPerBar % 2 == 0;
 
     public MetronomeSettings Normalized() => this with
     {
@@ -244,7 +250,7 @@ public sealed class MetronomeEngine
                 if ((hits & DrumHits.Snare) != 0) Trigger(_snare, s.Volume);
                 if ((hits & DrumHits.HiHat) != 0) Trigger(_hiHat, s.Volume);
             }
-            else
+            else if (!(s.IsBackbeat && _subTick == 0 && _beat % 2 == 0))
             {
                 Trigger(kind switch
                 {

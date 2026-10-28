@@ -99,7 +99,18 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     private double _bpm = 120;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanBackbeat), nameof(IsBackbeatOn))]
     private int _beatsPerBar = 4;
+
+    /// <summary>Click only on 2 and 4 (beep click, even beats per bar; see <see cref="MetronomeSettings.IsBackbeat"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBackbeatOn))]
+    private bool _backbeat;
+
+    public bool CanBackbeat => BeatsPerBar >= 2 && BeatsPerBar % 2 == 0;
+
+    /// <summary>The backbeat is what's playing: beats 2 and 4 light as accents, and "Accent beat 1" doesn't apply.</summary>
+    public bool IsBackbeatOn => Backbeat && CanBackbeat && !IsDrums;
 
     [ObservableProperty]
     private SubdivisionOption? _selectedSubdivision;
@@ -183,7 +194,8 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         TrainerEveryBars,
         (double)(TrainerTargetBpm ?? 160),
         SelectedSound?.Value ?? MetronomeSound.Click,
-        _pattern).Normalized();
+        _pattern,
+        Backbeat).Normalized();
 
     private void Apply(MetronomeSettings s)
     {
@@ -191,6 +203,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         BeatsPerBar = s.BeatsPerBar;
         SelectedSubdivision = SubdivisionOptions.FirstOrDefault(o => o.Value == s.Subdivision) ?? SubdivisionOptions[0];
         AccentFirstBeat = s.AccentFirstBeat;
+        Backbeat = s.Backbeat;
         Volume = Math.Round(s.Volume * 100);
         GapEnabled = s.GapEnabled;
         GapPlayBars = s.GapPlayBars;
@@ -226,6 +239,12 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     }
 
     partial void OnAccentFirstBeatChanged(bool value)
+    {
+        RebuildBeatLights();
+        Publish();
+    }
+
+    partial void OnBackbeatChanged(bool value)
     {
         RebuildBeatLights();
         Publish();
@@ -481,7 +500,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     {
         BeatLights.Clear();
         for (var i = 0; i < BeatsPerBar; i++)
-            BeatLights.Add(new BeatLightViewModel(i + 1, isAccent: i == 0 && AccentFirstBeat));
+            BeatLights.Add(new BeatLightViewModel(i + 1, isAccent: IsBackbeatOn ? i % 2 == 1 : i == 0 && AccentFirstBeat));
     }
 
     private void SaveSettings()

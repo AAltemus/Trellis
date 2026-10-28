@@ -52,6 +52,7 @@ public sealed class RhythmTrainerEngine
     private readonly float[]?[] _voice = new float[MaxVoices][];
     private readonly int[] _voicePos = new int[MaxVoices];
     private readonly byte[] _voiceSound = new byte[MaxVoices];
+    private readonly bool _canBackbeat;
 
     private int _startRequest;
     private int _stopRequest;
@@ -63,7 +64,8 @@ public sealed class RhythmTrainerEngine
     private long _publishedSample;
     private int _publishedRunning;
 
-    private enum SoundId : byte { Accent, Click, Kick, Snare, HiHat, Rhythm }
+    // Click = beats 2, 4, …; DownClick = beats 3, 5, … (the same sound; silent with Backbeat, like the Accent on 1).
+    private enum SoundId : byte { Accent, Click, Kick, Snare, HiHat, Rhythm, DownClick }
 
     public RhythmTrainerEngine(int sampleRate, RhythmTrainerPlan plan)
     {
@@ -74,10 +76,12 @@ public sealed class RhythmTrainerEngine
         Plan = plan;
         ListenBars = plan.ListenFirst ? 1 : 0;
         PlayBars = Math.Clamp(plan.PlayBars, 1, 16);
+        _canBackbeat = CanBackbeat(plan.BeatTicks.Count);
 
-        _sounds = new float[6][];
+        _sounds = new float[7][];
         _sounds[(int)SoundId.Accent] = ClickSynth.Click(sampleRate, 1500, 1.0f);
         _sounds[(int)SoundId.Click] = ClickSynth.Click(sampleRate, 1000, 0.85f);
+        _sounds[(int)SoundId.DownClick] = _sounds[(int)SoundId.Click];
         _sounds[(int)SoundId.Kick] = DrumSynth.Kick(sampleRate);
         _sounds[(int)SoundId.Snare] = DrumSynth.Snare(sampleRate);
         _sounds[(int)SoundId.HiHat] = DrumSynth.HiHat(sampleRate);
@@ -88,7 +92,7 @@ public sealed class RhythmTrainerEngine
         for (var bar = 0; bar < bars; bar++)
         {
             for (var b = 0; b < plan.BeatTicks.Count; b++)
-                events.Add((At(bar, plan.BeatTicks[b]), b == 0 ? SoundId.Accent : SoundId.Click));
+                events.Add((At(bar, plan.BeatTicks[b]), b == 0 ? SoundId.Accent : b % 2 == 1 ? SoundId.Click : SoundId.DownClick));
             if (bar < CountInBars) continue;
             foreach (var (tick, hits) in Groove(plan))
             {
@@ -126,6 +130,16 @@ public sealed class RhythmTrainerEngine
     public int LatencySamples { get; set; }
 
     public bool ClickEnabled { get; set; } = true;
+
+    /// <summary>
+    /// After the count-in, click only on beats 2 and 4 (every even beat: 2 in 2/4 and 6/8, 2 and 4 in 4/4 and 12/8).
+    /// Ignored when the bar has an odd number of beats (<see cref="CanBackbeat"/>).
+    /// </summary>
+    public bool Backbeat { get; set; }
+
+    /// <summary>The bar has an even number of beats, so <see cref="Backbeat"/> applies.</summary>
+    public static bool CanBackbeat(int beatsPerBar) => beatsPerBar >= 2 && beatsPerBar % 2 == 0;
+
     public bool DrumsEnabled { get; set; } = true;
     public float ClickVolume { get; set; } = 0.8f;
     public float DrumVolume { get; set; } = 0.8f;
@@ -216,7 +230,9 @@ public sealed class RhythmTrainerEngine
 
     private float Gain(SoundId sound, bool countIn) => sound switch
     {
-        SoundId.Accent or SoundId.Click => countIn ? Math.Max(ClickVolume, 0.6f) : ClickEnabled ? ClickVolume : 0f,
+        _ when countIn && sound is SoundId.Accent or SoundId.Click or SoundId.DownClick => Math.Max(ClickVolume, 0.6f),
+        SoundId.Click => ClickEnabled ? ClickVolume : 0f,
+        SoundId.Accent or SoundId.DownClick => ClickEnabled && !(Backbeat && _canBackbeat) ? ClickVolume : 0f,
         SoundId.Rhythm => RhythmVolume,
         _ => DrumsEnabled ? DrumVolume : 0f,
     };
