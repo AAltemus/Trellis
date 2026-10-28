@@ -81,17 +81,21 @@
 
       <!-- Sound -->
       <Border Padding="12,8" CornerRadius="8" Background="#14808080">
-        <Grid ColumnDefinitions="Auto,*,50" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+        <Grid ColumnDefinitions="Auto,*,50" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
           <CheckBox Content="Click" IsChecked="{Binding Click}" ToolTip.Tip="On every beat (the count-in always clicks)" />
           <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding ClickVolume}" IsEnabled="{Binding Click}" />
           <TextBlock Grid.Column="2" Text="{Binding ClickVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
 
-          <CheckBox Grid.Row="1" Content="Drums" IsChecked="{Binding Drums}"
-                    ToolTip.Tip="Kick, snare and hi-hat: kick on beat 1, snare and kick alternating on the other beats, hi-hat on 8ths" />
-          <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding DrumVolume}" IsEnabled="{Binding Drums}" />
-          <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding DrumVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+          <CheckBox Grid.Row="1" Grid.ColumnSpan="3" Margin="24,0,0,0" Content="Only on 2 and 4 (backbeat)" IsChecked="{Binding Backbeat}"
+                    IsEnabled="{Binding CanBackbeat}"
+                    ToolTip.Tip="After the count-in the click plays only on beats 2 and 4 (just 2 in 2/4 and 6/8), so you feel 1 and 3 yourself. Needs an even number of beats in the bar. Turning it on turns the drums off." />
 
-          <CheckBox Grid.Row="2" Grid.ColumnSpan="3" Content="Listen first: the rhythm plays once (after the count-in) before your bars"
+          <CheckBox Grid.Row="2" Content="Drums" IsChecked="{Binding Drums}"
+                    ToolTip.Tip="Kick, snare and hi-hat: kick on beat 1, snare and kick alternating on the other beats, hi-hat on 8ths" />
+          <Slider Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding DrumVolume}" IsEnabled="{Binding Drums}" />
+          <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding DrumVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+          <CheckBox Grid.Row="3" Grid.ColumnSpan="3" Content="Listen first: the rhythm plays once (after the count-in) before your bars"
                     IsChecked="{Binding ListenFirst}" IsEnabled="{Binding CanChange}" />
         </Grid>
       </Border>

@@ -40,7 +40,7 @@ public sealed partial class MetronomeViewModel
     ];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsDrums))]
+    [NotifyPropertyChangedFor(nameof(IsDrums), nameof(IsBackbeatOn))]
     private SoundOption? _selectedSound;
 
     public bool IsDrums => SelectedSound?.Value == MetronomeSound.Drums;
@@ -67,7 +67,11 @@ public sealed partial class MetronomeViewModel
 
     public bool CanDeletePattern => SelectedPattern is { IsBuiltIn: false };
 
-    partial void OnSelectedSoundChanged(SoundOption? value) => Publish();
+    partial void OnSelectedSoundChanged(SoundOption? value)
+    {
+        RebuildBeatLights(); // the backbeat lights apply to the click only
+        Publish();
+    }
 
     partial void OnSelectedPatternChanged(DrumPatternOption? value)
     {

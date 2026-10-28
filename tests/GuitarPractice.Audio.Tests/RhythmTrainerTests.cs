@@ -93,6 +93,26 @@ public class RhythmTrainerTests
     }
 
     [Fact]
+    public void Backbeat_clicks_only_on_2_and_4_after_a_full_count_in()
+    {
+        var engine = new RhythmTrainerEngine(Rate, FourFour([0], [4 * Q], listen: false, bars: 1)) { DrumsEnabled = false, Backbeat = true };
+        var output = Run(engine);
+        Assert.Equal([0.0, 0.5, 1.0, 1.5], SoundStarts(output, 0, 2 * Rate).Select(t => Math.Round(t, 3))); // count-in: every beat
+        Assert.Equal([0.5, 1.5], SoundStarts(output, 2 * Rate, 4 * Rate).Select(t => Math.Round(t - 2, 3)));
+    }
+
+    [Fact]
+    public void Backbeat_is_ignored_with_an_odd_number_of_beats()
+    {
+        Assert.False(RhythmTrainerEngine.CanBackbeat(3));
+        Assert.True(RhythmTrainerEngine.CanBackbeat(2));
+        var plan = new RhythmTrainerPlan(SecondsPerTick, 3 * Q, [0, Q, 2 * Q], [0], [3 * Q], ListenFirst: false, PlayBars: 1);
+        var engine = new RhythmTrainerEngine(Rate, plan) { DrumsEnabled = false, Backbeat = true };
+        var output = Run(engine);
+        Assert.Equal([0.0, 0.5, 1.0], SoundStarts(output, (int)(1.5 * Rate), 3 * Rate).Select(t => Math.Round(t - 1.5, 3)));
+    }
+
+    [Fact]
     public void Groove_puts_kick_and_snare_on_the_beats_and_hats_on_8ths()
     {
         var fourFour = RhythmTrainerEngine.Groove(FourFour([0], [4 * Q]));

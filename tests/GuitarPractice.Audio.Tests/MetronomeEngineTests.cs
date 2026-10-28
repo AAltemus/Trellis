@@ -88,6 +88,29 @@ public class MetronomeEngineTests
     }
 
     [Fact]
+    public void Backbeat_silences_beats_1_and_3_but_still_reports_them()
+    {
+        // 240 BPM: a beat every 12 000 samples; a click lasts 35 ms (1 680 samples).
+        float[] Beats(MetronomeSettings settings, out List<MetronomeTick> ticks)
+        {
+            var engine = Started(settings);
+            var output = Render(engine, Rate * 2); // 8 beats
+            ticks = Ticks(engine);
+            return [.. Enumerable.Range(0, 8).Select(k => output.AsSpan(k * 12_000, 1_680).ToArray().Max(Math.Abs))];
+        }
+
+        var peaks = Beats(new MetronomeSettings(Bpm: 240, Backbeat: true), out var ticks);
+        Assert.Equal([false, true, false, true, false, true, false, true], peaks.Select(p => p > 0.1f));
+        Assert.Equal([0, 1, 2, 3, 0, 1, 2, 3], ticks.Select(t => t.Beat)); // the lights still see every beat
+        Assert.True(new MetronomeSettings(Backbeat: true).IsBackbeat);
+
+        // Odd bars and drum mode ignore it.
+        Assert.All(Beats(new MetronomeSettings(Bpm: 240, BeatsPerBar: 3, Backbeat: true), out _), p => Assert.True(p > 0.1f));
+        Assert.False(new MetronomeSettings(BeatsPerBar: 3, Backbeat: true).IsBackbeat);
+        Assert.False(new MetronomeSettings(Sound: MetronomeSound.Drums, Backbeat: true).IsBackbeat);
+    }
+
+    [Fact]
     public void Accent_off_makes_every_beat_the_same()
     {
         var engine = Started(new MetronomeSettings(Bpm: 240, AccentFirstBeat: false));

@@ -130,7 +130,7 @@ scrolled so today is in view.
 ## Tools menu
 
 - **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth/quintuplet/sextuplet/septuplet/32nd subdivisions,
-  accent on beat 1, volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
+  accent on beat 1, **only on 2 and 4** (backbeat, even beats per bar), volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
   - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
   - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.
   - *Sound*: the beep click or **drums** (kick, snare, closed hi-hat, synthesised). In drum mode a step grid shows one
@@ -183,9 +183,10 @@ scrolled so today is in view.
   - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
 - **Rhythm Trainer…** (Ctrl+Y): read and play rhythms in 4/4, 3/4, 2/4, 6/8, 9/8, 12/8 and the odd meters 5/4, 7/4,
   5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in one-bar rhythms from level 1 (quarters, eighths) to 5 (dotted
-  notes, ties across the beat, rests, syncopation, triplets, quintuplets, sextuplets, 32nds), shown as rhythm
+  notes, ties across the beat, rests, syncopation such as the Charleston, tresillo and sixteenth pushes, triplets, quintuplets, sextuplets, 32nds), shown as rhythm
   notation with the beats numbered. A take is a count-in bar, the rhythm played once for you as a muted power chord
-  (optional), then 1–8 bars for you over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8)
+  (optional), then 1–8 bars for you over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8;
+  or **only on 2 and 4** after the count-in, in meters with an even number of beats)
   and a kick/snare/hi-hat groove, each with its own volume. Tempo is the meter's note value (♩ in x/4, ♪ in x/8).
   - **Score my playing** records your input during your bars on the same stream as the click, compensating the
     latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm: full marks within

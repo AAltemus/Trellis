@@ -233,6 +233,7 @@ sealed class NoTools : IToolWindows
     public void ShowTuner() { }
     public void ShowRecorder(RecorderLink? link = null, string? selectTake = null) { }
     public void ShowEarTrainer() { }
+    public void ShowRhythmTrainer() { }
     public void ShowSettings() { }
     public void ShowMidiPlayer(MidiPlayerLink? link = null) { }
     public void ShowProgress(int? subcategoryId = null) { }

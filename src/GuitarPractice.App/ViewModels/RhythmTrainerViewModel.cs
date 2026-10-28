@@ -16,7 +16,7 @@ namespace GuitarPractice.App.ViewModels;
 public sealed record RhythmTrainerSettings(
     string Meter = "4/4", string? Pattern = null, double Tempo = 80, int Bars = 2, bool ListenFirst = true,
     bool Click = true, double ClickVolume = 80, bool Drums = true, double DrumVolume = 70,
-    bool Score = true, string? DeviceName = null, int Channel = 0);
+    bool Score = true, string? DeviceName = null, int Channel = 0, bool Backbeat = false);
 
 /// <summary>A rhythm in the picker: "3 · Gallop".</summary>
 public sealed record RhythmChoice(RhythmPattern Pattern)
@@ -89,6 +89,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         SelectedBars = BarOptions.Contains(s.Bars) ? s.Bars : 2;
         ListenFirst = s.ListenFirst;
         Click = s.Click;
+        Backbeat = s.Backbeat;
         ClickVolume = Math.Clamp(s.ClickVolume, 0, 100);
         Drums = s.Drums;
         DrumVolume = Math.Clamp(s.DrumVolume, 0, 100);
@@ -114,7 +115,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     public ObservableCollection<RhythmChoice> Rhythms { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TempoLabel))]
+    [NotifyPropertyChangedFor(nameof(TempoLabel), nameof(CanBackbeat))]
     private Meter _selectedMeter = Meter.FourFour;
 
     [ObservableProperty]
@@ -143,6 +144,12 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
 
     [ObservableProperty]
     private double _clickVolume = 80;
+
+    /// <summary>Click only on 2 and 4 after the count-in (meters with an even number of beats; see <see cref="CanBackbeat"/>).</summary>
+    [ObservableProperty]
+    private bool _backbeat;
+
+    public bool CanBackbeat => RhythmTrainerEngine.CanBackbeat(SelectedMeter.Groups.Count);
 
     [ObservableProperty]
     private bool _drums = true;
@@ -252,6 +259,14 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
 
     partial void OnClickChanged(bool value) => PushLive();
     partial void OnClickVolumeChanged(double value) => PushLive();
+
+    partial void OnBackbeatChanged(bool value)
+    {
+        // The drums' snare is already on 2 and 4: turning the backbeat click on leaves you the click alone (Drums can go
+        // back on). Not when loading saved settings.
+        if (value && !_loading) Drums = false;
+        PushLive();
+    }
     partial void OnDrumsChanged(bool value) => PushLive();
     partial void OnDrumVolumeChanged(double value) => PushLive();
 
@@ -264,6 +279,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     {
         if (_engine is not { } e) return;
         e.ClickEnabled = Click;
+        e.Backbeat = Backbeat;
         e.ClickVolume = (float)(ClickVolume / 100.0);
         e.DrumsEnabled = Drums;
         e.DrumVolume = (float)(DrumVolume / 100.0);
@@ -533,7 +549,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         try
         {
             _settings.Set(SettingsKey, new RhythmTrainerSettings(SelectedMeter.Signature, Pattern?.Name, (double)(Tempo ?? 80), SelectedBars,
-                ListenFirst, Click, ClickVolume, Drums, DrumVolume, ScorePlaying, SelectedDevice?.Name, SelectedChannel?.Channel ?? 0));
+                ListenFirst, Click, ClickVolume, Drums, DrumVolume, ScorePlaying, SelectedDevice?.Name, SelectedChannel?.Channel ?? 0, Backbeat));
         }
 #pragma warning disable CA1031 // Losing a preference must not break the trainer.
         catch (Exception ex)
