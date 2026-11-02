@@ -41,7 +41,10 @@ public sealed record MusicKey(int Tonic, KeyMode Mode)
         }
     }
 
-    public string NoteName(int pitchClass) => (PrefersFlats ? Flats : Sharps)[((pitchClass % 12) + 12) % 12];
+    public string NoteName(int pitchClass) => NoteName(pitchClass, PrefersFlats);
+
+    /// <summary>Spelled with flats or sharps regardless of the key (a lowered or raised note outside it).</summary>
+    public static string NoteName(int pitchClass, bool flats) => (flats ? Flats : Sharps)[((pitchClass % 12) + 12) % 12];
 
     public string Name => $"{NoteName(PitchClass)} {(Mode == KeyMode.Major ? "major" : "minor")}";
 
@@ -103,8 +106,22 @@ public enum ChordType
     Ninth = 6,
 }
 
+/// <summary>Whose notes a chord is built from.</summary>
+public enum ChordSource
+{
+    /// <summary>The key's own (diatonic) notes.</summary>
+    Key = 0,
+
+    /// <summary>The parallel key's (same tonic, other mode): ♭VI, ♭VII, iv in major; IV, Picardy I in minor.</summary>
+    Borrowed = 1,
+
+    /// <summary>Minor keys: the harmonic minor's (raised 7th): V, V7, vii°, vii°7, III+, i(maj7).</summary>
+    HarmonicMinor = 2,
+}
+
 public static class MusicTheory
 {
+    private static readonly int[] HarmonicMinorSteps = [0, 2, 3, 5, 7, 8, 11];
     private static readonly string[] IntervalShort = ["P1", "m2", "M2", "m3", "M3", "P4", "TT", "P5", "m6", "M6", "m7", "M7", "P8"];
     private static readonly string[] IntervalLong =
     [
@@ -144,27 +161,59 @@ public static class MusicTheory
         ChordTones(key, degree, seventh ? ChordType.Seventh : ChordType.Triad);
 
     /// <summary>Semitones above the root of each tone of the <paramref name="type"/> chord built from the key's notes on <paramref name="degree"/>.</summary>
-    public static IReadOnlyList<int> ChordTones(MusicKey key, int degree, ChordType type)
+    public static IReadOnlyList<int> ChordTones(MusicKey key, int degree, ChordType type, ChordSource source = ChordSource.Key)
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentOutOfRangeException.ThrowIfNegative(degree);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(degree, 6);
-        var root = key.DegreeOffset(degree);
-        return [.. Steps(type).Select(step => key.DegreeOffset(degree + step) - root)];
+        var steps = SourceSteps(key, source);
+        var root = Offset(steps, degree);
+        return [.. Steps(type).Select(step => Offset(steps, degree + step) - root)];
     }
+
+    /// <summary>Semitones above the tonic of the root of the chord on <paramref name="degree"/> (lowered or raised for
+    /// a borrowed or harmonic-minor chord: ♭VI in C major is 8).</summary>
+    public static int RootOffset(MusicKey key, int degree, ChordSource source = ChordSource.Key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return Offset(SourceSteps(key, source), degree);
+    }
+
+    private static IReadOnlyList<int> SourceSteps(MusicKey key, ChordSource source) => source switch
+    {
+        ChordSource.Borrowed => new MusicKey(key.Tonic, key.Mode == KeyMode.Major ? KeyMode.Minor : KeyMode.Major).ScaleSteps,
+        ChordSource.HarmonicMinor => HarmonicMinorSteps,
+        _ => key.ScaleSteps,
+    };
+
+    private static int Offset(IReadOnlyList<int> steps, int degree) => steps[degree % 7] + 12 * (degree / 7);
 
     public static ChordQuality Quality(MusicKey key, int degree, bool seventh) =>
         Quality(key, degree, seventh ? ChordType.Seventh : ChordType.Triad);
 
-    public static ChordQuality Quality(MusicKey key, int degree, ChordType type) =>
-        QualityOf(ChordTones(key, degree, type))
+    public static ChordQuality Quality(MusicKey key, int degree, ChordType type, ChordSource source = ChordSource.Key) =>
+        QualityOf(ChordTones(key, degree, type, source))
         ?? throw new InvalidOperationException($"No {type} chord on degree {degree + 1} of {key?.Name}.");
 
     /// <summary>
     /// False where the key's notes don't make a real chord of that type (e.g. sus4 on IV in major: F–B–C; a 9th on iii:
-    /// E–G–B–D–F has a ♭9). Triads and sevenths exist on every degree.
+    /// E–G–B–D–F has a ♭9). Triads and sevenths exist on every degree. Borrowed and harmonic-minor chords are triads and
+    /// sevenths only, and only where they differ from the key's own chord on that degree (in minor, a borrowed chord the
+    /// harmonic minor already gives, like V, is left to the harmonic minor).
     /// </summary>
-    public static bool Exists(MusicKey key, int degree, ChordType type) => QualityOf(ChordTones(key, degree, type)) is not null;
+    public static bool Exists(MusicKey key, int degree, ChordType type, ChordSource source = ChordSource.Key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        if (source == ChordSource.Key) return QualityOf(ChordTones(key, degree, type)) is not null;
+        if (type is not (ChordType.Triad or ChordType.Seventh)) return false;
+        if (source == ChordSource.HarmonicMinor && key.Mode != KeyMode.Minor) return false;
+        if (QualityOf(ChordTones(key, degree, type, source)) is null || Same(key, degree, type, source, ChordSource.Key)) return false;
+        return !(source == ChordSource.Borrowed && key.Mode == KeyMode.Minor && Same(key, degree, type, source, ChordSource.HarmonicMinor));
+    }
+
+    private static bool Same(MusicKey key, int degree, ChordType type, ChordSource a, ChordSource b) =>
+        RootOffset(key, degree, a) == RootOffset(key, degree, b)
+        && ChordTones(key, degree, type, a).SequenceEqual(ChordTones(key, degree, type, b));
 
     /// <summary>The named chord these tones (semitones above the root) make, or null.</summary>
     private static ChordQuality? QualityOf(IReadOnlyList<int> t) => string.Join(",", t) switch
@@ -223,14 +272,17 @@ public static class MusicTheory
 
     /// <summary>
     /// Roman numeral in the key: I, ii, vii°, V7, Imaj7, iiø7, Vsus4, Iadd9, ii6, V9, vi9 … Upper case = major third;
-    /// sus chords (no third) take the case of the degree's triad.
+    /// sus chords (no third) take the case of the degree's triad. A borrowed chord's root lowered from the key's is
+    /// marked ♭ (♭VI, ♭VII7 in major), raised ♮ in minor (♮vi); harmonic-minor chords are written plain (V7, vii°).
     /// </summary>
-    public static string Numeral(MusicKey key, int degree, ChordType type)
+    public static string Numeral(MusicKey key, int degree, ChordType type, ChordSource source = ChordSource.Key)
     {
-        var quality = Quality(key, degree, type);
-        var minorThird = ChordTones(key, degree, ChordType.Triad)[1] == 3;
+        var quality = Quality(key, degree, type, source);
+        var minorThird = ChordTones(key, degree, ChordType.Triad, source)[1] == 3;
         var numeral = minorThird ? Numerals[degree].ToLowerInvariant() : Numerals[degree];
-        return numeral + quality switch
+        var shift = RootOffset(key, degree, source) - RootOffset(key, degree);
+        var accidental = shift < 0 ? "♭" : shift > 0 && source == ChordSource.Borrowed ? (key.Mode == KeyMode.Major ? "♯" : "♮") : "";
+        return accidental + numeral + quality switch
         {
             ChordQuality.Diminished => "°",
             ChordQuality.Augmented => "+",
@@ -254,12 +306,17 @@ public static class MusicTheory
     public static string ChordName(MusicKey key, int degree, bool seventh) =>
         ChordName(key, degree, seventh ? ChordType.Seventh : ChordType.Triad);
 
-    /// <summary>Chord symbol in the key's spelling: G7, Dm, Bdim, Cmaj7, Bm7b5, Gsus4, Dm(add9), Dm6, Cmaj9, Am9 …</summary>
-    public static string ChordName(MusicKey key, int degree, ChordType type)
+    /// <summary>
+    /// Chord symbol in the key's spelling: G7, Dm, Bdim, Cmaj7, Bm7b5, Gsus4, Dm(add9), Dm6, Cmaj9, Am9 … A root
+    /// lowered from the key's is spelled with a flat (Ab in C major), a raised one with a sharp (C#dim in D minor).
+    /// </summary>
+    public static string ChordName(MusicKey key, int degree, ChordType type, ChordSource source = ChordSource.Key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        var root = key.NoteName(key.PitchClass + key.DegreeOffset(degree));
-        return root + Quality(key, degree, type) switch
+        var offset = RootOffset(key, degree, source);
+        var shift = offset - RootOffset(key, degree);
+        var root = shift == 0 ? key.NoteName(key.PitchClass + offset) : MusicKey.NoteName(key.PitchClass + offset, flats: shift < 0);
+        return root + Quality(key, degree, type, source) switch
         {
             ChordQuality.Major => "",
             ChordQuality.Minor => "m",

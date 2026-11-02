@@ -182,6 +182,10 @@ scrolled so today is in view.
   synthesised plucked string, in tune to ±2 cents.
   - More chord types built from the key's notes, offered only on the degrees where they're real chords: sus2, sus4,
     add9, 6th and 9th chords (e.g. in C major Vsus4 but no IVsus4).
+  - Chords from outside the key: **borrowed** from the parallel key (in C major iv, ♭III, ♭VI, ♭VII and their
+    sevenths; in minor I, IV, ♮vi …) and, in minor keys, the **harmonic minor**'s (V, V7, vii°, vii°7, III+, i(maj7)).
+  - **Ask the ones I miss more often** (on by default) weights the questions by your all-time results: an item you
+    usually miss comes up 3–4 times as often as one you always get; none drops out.
   - *Melodies* (dictation): hear a 3–8 note melody in the key (after the key chord) and write it down with the degree
     buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
   - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
