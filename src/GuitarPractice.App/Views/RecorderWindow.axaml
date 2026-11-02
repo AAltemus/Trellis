@@ -175,11 +175,18 @@
             <Button Classes="accent" Content="{Binding LooperStartText}" Command="{Binding LooperStartStopCommand}" MinWidth="100" Margin="0,0,8,6"
                     ToolTip.Tip="One bar of count-in, then the loop plays (with the click)" />
             <Button Content="● Record layer" Command="{Binding RecordLayerCommand}" Margin="0,0,8,6" Foreground="White" Background="#C62828"
-                    ToolTip.Tip="Records the next whole pass as a new layer (starts the loop if it's stopped). Press again while recording to record the pass after it too." />
+                    ToolTip.Tip="Records the next whole pass (or as many as set below) as a new layer (starts the loop if it's stopped). Press again while recording to record the layer after it too." />
             <Button Content="↶ Undo layer" Command="{Binding UndoLayerCommand}" Margin="0,0,8,6" />
             <Button Content="Clear" Command="{Binding ClearLayersCommand}" Margin="0,0,8,6" />
             <Button Content="Save as take" Command="{Binding SaveLoopCommand}" Margin="0,0,8,6"
-                    ToolTip.Tip="Mixes the layers into one take in the Takes list" />
+                    ToolTip.Tip="Mixes the layers (at their volumes) into one take in the Takes list, as long as the longest layer" />
+          </WrapPanel>
+          <WrapPanel>
+            <TextBlock Text="New layers last" VerticalAlignment="Center" Margin="0,0,6,6" />
+            <ComboBox ItemsSource="{Binding LooperPassOptions}" SelectedItem="{Binding SelectedLooperPasses}" Margin="0,0,18,6"
+                      ToolTip.Tip="A layer longer than the loop (e.g. a solo over a 4-bar chord loop) plays its passes in turn" />
+            <CheckBox Content="Count in before recording" IsChecked="{Binding LooperCountInBeforeRecording}" Margin="0,0,0,6"
+                      ToolTip.Tip="The bar before a recording clicks at count-in volume, even with the click off" />
           </WrapPanel>
 
           <Border Padding="12,10" CornerRadius="8" Background="#14808080">
@@ -198,6 +205,20 @@
             <TextBlock Text="{Binding LooperVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" Margin="6,0,0,0" />
           </WrapPanel>
 
+          <!-- One row per layer: its own volume and mute -->
+          <ItemsControl ItemsSource="{Binding LooperLayers}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LooperLayerViewModel">
+                <Grid ColumnDefinitions="170,180,50,Auto" Margin="0,2">
+                  <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
+                  <Slider Grid.Column="1" Minimum="0" Maximum="150" Value="{Binding Volume}" IsEnabled="{Binding !IsMuted}" />
+                  <TextBlock Grid.Column="2" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  <CheckBox Grid.Column="3" Content="Mute" IsChecked="{Binding IsMuted}" Margin="12,0,0,0" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
           <!-- Latency: measured once, fine-tuned by ear -->
           <Border Padding="12,10" CornerRadius="8" Background="#14808080">
             <StackPanel Spacing="6">
@@ -212,6 +233,9 @@
               </WrapPanel>
               <TextBlock Text="{Binding CalibrationStatus}" TextWrapping="Wrap" FontSize="12"
                          IsVisible="{Binding CalibrationStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+              <TextBlock Classes="caption" Opacity="0.75" FontSize="12" TextWrapping="Wrap"
+                         Text="{Binding LooperRoute, StringFormat='Plays through: {0}. The looper uses the output set in Tools → Metronome → Output when that is on the input’s driver (else it looks for the same input on the output’s driver); calibrate again after changing it.'}"
+                         IsVisible="{Binding LooperRoute, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             </StackPanel>
           </Border>
 

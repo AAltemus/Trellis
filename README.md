@@ -161,8 +161,11 @@ scrolled so today is in view.
     Progress lists each day's takes with an **Open** button. Takes are WAV files in
     `%LOCALAPPDATA%\GuitarPractice\recordings`.
   - *Looper*: a loop of 1–16 bars at a tempo, with its own click and a one-bar count-in. **● Record layer** records the
-    next whole pass as a layer (up to 8; press again while recording to record the pass after it too), **Undo layer**,
-    **Clear**, **Save as take** mixes the layers into a take. **Calibrate** measures your setup's round-trip latency
+    next whole pass as a layer (up to 8; press again while recording to record the layer after it too), or 2 or 4
+    passes for a layer longer than the loop (a solo over a short chord loop: its passes play in turn). The bar before a
+    recording counts in, even with the click off. Each layer has its own volume and **Mute**; **Undo layer**,
+    **Clear**, **Save as take** mixes the layers into a take. It plays through the Metronome's output when that's on
+    the input's driver. **Calibrate** measures your setup's round-trip latency
     once (8 clicks out, heard back on the input: pickups or a mic near the speakers, a cable, or an interface loopback
     input) so layers land on the beat; a slider fine-tunes it.
   - To hear yourself while playing along, use your interface's direct monitoring (the app doesn't route the live input

@@ -4,6 +4,7 @@ public class LooperTests
 {
     private const int Rate = 48_000;
     private const int Block = 256;
+    private static readonly Dictionary<long, float> NoNotes = [];
 
     /// <summary>
     /// Runs the looper like the duplex stream: the "player" plays <paramref name="notes"/> (absolute heard-time sample →
@@ -179,5 +180,109 @@ public class LooperTests
         var silent = LatencyProbe.Analyze(new float[Rate * 4], [Rate / 2, Rate, Rate * 3 / 2], Rate);
         Assert.Null(silent.LatencySamples);
         Assert.Contains("Heard only 0", silent.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Each_layer_has_its_own_gain_and_mute_in_playback_and_mix_down()
+    {
+        var looper = new Looper(Rate, 120, 4, 1) { ClickEnabled = false };
+        var countIn = looper.CountInLength;
+        var loop = looper.LoopLength;
+        looper.Start();
+        looper.ArmRecord();
+        var notes = new Dictionary<long, float> { [countIn + 5_000] = 0.4f };
+        var played = Run(looper, (countIn + 2 * loop) / (double)Rate, 0, notes);
+        Assert.Equal(1, looper.LayerCount);
+
+        looper.SetLayerGain(0, 0f);                           // muted
+        played = Run(looper, loop / (double)Rate, 0, NoNotes);
+        Assert.Equal(-1, FirstAbove(played, 0, 0.01f));
+        looper.SetLayerGain(0, 0.5f);
+        played = Run(looper, loop / (double)Rate, 0, NoNotes);
+        Assert.InRange(played.Max(), 0.19f, 0.21f);
+        Assert.InRange(looper.MixDown()!.Max(), 0.19f, 0.21f);
+    }
+
+    [Fact]
+    public void The_bar_before_an_armed_layer_counts_in_even_with_the_click_off()
+    {
+        foreach (var countInToRecord in new[] { true, false })
+        {
+            var looper = new Looper(Rate, 120, 4, 2) { ClickEnabled = false, CountInBeforeRecording = countInToRecord };
+            var countIn = looper.CountInLength;
+            var bar = countIn;
+            looper.Start();
+            var armed = false;
+            var played = Run(looper, (countIn + 2 * looper.LoopLength) / (double)Rate, 0, NoNotes, s =>
+            {
+                if (!armed && s > countIn + 1_000) armed = looper.ArmRecord();   // pass 1 records
+            });
+
+            Assert.True(armed);
+            Assert.Equal(-1, FirstAbove(played.AsSpan(0, (int)(countIn + bar)).ToArray(), countIn, 0.05f)); // bar 1 of pass 0: quiet
+            var countdown = FirstAbove(played, countIn + bar, 0.05f);
+            if (countInToRecord)
+            {
+                Assert.InRange(countdown, countIn + bar, countIn + bar + 48);  // bar 2 clicks on its beat 1…
+                for (var beat = 1; beat < 4; beat++)                           // …and every beat after
+                    Assert.InRange(FirstAbove(played, countIn + bar + beat * Rate / 2, 0.05f), countIn + bar + beat * Rate / 2,
+                        countIn + bar + beat * Rate / 2 + 48);
+                Assert.Equal(-1, FirstAbove(played, countIn + looper.LoopLength + 2_000, 0.05f)); // quiet while it records
+            }
+            else
+            {
+                Assert.Equal(-1, countdown);
+            }
+        }
+    }
+
+    [Fact]
+    public void A_layer_can_span_two_passes_and_plays_them_in_turn()
+    {
+        var looper = new Looper(Rate, 120, 4, 1) { ClickEnabled = false };
+        var countIn = looper.CountInLength;
+        var loop = looper.LoopLength;
+        Assert.False(looper.ArmRecord(3));
+        looper.Start();
+        var armed = false;
+        // Recorded over passes 1 and 2 (armed during pass 0): a different note in each.
+        var notes = new Dictionary<long, float> { [countIn + loop + 5_000] = 0.3f, [countIn + 2 * loop + 20_000] = 0.3f };
+        var played = Run(looper, (countIn + 5 * loop) / (double)Rate, 0, notes, s =>
+        {
+            if (!armed && s > countIn + 1_000) armed = looper.ArmRecord(2);
+        });
+
+        Assert.True(armed);
+        Assert.Equal(1, looper.LayerCount);
+        Assert.Equal(2, looper.LayerPasses(0));
+        var pass3 = countIn + 3 * loop;
+        Assert.Equal(pass3 + 5_000, FirstAbove(played, pass3, 0.25f));       // pass 3: the layer's first pass
+        Assert.Equal(pass3 + loop + 20_000, FirstAbove(played, pass3 + 6_000, 0.25f)); // pass 4: its second
+        var mix = looper.MixDown()!;
+        Assert.Equal(2 * loop, mix.Length);
+        Assert.Equal(5_000, Array.FindIndex(mix, v => v > 0.25f));
+
+        // Restarted, the loop plays the long layer from its start.
+        looper.Stop();
+        Run(looper, 0.01, 0, NoNotes);
+        looper.Start();
+        played = Run(looper, (countIn + loop) / (double)Rate, 0, NoNotes);
+        Assert.Equal(countIn + 5_000, FirstAbove(played, countIn, 0.25f));
+
+        // A long loop can't take layers past five minutes.
+        var longLoop = new Looper(Rate, 30, 7, 16);
+        Assert.Equal(1, longLoop.MaxPassesPerLayer);
+        Assert.False(longLoop.ArmRecord(2));
+    }
+
+    [Theory]
+    [InlineData("Loopback 1 L/R (3- SSL 2 USB Au", "Loopback 1 L/R (3- SSL 2 USB Audio Device)", true)]
+    [InlineData("Input 1 (SSL 2)", "Input 1 (SSL 2)", true)]
+    [InlineData("Input", "Input 1 (3- SSL 2 USB Audio Device)", false)]
+    [InlineData("Input 1 (3- SSL 2 USB Au", "Input 2 (3- SSL 2 USB Audio Device)", false)]
+    public void The_same_input_is_found_on_another_driver_by_name(string a, string b, bool same)
+    {
+        Assert.Equal(same, PortAudioDuplex.SameDeviceName(a, b));
+        Assert.Equal(same, PortAudioDuplex.SameDeviceName(b, a));
     }
 }

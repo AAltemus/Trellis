@@ -20,7 +20,10 @@ public sealed record AudioDeviceInfo(
     string Id, string Name, int MaxChannels, double DefaultSampleRate, bool IsDefault, double LatencySeconds = 0, int Driver = -1);
 
 /// <param name="Channel">Capture only: 0 = mix all input channels to mono, n = use input channel n (1-based).</param>
-public sealed record AudioStreamOptions(string? DeviceId = null, int SampleRate = 48_000, int FramesPerBuffer = 256, int Channel = 0);
+/// <param name="OutputDeviceId">Duplex only: the output to play through (null = the default output; see
+/// <see cref="IAudioDuplex.Start"/>).</param>
+public sealed record AudioStreamOptions(
+    string? DeviceId = null, int SampleRate = 48_000, int FramesPerBuffer = 256, int Channel = 0, string? OutputDeviceId = null);
 
 public interface IAudioInput : IDisposable
 {
@@ -78,7 +81,8 @@ public interface IAudioDuplex : IDisposable
     bool IsRunning { get; }
 
     /// <summary>Opens the input <see cref="AudioStreamOptions.DeviceId"/> (channel as for capture) with an output on
-    /// the same driver (the default output when it's on that driver).</summary>
+    /// the same driver: <see cref="AudioStreamOptions.OutputDeviceId"/> when given (if it's on another driver, the same
+    /// input on that driver), else the default output when it's on that driver.</summary>
     void Start(AudioStreamOptions options, AudioDuplexCallback callback);
 
     void Stop();
