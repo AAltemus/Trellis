@@ -98,7 +98,7 @@
       <StackPanel Grid.Column="2" HorizontalAlignment="Center">
         <TextBlock Text="{Binding BpmText}" FontSize="56" FontWeight="SemiBold" HorizontalAlignment="Center"
                    FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
-        <TextBlock Text="BPM" Classes="caption" HorizontalAlignment="Center" Margin="0,-6,0,0" />
+        <TextBlock Text="{Binding BpmCaption}" Classes="caption" HorizontalAlignment="Center" Margin="0,-6,0,0" />
       </StackPanel>
       <Button Grid.Column="3" Content="+1" Command="{Binding AdjustBpmCommand}" CommandParameter="1" MinWidth="44" Margin="0,0,6,0" />
       <Button Grid.Column="4" Content="+5" Command="{Binding AdjustBpmCommand}" CommandParameter="5" MinWidth="44" />
