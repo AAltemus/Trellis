@@ -50,7 +50,7 @@ public class WavFileTests
     }
 
     [Fact]
-    public void Broken_or_crafted_headers_are_refused_without_hanging_or_huge_allocations()
+    public async Task Broken_or_crafted_headers_are_refused_without_hanging_or_huge_allocations()
     {
         // A chunk whose size reads as -8 (0xFFFFFFF8) used to send ReadInfo back to the same header forever (the
         // Recorder reads every WAV in its folder when it opens). Now the size is unsigned and clamped to the file.
@@ -61,8 +61,9 @@ public class WavFileTests
         {
             File.WriteAllBytes(path, crafted);
             var info = Task.Run(() => Record.Exception(() => WavFile.ReadInfo(path)));
-            Assert.True(info.Wait(TimeSpan.FromSeconds(10)), "ReadInfo must not hang on a negative chunk size");
-            Assert.IsType<InvalidDataException>(info.Result);
+            // ReadInfo must not hang on a negative chunk size.
+            Assert.Same(info, await Task.WhenAny(info, Task.Delay(TimeSpan.FromSeconds(10))));
+            Assert.IsType<InvalidDataException>(await info);
         }
         finally
         {
