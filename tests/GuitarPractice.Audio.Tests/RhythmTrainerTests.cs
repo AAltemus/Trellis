@@ -338,4 +338,34 @@ public class RhythmTrainerTests
         var output = new float[256];
         Allocations.AssertNone(() => engine.Process(input, output));
     }
+
+    [Fact]
+    public void A_two_bar_rhythm_is_heard_whole_and_played_a_whole_number_of_times()
+    {
+        // A quarter on beat 1 of bar 1 and on beat 3 of bar 2. Count-in 1 bar, listen 2 bars, play 3 → rounded down to 2.
+        RhythmTrainerPlan Plan(int bars) => new(SecondsPerTick, 4 * Q, [0, Q, 2 * Q, 3 * Q], [0, 6 * Q], [Q, Q],
+            ListenFirst: true, PlayBars: bars, PatternBars: 2);
+        var engine = new RhythmTrainerEngine(Rate, Plan(3)) { ClickEnabled = false, DrumsEnabled = false };
+        Assert.Equal((2, 2), (engine.ListenBars, engine.PlayBars));
+        Assert.Equal(engine.At(3, 0), engine.PlayStart);                 // count-in + two listen bars = 6 s
+        Assert.Equal(2, new RhythmTrainerEngine(Rate, Plan(1)).PlayBars); // never less than once through
+
+        var output = Run(engine);
+        var listen = SoundStarts(output, 2 * Rate, 6 * Rate).Select(t => Math.Round(t, 2)).ToList();
+        Assert.Equal([2.0, 5.0], listen);                                 // both notes, across both bars
+        Assert.Empty(SoundStarts(output, (int)(6.6 * Rate), 10 * Rate));  // your bars: silent (click and drums off)
+    }
+
+    [Fact]
+    public void A_busy_bar_of_clicks_and_drums_never_cuts_the_rhythm_off()
+    {
+        // 12/8: 4 clicks + 12 hi-hats + 4 kick/snare = 20 sounds a bar, more than the 16 voices. A note on the last 8th.
+        const int eighth = Q / 2;
+        var plan = new RhythmTrainerPlan(SecondsPerTick, 12 * eighth, [0, 3 * eighth, 6 * eighth, 9 * eighth], [0, 11 * eighth], [eighth, eighth],
+            ListenFirst: true, PlayBars: 1, HatTicks: eighth);
+        var engine = new RhythmTrainerEngine(Rate, plan) { ClickEnabled = false, DrumsEnabled = false }; // silent, but still sounding
+        var output = Run(engine);
+        var bar = 3 * Rate;                                                   // 12 eighths at 120 BPM per quarter = 3 s
+        Assert.Equal([3.0, 5.75], SoundStarts(output, bar, 2 * bar).Select(t => Math.Round(t, 2)));
+    }
 }

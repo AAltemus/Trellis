@@ -190,12 +190,22 @@ scrolled so today is in view.
     buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
   - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
 - **Rhythm Trainer…** (Ctrl+Y): read and play rhythms in 4/4, 3/4, 2/4, 6/8, 9/8, 12/8 and the odd meters 5/4, 7/4,
-  5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in one-bar rhythms from level 1 (quarters, eighths) to 5 (dotted
+  5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in rhythms from level 1 (quarters, eighths) to 5 (dotted
   notes, ties across the beat, rests, syncopation such as the Charleston, tresillo and sixteenth pushes, triplets, quintuplets, sextuplets, 32nds), shown as rhythm
-  notation with the beats numbered. A take is a count-in bar, the rhythm played once for you as a muted power chord
-  (optional), then 1–8 bars for you over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8;
+  notation with the beats numbered; a few span two bars (call and answer, the 3-2 son clave, a push tied into bar 2).
+  A take is a count-in bar, the rhythm played once for you as a muted power chord
+  (optional), then 1–8 bars for you (a whole number of times through a longer rhythm) over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8;
   or **only on 2 and 4** after the count-in, in meters with an even number of beats)
   and a kick/snare/hi-hat groove, each with its own volume. Tempo is the meter's note value (♩ in x/4, ♪ in x/8).
+  It plays through the Metronome's output, or one picked in **Output**.
+  - **New random** makes up a one-bar rhythm at a level (1–5) in the meter, from the same building blocks as the
+    built-in ones; it stays in the list until the next one.
+  - **Your own rhythms**: type one in the text syntax (`w h q e s t`, `.` dot, `r` rest, `~` tie, `[3 e e e]`
+    tuplets, `|` between up to 4 bars), checked as you type ("bar 2's notes add up to 3 beats of 4"), name it and
+    **Add**: it's listed with a ★ for that meter. The selected rhythm's text is shown there to copy or tweak (keep a
+    random one you like); **Delete** asks first.
+  - **♪ Rhythm** on a Rhythm item of the week (or Ctrl+Shift+Y) opens the trainer for it: **Log score** goes to that
+    item's notes for its day.
   - **Score my playing** records your input during your bars on the same stream as the click, compensating the
     latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm: full marks within
     20 ms of where it should be, less up to the window's edge (100 ms, narrower for fast rhythms), missed notes and

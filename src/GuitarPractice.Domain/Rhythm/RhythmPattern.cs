@@ -52,17 +52,22 @@ public sealed record RhythmNote(NoteLength Length, int Dots = 0, bool IsRest = f
 }
 
 /// <summary>
-/// One bar of rhythm in a meter. The notes you play are the <see cref="Onsets"/>: every note that isn't a rest and isn't
-/// the continuation of a tie. Built from a compact text (see <see cref="Parse"/>); the notes must fill the bar exactly.
+/// One or more bars of rhythm in a meter. The notes you play are the <see cref="Onsets"/>: every note that isn't a rest
+/// and isn't the continuation of a tie. Built from a compact text (see <see cref="Parse"/>); the notes must fill each bar
+/// exactly.
 /// </summary>
 public sealed class RhythmPattern
 {
-    private RhythmPattern(string name, int level, Meter meter, IReadOnlyList<RhythmNote> notes)
+    public const int MaxBars = 4;
+
+    private RhythmPattern(string name, int level, Meter meter, IReadOnlyList<RhythmNote> notes, int bars, string text)
     {
         Name = name;
         Level = level;
         Meter = meter;
         Notes = notes;
+        Bars = bars;
+        Text = text;
         var onsets = new List<int>();
         var tiedIn = false;
         foreach (var n in notes)
@@ -75,14 +80,23 @@ public sealed class RhythmPattern
 
     public string Name { get; }
 
-    /// <summary>1 (basic) … 5 (hardest).</summary>
+    /// <summary>1 (basic) … 5 (hardest); 0 for your own.</summary>
     public int Level { get; }
 
     public Meter Meter { get; }
 
     public IReadOnlyList<RhythmNote> Notes { get; }
 
-    /// <summary>Ticks (from the bar start) of the notes to play, in order.</summary>
+    /// <summary>How many bars the rhythm spans (1–<see cref="MaxBars"/>).</summary>
+    public int Bars { get; }
+
+    /// <summary>The whole rhythm in ticks (<see cref="Bars"/> bars).</summary>
+    public int Length => Bars * Meter.BarTicks;
+
+    /// <summary>The text it was written as (<see cref="Parse"/>).</summary>
+    public string Text { get; }
+
+    /// <summary>Ticks (from the first bar's start) of the notes to play, in order.</summary>
     public IReadOnlyList<int> Onsets { get; }
 
     /// <summary>Which note in <see cref="Notes"/> each onset is.</summary>
@@ -95,59 +109,105 @@ public sealed class RhythmPattern
     }
 
     public override string ToString() => $"{Name} ({Meter.Signature})";
-
     /// <summary>
     /// Space-separated symbols: <c>w h q e s t</c> = whole, half, quarter, 8th, 16th, 32nd; a trailing <c>.</c> per
-    /// dot; an <c>r</c> in front for a rest (<c>rq</c>); a trailing <c>~</c> ties to the next note (<c>e~</c>); and
-    /// <c>[3 e e e]</c> for a tuplet (3, 5, 6 or 7 notes in the time of 2, 4, 4 or 4). Example (4/4):
-    /// <c>q e. s [3 e e e] q</c>. Throws <see cref="FormatException"/> on bad input or when the bar isn't filled exactly.
+    /// dot; an <c>r</c> in front for a rest (<c>rq</c>); a trailing <c>~</c> ties to the next note (<c>e~</c>, also
+    /// across a bar line); <c>[3 e e e]</c> for a tuplet (3, 5, 6 or 7 notes in the time of 2, 4, 4 or 4); and <c>|</c>
+    /// between bars (up to <see cref="MaxBars"/>). Example (4/4): <c>q e. s [3 e e e] q | h q q</c>. Throws
+    /// <see cref="FormatException"/> on bad input or when a bar isn't filled exactly (for text being typed, use
+    /// <see cref="TryParse"/>, which doesn't throw).
     /// </summary>
-    public static RhythmPattern Parse(string name, int level, Meter meter, string text)
+    public static RhythmPattern Parse(string name, int level, Meter meter, string text) =>
+        TryParse(name, level, meter, text, out var pattern, out var error) ? pattern! : throw new FormatException($"{name}: {error}");
+
+    /// <summary>As <see cref="Parse"/>, but says what's wrong in <paramref name="error"/> ("bar 2's notes add up to …")
+    /// instead of throwing.</summary>
+    public static bool TryParse(string name, int level, Meter meter, string text, out RhythmPattern? pattern, out string? error)
     {
         ArgumentNullException.ThrowIfNull(meter);
         ArgumentNullException.ThrowIfNull(text);
+        pattern = null;
+        error = Build(name, level, meter, text, ref pattern);
+        return error is null;
+    }
+
+    private static readonly char[] Spaces = [' ', '\t', '\r', '\n'];
+
+    private static string? Build(string name, int level, Meter meter, string text, ref RhythmPattern? pattern)
+    {
         var notes = new List<RhythmNote>();
+        var barEnds = new List<int>();      // note count at each "|"
         var tokens = text.Replace("[", " [ ", StringComparison.Ordinal).Replace("]", " ] ", StringComparison.Ordinal)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            .Replace("|", " | ", StringComparison.Ordinal)
+            .Split(Spaces, StringSplitOptions.RemoveEmptyEntries);
         Tuplet? tuplet = null;
         var groups = 0;
         for (var i = 0; i < tokens.Length; i++)
         {
             var token = tokens[i];
+            if (token == "|")
+            {
+                if (tuplet is not null) return "a tuplet can't cross a bar line.";
+                barEnds.Add(notes.Count);
+                continue;
+            }
             if (token == "[")
             {
                 if (tuplet is not null || i + 1 >= tokens.Length || !int.TryParse(tokens[i + 1], NumberStyles.None, CultureInfo.InvariantCulture, out var actual))
-                    throw new FormatException($"{name}: a tuplet starts with its count, like [3 e e e].");
-                var normal = actual switch { 3 => 2, 5 or 6 or 7 => 4, _ => throw new FormatException($"{name}: {actual}-tuplets aren't supported.") };
-                tuplet = new Tuplet(actual, normal, groups++);
+                    return "a tuplet starts with its count, like [3 e e e].";
+                int? normal = actual switch { 3 => 2, 5 or 6 or 7 => 4, _ => null };
+                if (normal is null) return $"{actual}-tuplets aren't supported (3, 5, 6 or 7).";
+                tuplet = new Tuplet(actual, normal.Value, groups++);
                 i++;
                 continue;
             }
             if (token == "]")
             {
-                if (tuplet is null) throw new FormatException($"{name}: ']' without '['.");
+                if (tuplet is null) return "']' without '['.";
                 tuplet = null;
                 continue;
             }
-            notes.Add(ParseNote(name, token, tuplet));
+            if (ParseNote(token, tuplet, out var note) is { } bad) return bad;
+            notes.Add(note!);
         }
-        if (tuplet is not null) throw new FormatException($"{name}: unclosed tuplet.");
+        if (tuplet is not null) return "unclosed tuplet.";
+        barEnds.Add(notes.Count);
+        if (barEnds.Count > MaxBars) return $"at most {MaxBars} bars.";
+        if (notes.Count == 0) return "no notes.";
 
         var at = 0;
-        for (var i = 0; i < notes.Count; i++)
+        var from = 0;
+        for (var bar = 0; bar < barEnds.Count; bar++)
         {
-            var ticks = notes[i].ComputeTicks();
-            notes[i] = notes[i] with { Start = at, Ticks = ticks };
-            at += ticks;
+            var barStart = at;
+            for (var i = from; i < barEnds[bar]; i++)
+            {
+                var ticks = notes[i].ComputeTicks();
+                notes[i] = notes[i] with { Start = at, Ticks = ticks };
+                at += ticks;
+            }
+            from = barEnds[bar];
+            if (at - barStart != meter.BarTicks)
+                return $"{(barEnds.Count > 1 ? $"bar {bar + 1}'s" : "the")} notes add up to {at - barStart} ticks; a {meter.Signature} bar is {meter.BarTicks} " +
+                       $"({BeatsText(at - barStart, meter)} of {BeatsText(meter.BarTicks, meter)}).";
         }
-        if (at != meter.BarTicks)
-            throw new FormatException($"{name}: the notes add up to {at} ticks; a {meter.Signature} bar is {meter.BarTicks}.");
-        if (notes.Count > 0 && notes[^1].TiedToNext) throw new FormatException($"{name}: the last note can't be tied.");
-        return new RhythmPattern(name, level, meter, notes);
+        if (notes[^1].TiedToNext) return "the last note can't be tied.";
+        pattern = new RhythmPattern(name, level, meter, notes, barEnds.Count, string.Join(' ', text.Split(Spaces, StringSplitOptions.RemoveEmptyEntries)));
+        return null;
     }
 
-    private static RhythmNote ParseNote(string name, string token, Tuplet? tuplet)
+    /// <summary>"3.5 beats" in the meter's unit (quarters in x/4, eighths in x/8).</summary>
+    private static string BeatsText(int ticks, Meter meter)
     {
+        var units = (double)ticks / meter.UnitTicks;
+        var word = meter.Denominator == 8 ? "eighth" : "beat";
+        return $"{units.ToString("0.##", CultureInfo.InvariantCulture)} {word}{(Math.Abs(units - 1) < 1e-9 ? "" : "s")}";
+    }
+
+    /// <summary>One symbol ("e.", "rq", "s~"); the error, or null with <paramref name="note"/> set.</summary>
+    private static string? ParseNote(string token, Tuplet? tuplet, out RhythmNote? note)
+    {
+        note = null;
         var s = token;
         var rest = s.StartsWith('r');
         if (rest) s = s[1..];
@@ -159,7 +219,7 @@ public sealed class RhythmPattern
             dots++;
             s = s[..^1];
         }
-        var length = s switch
+        NoteLength? length = s switch
         {
             "w" => NoteLength.Whole,
             "h" => NoteLength.Half,
@@ -167,9 +227,11 @@ public sealed class RhythmPattern
             "e" => NoteLength.Eighth,
             "s" => NoteLength.Sixteenth,
             "t" => NoteLength.ThirtySecond,
-            _ => throw new FormatException($"{name}: '{token}' isn't a note (w h q e s t, r for a rest, . for a dot, ~ for a tie)."),
+            _ => null,
         };
-        if (rest && tie) throw new FormatException($"{name}: a rest can't be tied ('{token}').");
-        return new RhythmNote(length, dots, rest, tie, tuplet);
+        if (length is null) return $"'{token}' isn't a note (w h q e s t, r for a rest, . for a dot, ~ for a tie, | between bars).";
+        if (rest && tie) return $"a rest can't be tied ('{token}').";
+        note = new RhythmNote(length.Value, dots, rest, tie, tuplet);
+        return null;
     }
 }

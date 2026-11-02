@@ -19,10 +19,11 @@ public enum NoteMarkKind
 public sealed record NoteMark(int NoteIndex, NoteMarkKind Kind, string Label);
 
 /// <summary>
-/// One bar of rhythm as single-line (percussion-style) notation: noteheads, stems, flags, beams grouped by the meter's
-/// beats (tuplets beamed on their own), dots, ties, rests and tuplet numbers, with the beats numbered under the line.
-/// Notes are spaced by their time (a half note takes twice the room of a quarter), so the picture is also a timeline:
-/// <see cref="PlayheadTick"/> draws where the take is. <see cref="Marks"/> colour notes after a take.
+/// A rhythm (one bar or a few) as single-line (percussion-style) notation: noteheads, stems, flags, beams grouped by the
+/// meter's beats (tuplets beamed on their own; never across a bar line), dots, ties, rests, tuplet numbers and bar
+/// lines, with each bar's beats numbered under the line. Notes are spaced by their time (a half note takes twice the
+/// room of a quarter), so the picture is also a timeline: <see cref="PlayheadTick"/> draws where the take is.
+/// <see cref="Marks"/> colour notes after a take.
 /// </summary>
 public sealed class RhythmNotationView : Control
 {
@@ -32,7 +33,7 @@ public sealed class RhythmNotationView : Control
     public static readonly StyledProperty<IReadOnlyList<NoteMark>?> MarksProperty =
         AvaloniaProperty.Register<RhythmNotationView, IReadOnlyList<NoteMark>?>(nameof(Marks));
 
-    /// <summary>Tick within the bar to draw the playhead at; negative = none.</summary>
+    /// <summary>Tick within the rhythm (from its first bar) to draw the playhead at; negative = none.</summary>
     public static readonly StyledProperty<double> PlayheadTickProperty =
         AvaloniaProperty.Register<RhythmNotationView, double>(nameof(PlayheadTick), -1);
 
@@ -49,7 +50,7 @@ public sealed class RhythmNotationView : Control
     private const double StaffY = 84;
     private const double StemLength = 34;
     private const double BeamGap = 6;
-    private const double Margin = 22;
+    private const double Pad = 22;
 
     static RhythmNotationView()
     {
@@ -90,7 +91,7 @@ public sealed class RhythmNotationView : Control
         new(double.IsInfinity(availableSize.Width) ? 600 : availableSize.Width, 128);
 
     /// <summary>X of a note (or beat) starting at <paramref name="tick"/>; notes sit a little after their start.</summary>
-    private double X(double tick, RhythmPattern p) => Margin + 10 + tick / p.Meter.BarTicks * (Bounds.Width - 2 * Margin - 16);
+    private double X(double tick, RhythmPattern p) => Pad + 10 + tick / p.Length * (Bounds.Width - 2 * Pad - 16);
 
     public override void Render(DrawingContext context)
     {
@@ -98,15 +99,24 @@ public sealed class RhythmNotationView : Control
         var ink = Ink ?? Brushes.Gray;
         var pen = new Pen(ink, 1.4);
         var width = Bounds.Width;
-        context.DrawLine(pen, new Point(Margin - 6, StaffY), new Point(width - Margin + 6, StaffY));
-        context.DrawLine(new Pen(ink, 1.6), new Point(Margin - 6, StaffY - 14), new Point(Margin - 6, StaffY + 14));
-        context.DrawLine(new Pen(ink, 1.6), new Point(width - Margin + 6, StaffY - 14), new Point(width - Margin + 6, StaffY + 14));
+        context.DrawLine(pen, new Point(Pad - 6, StaffY), new Point(width - Pad + 6, StaffY));
+        context.DrawLine(new Pen(ink, 1.6), new Point(Pad - 6, StaffY - 14), new Point(Pad - 6, StaffY + 14));
+        context.DrawLine(new Pen(ink, 1.6), new Point(width - Pad + 6, StaffY - 14), new Point(width - Pad + 6, StaffY + 14));
         if (Pattern is not { } p) return;
 
-        // Beat numbers (one per click) under the line.
+        // Beat numbers (one per click) under the line, each bar from 1; bar lines between bars.
         var beats = p.Meter.BeatTicks;
-        for (var b = 0; b < beats.Count; b++)
-            DrawText(context, (b + 1).ToString(CultureInfo.InvariantCulture), X(beats[b], p), StaffY + 30, ink, 12, b == 0);
+        for (var bar = 0; bar < p.Bars; bar++)
+        {
+            var barStart = bar * p.Meter.BarTicks;
+            for (var b = 0; b < beats.Count; b++)
+                DrawText(context, (b + 1).ToString(CultureInfo.InvariantCulture), X(barStart + beats[b], p), StaffY + 30, ink, 12, b == 0);
+            if (bar > 0)
+            {
+                var x = X(barStart, p) - 13;
+                context.DrawLine(new Pen(ink, 1.4), new Point(x, StaffY - 14), new Point(x, StaffY + 14));
+            }
+        }
 
         var marks = (Marks ?? []).ToDictionary(m => m.NoteIndex);
         var notes = p.Notes;
@@ -157,7 +167,7 @@ public sealed class RhythmNotationView : Control
         DrawBeams(context, p, beamGroups, stemTop, ink);
         DrawTuplets(context, p, beamGroups, stemTop, ink);
 
-        if (PlayheadTick >= 0 && PlayheadTick <= p.Meter.BarTicks)
+        if (PlayheadTick >= 0 && PlayheadTick <= p.Length)
         {
             var x = X(PlayheadTick, p) - 4;
             context.DrawLine(new Pen(PlayheadBrush ?? Brushes.DodgerBlue, 2), new Point(x, 22), new Point(x, StaffY + 18));
@@ -195,8 +205,9 @@ public sealed class RhythmNotationView : Control
         return group;
     }
 
-    /// <summary>Beam within a tuplet, else within the beat (click group) the note starts in.</summary>
-    private static int Key(RhythmPattern p, RhythmNote n) => n.Tuplet is { } t ? 1000 + t.Group : p.Meter.BeatAt(n.Start);
+    /// <summary>Beam within a tuplet, else within the beat (click group) of the bar the note starts in.</summary>
+    private static int Key(RhythmPattern p, RhythmNote n) =>
+        n.Tuplet is { } t ? 10_000 + t.Group : n.Start / p.Meter.BarTicks * 100 + p.Meter.BeatAt(n.Start % p.Meter.BarTicks);
 
     private void DrawBeams(DrawingContext context, RhythmPattern p, int[] groups, double stemTop, IBrush ink)
     {

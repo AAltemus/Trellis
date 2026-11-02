@@ -27,6 +27,7 @@
     <KeyBinding Gesture="Ctrl+I" Command="{Binding OpenMidiPlayerCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding PlayAlongCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+R" Command="{Binding RecordForItemCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Y" Command="{Binding PracticeRhythmCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenProgressCommand}" />
   </Window.KeyBindings>
 
@@ -119,6 +120,7 @@
         <MenuItem Header="Record for this _item" Command="{Binding RecordForItemCommand}" InputGesture="Ctrl+Shift+R" />
         <MenuItem Header="_Ear Trainer…" Command="{Binding OpenEarTrainerCommand}" InputGesture="Ctrl+E" />
         <MenuItem Header="Rh_ythm Trainer…" Command="{Binding OpenRhythmTrainerCommand}" InputGesture="Ctrl+Y" />
+        <MenuItem Header="Rhythm Trainer for this item" Command="{Binding PracticeRhythmCommand}" InputGesture="Ctrl+Shift+Y" />
         <MenuItem Header="M_IDI Player…" Command="{Binding OpenMidiPlayerCommand}" InputGesture="Ctrl+I" />
         <MenuItem Header="Play _along with MIDI" Command="{Binding PlayAlongCommand}" InputGesture="Ctrl+Shift+I" />
         <Separator />
@@ -383,6 +385,8 @@
                     ToolTip.Tip="Open the MIDI player for this item (Ctrl+Shift+I): its linked MIDI file opens, or pick one and press Link." />
             <Button Content="{Binding RecordButtonText}" Command="{Binding RecordForItemCommand}"
                     ToolTip.Tip="Open the Recorder for this item (Ctrl+Shift+R): new takes are attached to it and this day (and the first exercise in the log)." />
+            <Button Content="♪ Rhythm" Command="{Binding PracticeRhythmCommand}" IsVisible="{Binding IsRhythmItem}"
+                    ToolTip.Tip="Open the Rhythm Trainer for this item (Ctrl+Shift+Y): Log score adds the take's score to this item's notes for this day." />
           </StackPanel>
 
           <!-- Progress log for the selected item's block and day (collapsible; state remembered) -->

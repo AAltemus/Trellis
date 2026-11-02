@@ -197,11 +197,9 @@ public sealed partial class RecorderViewModel
     /// <summary>The Metronome's chosen output (Tools → Metronome → Output), null for the system default or if it's gone.</summary>
     private string? MetronomeOutputId()
     {
-        if (_settingsStore.Get<MetronomeOutputSettings>(MetronomeViewModel.OutputSettingsKey) is not { DeviceName: { } name } saved)
-            return null;
         try
         {
-            return OutputDevices.Find(_output.Devices, name, saved.Driver)?.Id;
+            return MetronomeViewModel.SavedOutput(_settingsStore, _output.Devices)?.Id;
         }
 #pragma warning disable CA1031 // No device list: play through the default output.
         catch (Exception ex)

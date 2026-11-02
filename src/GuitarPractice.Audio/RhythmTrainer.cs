@@ -1,10 +1,11 @@
 namespace GuitarPractice.Audio;
 
 /// <summary>
-/// One take of the rhythm trainer, in ticks: a bar of <see cref="BarTicks"/> with clicks on <see cref="BeatTicks"/>
-/// (the first accented) and the rhythm's notes at <see cref="NoteOnsets"/> lasting <see cref="NoteLengths"/>.
-/// <see cref="SecondsPerTick"/> sets the tempo. The take is a count-in bar, then (with <see cref="ListenFirst"/>) one
-/// bar where the rhythm is played for you, then <see cref="PlayBars"/> bars for you to play (recorded).
+/// One take of the rhythm trainer, in ticks: bars of <see cref="BarTicks"/> with clicks on <see cref="BeatTicks"/>
+/// (the first accented) and the rhythm's notes at <see cref="NoteOnsets"/> lasting <see cref="NoteLengths"/>, over
+/// <see cref="PatternBars"/> bars. <see cref="SecondsPerTick"/> sets the tempo. The take is a count-in bar, then (with
+/// <see cref="ListenFirst"/>) the rhythm played for you once, then <see cref="PlayBars"/> bars for you to play
+/// (recorded; a whole number of times through the rhythm).
 /// </summary>
 public sealed record RhythmTrainerPlan(
     double SecondsPerTick,
@@ -14,7 +15,8 @@ public sealed record RhythmTrainerPlan(
     IReadOnlyList<int> NoteLengths,
     bool ListenFirst = true,
     int PlayBars = 2,
-    int HatTicks = 240);
+    int HatTicks = 240,
+    int PatternBars = 1);
 
 /// <summary>Where a take is.</summary>
 public enum RhythmTrainerState
@@ -39,6 +41,8 @@ public enum RhythmTrainerState
 public sealed class RhythmTrainerEngine
 {
     public const int CountInBars = 1;
+    public const int MaxPatternBars = 4;
+    public const int MaxPlayBars = 16;
     private const int MaxVoices = 16;
     private const double TailSeconds = 0.3;
 
@@ -59,7 +63,7 @@ public sealed class RhythmTrainerEngine
     private bool _running;
     private long _sample;
     private int _nextEvent;
-    private int _nextVoice;
+    private int _nextVoice = 1;    // voices 1…15; 0 is the rhythm's
 
     private long _publishedSample;
     private int _publishedRunning;
@@ -74,8 +78,9 @@ public sealed class RhythmTrainerEngine
         ArgumentOutOfRangeException.ThrowIfLessThan(plan.BarTicks, 1);
         SampleRate = sampleRate;
         Plan = plan;
-        ListenBars = plan.ListenFirst ? 1 : 0;
-        PlayBars = Math.Clamp(plan.PlayBars, 1, 16);
+        var patternBars = Math.Clamp(plan.PatternBars, 1, MaxPatternBars);
+        ListenBars = plan.ListenFirst ? patternBars : 0;
+        PlayBars = Math.Max(patternBars, Math.Clamp(plan.PlayBars, 1, MaxPlayBars) / patternBars * patternBars); // whole times through
         _canBackbeat = CanBackbeat(plan.BeatTicks.Count);
 
         _sounds = new float[7][];
@@ -100,7 +105,7 @@ public sealed class RhythmTrainerEngine
                 if ((hits & DrumHits.Snare) != 0) events.Add((At(bar, tick), SoundId.Snare));
                 if ((hits & DrumHits.HiHat) != 0) events.Add((At(bar, tick), SoundId.HiHat));
             }
-            if (bar < CountInBars + ListenBars) events.Add((At(bar, 0), SoundId.Rhythm));
+            if (bar == CountInBars && ListenBars > 0) events.Add((At(bar, 0), SoundId.Rhythm)); // the whole rhythm, once
         }
         events.Sort((a, b) => a.Time.CompareTo(b.Time));
         _eventTimes = [.. events.Select(e => e.Time)];
@@ -205,11 +210,14 @@ public sealed class RhythmTrainerEngine
             var s = _sample + i;
             while (_nextEvent < _eventTimes.Length && _eventTimes[_nextEvent] <= s)
             {
+                // The rhythm (one long sound for the whole pattern) has voice 0 to itself; clicks and drums take turns
+                // on the rest, so a busy bar (12/8: 20 events) can't cut the rhythm off.
                 var sound = _eventSounds[_nextEvent++];
-                _voice[_nextVoice] = _sounds[sound];
-                _voicePos[_nextVoice] = 0;
-                _voiceSound[_nextVoice] = sound;
-                _nextVoice = (_nextVoice + 1) % MaxVoices;
+                var voice = sound == (byte)SoundId.Rhythm ? 0 : _nextVoice;
+                _voice[voice] = _sounds[sound];
+                _voicePos[voice] = 0;
+                _voiceSound[voice] = sound;
+                if (voice != 0) _nextVoice = _nextVoice % (MaxVoices - 1) + 1;
             }
 
             var value = 0f;

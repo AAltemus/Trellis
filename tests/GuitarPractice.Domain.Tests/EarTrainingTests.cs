@@ -6,6 +6,8 @@ public class EarTrainingTests
 {
     private static readonly MusicKey CMajor = new(0, KeyMode.Major);
     private static readonly MusicKey AMinor = new(9, KeyMode.Minor);
+    private static readonly int[] MajorTriad = [0, 4, 7];
+    private static readonly int[] MinorTriad = [0, 3, 7];
 
     private static EarItem Interval(int semitones) => new(EarItemKind.Interval, semitones);
 
@@ -285,7 +287,7 @@ public class EarTrainingTests
         {
             var q = quiz.Next();
             Assert.Equal(q.Item == flatSix ? 56 : 57, q.RootMidi);                 // Ab3 or A3
-            Assert.Equal(q.Item == flatSix ? [0, 4, 7] : new[] { 0, 3, 7 }, q.Sound.Notes.Select(n => n.Midi - q.RootMidi));
+            Assert.Equal(q.Item == flatSix ? MajorTriad : MinorTriad, q.Sound.Notes.Select(n => n.Midi - q.RootMidi));
         }
 
         foreach (var key in MusicKey.All)

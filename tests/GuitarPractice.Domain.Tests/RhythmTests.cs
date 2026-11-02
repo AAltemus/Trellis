@@ -30,7 +30,7 @@ public sealed class RhythmTests
             Assert.Contains(patterns, p => p.Level == 1);
             foreach (var p in patterns)
             {
-                Assert.Equal(meter.BarTicks, p.Notes.Sum(n => n.Ticks));
+                Assert.Equal(p.Bars * meter.BarTicks, p.Notes.Sum(n => n.Ticks));
                 Assert.NotEmpty(p.Onsets);
             }
         }
@@ -114,5 +114,56 @@ public sealed class RhythmTests
         var result = RhythmScore.Score([0, 1, 2], []);
         Assert.Equal((0, 3, 0), (result.Percent, result.Missed, result.Extra));
         Assert.Null(result.MeanOffsetMs);
+    }
+
+    [Fact]
+    public void Bar_lines_make_a_multi_bar_rhythm_and_ties_may_cross_them()
+    {
+        var p = RhythmPattern.Parse("push", 4, Meter.FourFour, "q q q e e~ | h h");
+        Assert.Equal(2, p.Bars);
+        Assert.Equal(2 * 1920, p.Length);
+        Assert.Equal([0, 480, 960, 1440, 1680, 2880], p.Onsets);            // the tied 8th's half note isn't struck
+        Assert.Equal("q q q e e~ | h h", p.Text);
+
+        var bad = Assert.Throws<FormatException>(() => RhythmPattern.Parse("x", 1, Meter.FourFour, "q q q | q q q q"));
+        Assert.Contains("bar 1's notes add up to 1440 ticks", bad.Message, StringComparison.Ordinal);
+        Assert.Contains("(3 beats of 4 beats)", bad.Message, StringComparison.Ordinal);
+        Assert.Throws<FormatException>(() => RhythmPattern.Parse("x", 1, Meter.TwoFour, "[3 e e | e] q q"));   // tuplet across a bar line
+        Assert.Throws<FormatException>(() => RhythmPattern.Parse("x", 1, Meter.TwoFour, "h | h | h | h | h")); // more than 4 bars
+        Assert.Contains("3.5 eighths of 6 eighths",
+            Assert.Throws<FormatException>(() => RhythmPattern.Parse("x", 1, Meter.SixEight, "q e.")).Message, StringComparison.Ordinal);
+        Assert.All(RhythmLibrary.All.Where(r => r.Name.EndsWith("(2 bars)", StringComparison.Ordinal)), r => Assert.Equal(2, r.Bars));
+
+        // Typed text is checked without exceptions.
+        Assert.False(RhythmPattern.TryParse("mine", 0, Meter.FourFour, "q q x", out var none, out var error));
+        Assert.Null(none);
+        Assert.Equal("'x' isn't a note (w h q e s t, r for a rest, . for a dot, ~ for a tie, | between bars).", error);
+        Assert.True(RhythmPattern.TryParse("mine", 0, Meter.FourFour, "  q q\th  ", out var ok, out error));
+        Assert.Null(error);
+        Assert.Equal("q q h", ok!.Text);
+    }
+
+    [Fact]
+    public void Random_rhythms_fill_the_bar_at_their_level_in_every_meter()
+    {
+        foreach (var meter in Meter.All)
+            for (var level = RhythmGenerator.MinLevel; level <= RhythmGenerator.MaxLevel; level++)
+                for (var seed = 0; seed < 60; seed++)
+                {
+                    var p = RhythmGenerator.Generate(meter, level, new Random(seed), bars: seed % 2 + 1);
+                    Assert.Equal(level, p.Level);
+                    Assert.Equal(seed % 2 + 1, p.Bars);
+                    Assert.True(p.Onsets.Count >= 2, $"{meter.Signature} L{level}: {p.Text}");
+                    if (level == 1 && meter.Denominator == 4)                    // quarters, halves, quarter rests only
+                        Assert.All(p.Notes, n => Assert.True(n.Length <= NoteLength.Quarter && n.Tuplet is null, p.Text));
+                    if (level == 5)                                              // always something only level 5 has
+                        Assert.Contains(p.Notes, n => n.Length == NoteLength.ThirtySecond || n.Tuplet is { Actual: 5 or 6 }
+                            || n.Tuplet is { Actual: 3 } && n.Length == NoteLength.Sixteenth);
+                }
+
+        var a = RhythmGenerator.Generate(Meter.FourFour, 3, new Random(42));
+        var b = RhythmGenerator.Generate(Meter.FourFour, 3, new Random(42));
+        Assert.Equal(a.Text, b.Text);
+        Assert.Equal("Random · level 3", a.Name);
     }
 }
