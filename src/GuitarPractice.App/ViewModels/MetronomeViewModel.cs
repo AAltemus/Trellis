@@ -95,7 +95,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     // ---- Settings ----
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BpmText))]
+    [NotifyPropertyChangedFor(nameof(BpmText), nameof(BpmCaption))]
     private double _bpm = 120;
 
     [ObservableProperty]
@@ -131,7 +131,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     private int _gapMuteBars = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LiveText))]
+    [NotifyPropertyChangedFor(nameof(BpmText), nameof(BpmCaption))]
     private bool _trainerEnabled;
 
     [ObservableProperty]
@@ -146,11 +146,12 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     // ---- Live state ----
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StartStopText), nameof(LiveText))]
+    [NotifyPropertyChangedFor(nameof(StartStopText), nameof(LiveText), nameof(BpmText), nameof(BpmCaption))]
     private bool _isPlaying;
 
+    /// <summary>The tempo being heard (the tempo trainer's current step); 0 until the first beat is heard.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LiveText))]
+    [NotifyPropertyChangedFor(nameof(BpmText), nameof(BpmCaption))]
     private double _currentBpm;
 
     [ObservableProperty]
@@ -163,22 +164,17 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string? _error;
 
-    public string BpmText => Math.Round(Bpm).ToString(CultureInfo.InvariantCulture);
+    /// <summary>While the tempo trainer plays, the big number follows its steps; <see cref="Bpm"/> stays the start tempo.</summary>
+    private bool ShowsTrainerTempo => IsPlaying && TrainerEnabled && CurrentBpm > 0;
+
+    public string BpmText => (ShowsTrainerTempo ? CurrentBpm : Math.Round(Bpm)).ToString("0.#", CultureInfo.InvariantCulture);
+
+    public string BpmCaption => ShowsTrainerTempo ? $"BPM · started at {Math.Round(Bpm):0}" : "BPM";
 
     public string StartStopText => IsPlaying ? "■ Stop" : "▶ Start";
 
-    /// <summary>"Now 128 BPM · muted bar" while playing with the trainer or gap training on.</summary>
-    public string LiveText
-    {
-        get
-        {
-            if (!IsPlaying || CurrentBpm <= 0) return "";
-            var parts = new List<string>();
-            if (TrainerEnabled) parts.Add($"Now {CurrentBpm:0.#} BPM");
-            if (IsMutedBar) parts.Add("silent bar: keep time!");
-            return string.Join(" · ", parts);
-        }
-    }
+    /// <summary>"Silent bar" while gap training mutes a bar.</summary>
+    public string LiveText => IsPlaying && IsMutedBar ? "silent bar: keep time!" : "";
 
     private MetronomeSettings Settings => new MetronomeSettings(
         Math.Round(Bpm),
@@ -228,6 +224,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
             Bpm = clamped; // re-enters with the rounded value
             return;
         }
+        if (IsPlaying) CurrentBpm = value; // a new tempo restarts the trainer there; don't wait a beat to show it
         Publish();
     }
 

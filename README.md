@@ -132,7 +132,8 @@ scrolled so today is in view.
 - **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth/quintuplet/sextuplet/septuplet/32nd subdivisions,
   accent on beat 1, **only on 2 and 4** (backbeat, even beats per bar), volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
   - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
-  - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.
+  - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat; the big
+    BPM number follows each step while it plays (with the start tempo under it).
   - *Sound*: the beep click or **drums** (kick, snare, closed hi-hat, synthesised). In drum mode a step grid shows one
     column per step of the bar (beats per bar × subdivision) with a row per drum: click cells to put each drum where you
     want it; the step being played is outlined. Built-in patterns (Basic rock, Four on the floor, 16th hats, Shuffle,
