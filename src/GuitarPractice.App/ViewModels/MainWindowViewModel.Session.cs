@@ -33,9 +33,10 @@ public sealed partial class MainWindowViewModel
         ? "Click an item in the week, or a day's name to start with its first unfinished item."
         : $"{Current.Category} · {Current.Day.Header} · {Current.PlannedMinutes} min planned";
 
-    public string TimerRemaining => Current is null ? "--:--" : PracticeProgress.Format(Current.RemainingSeconds);
+    /// <summary>The selected item's time left; for one stopped early, the time Resume continues from (not 0:00).</summary>
+    public string TimerRemaining => Current is null ? "--:--" : PracticeProgress.Format(Current.TimeLeftSeconds);
 
-    public double TimerProgress => Current?.Fraction ?? 0;
+    public double TimerProgress => Current?.PlayedFraction ?? 0;
 
     public string StartLabel => Current is { ElapsedSeconds: > 0 } && _timer.CanStart ? "Resume" : "Start";
 

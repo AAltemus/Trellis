@@ -104,6 +104,12 @@ public sealed partial class EntryViewModel : ObservableObject
     public double Fraction => PracticeProgress.Fraction(PlannedMinutes, ElapsedSeconds, Completed);
     public PracticeState State => new(ElapsedSeconds, Completed);
 
+    /// <summary>Planned time not yet played, even when stopped early (what Resume continues from).</summary>
+    public int TimeLeftSeconds => PracticeProgress.RemainingSeconds(PlannedMinutes, ElapsedSeconds, completed: false);
+
+    /// <summary>Share of the planned time played, even when stopped early.</summary>
+    public double PlayedFraction => PracticeProgress.Fraction(PlannedMinutes, ElapsedSeconds, completed: false);
+
     public string StatusLabel =>
         IsDone && ElapsedSeconds < PlannedMinutes * 60 ? $"✓ {PracticeProgress.Format(ElapsedSeconds)} of {PlannedMinutes} min"
         : IsDone ? $"✓ {PlannedMinutes} min"
