@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace GuitarPractice.Domain.Rhythm;
 
 /// <summary>
@@ -62,6 +64,14 @@ public sealed record Meter(int Numerator, int Denominator, IReadOnlyList<int> Gr
         var i = 0;
         while (i + 1 < beats.Count && beats[i + 1] <= tick) i++;
         return i;
+    }
+
+    /// <summary>"3.5 beats" in the meter's unit (quarters in x/4, eighths in x/8).</summary>
+    public string BeatsText(int ticks)
+    {
+        var units = (double)ticks / UnitTicks;
+        var word = Denominator == 8 ? "eighth" : "beat";
+        return $"{units.ToString("0.##", CultureInfo.InvariantCulture)} {word}{(Math.Abs(units - 1) < 1e-9 ? "" : "s")}";
     }
 
     /// <summary>The meter with this signature ("7/8"), or null.</summary>

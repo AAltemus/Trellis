@@ -127,13 +127,27 @@ public sealed class RhythmPattern
         ArgumentNullException.ThrowIfNull(meter);
         ArgumentNullException.ThrowIfNull(text);
         pattern = null;
-        error = Build(name, level, meter, text, ref pattern);
+        error = Build(name, level, meter, text, draft: false, ref pattern);
+        return error is null;
+    }
+
+    /// <summary>
+    /// A rhythm still being written (<see cref="RhythmBuilder"/>): as <see cref="TryParse"/>, but the last bar may be
+    /// short (or empty, after a trailing <c>|</c>), there may be no notes yet, and the last note may be tied. Every bar
+    /// before the last must still be exactly full.
+    /// </summary>
+    public static bool TryParseDraft(Meter meter, string text, out RhythmPattern? pattern, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(meter);
+        ArgumentNullException.ThrowIfNull(text);
+        pattern = null;
+        error = Build("Draft", 0, meter, text, draft: true, ref pattern);
         return error is null;
     }
 
     private static readonly char[] Spaces = [' ', '\t', '\r', '\n'];
 
-    private static string? Build(string name, int level, Meter meter, string text, ref RhythmPattern? pattern)
+    private static string? Build(string name, int level, Meter meter, string text, bool draft, ref RhythmPattern? pattern)
     {
         var notes = new List<RhythmNote>();
         var barEnds = new List<int>();      // note count at each "|"
@@ -173,7 +187,7 @@ public sealed class RhythmPattern
         if (tuplet is not null) return "unclosed tuplet.";
         barEnds.Add(notes.Count);
         if (barEnds.Count > MaxBars) return $"at most {MaxBars} bars.";
-        if (notes.Count == 0) return "no notes.";
+        if (notes.Count == 0 && !draft) return "no notes.";
 
         var at = 0;
         var from = 0;
@@ -187,21 +201,14 @@ public sealed class RhythmPattern
                 at += ticks;
             }
             from = barEnds[bar];
-            if (at - barStart != meter.BarTicks)
+            var lastOfDraft = draft && bar == barEnds.Count - 1;
+            if (lastOfDraft ? at - barStart > meter.BarTicks : at - barStart != meter.BarTicks)
                 return $"{(barEnds.Count > 1 ? $"bar {bar + 1}'s" : "the")} notes add up to {at - barStart} ticks; a {meter.Signature} bar is {meter.BarTicks} " +
-                       $"({BeatsText(at - barStart, meter)} of {BeatsText(meter.BarTicks, meter)}).";
+                       $"({meter.BeatsText(at - barStart)} of {meter.BeatsText(meter.BarTicks)}).";
         }
-        if (notes[^1].TiedToNext) return "the last note can't be tied.";
+        if (!draft && notes[^1].TiedToNext) return "the last note can't be tied.";
         pattern = new RhythmPattern(name, level, meter, notes, barEnds.Count, string.Join(' ', text.Split(Spaces, StringSplitOptions.RemoveEmptyEntries)));
         return null;
-    }
-
-    /// <summary>"3.5 beats" in the meter's unit (quarters in x/4, eighths in x/8).</summary>
-    private static string BeatsText(int ticks, Meter meter)
-    {
-        var units = (double)ticks / meter.UnitTicks;
-        var word = meter.Denominator == 8 ? "eighth" : "beat";
-        return $"{units.ToString("0.##", CultureInfo.InvariantCulture)} {word}{(Math.Abs(units - 1) < 1e-9 ? "" : "s")}";
     }
 
     /// <summary>One symbol ("e.", "rq", "s~"); the error, or null with <paramref name="note"/> set.</summary>

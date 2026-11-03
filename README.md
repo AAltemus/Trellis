@@ -81,7 +81,8 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 scrolled so today is in view.
 
 - **Pause / Resume** keeps the session; switching items pauses and saves the running one.
-- **Stop** finishes the item early: the time you played is kept and the rest comes off the day.
+- **Stop** finishes the item early: the time you played is kept and the rest comes off the day. Select it again
+  later and **Resume** picks it up with the time it had left.
 - **Reset** clears the item's logged time.
 - The item and the day count down live; a ding (played through the same audio output as the metronome, so it works the
   same on every OS) plays when an item's time is up and the next unfinished item is lined up.
@@ -200,18 +201,24 @@ scrolled so today is in view.
   It plays through the Metronome's output, or one picked in **Output**.
   - **New random** makes up a one-bar rhythm at a level (1–5) in the meter, from the same building blocks as the
     built-in ones; it stays in the list until the next one.
-  - **Your own rhythms**: type one in the text syntax (`w h q e s t`, `.` dot, `r` rest, `~` tie, `[3 e e e]`
-    tuplets, `|` between up to 4 bars), checked as you type ("bar 2's notes add up to 3 beats of 4"), name it and
-    **Add**: it's listed with a ★ for that meter. The selected rhythm's text is shown there to copy or tweak (keep a
-    random one you like); **Delete** asks first.
+  - **Your own rhythms**: build one by clicking notes and rests (whole … 32nd), with **Dotted**, **Triplet** and
+    **Tie** for the next/last note, **Undo** and **Clear**. Notes that won't fit in what's left of the bar are greyed
+    out and a full bar starts the next one (up to 4), so the bars always add up; the notation and "Bar 2 of up to 4:
+    1.5 of 4 beats, 2.5 left" update as you click, and **Listen** plays it once after a count-in. The selected rhythm
+    is loaded to start from (keep a random one you like, or change a built-in one). Name it and **Add**: it's listed
+    with a ★ for that meter; **Delete** asks first. Under **Type it instead** is the same rhythm as text
+    (`w h q e s t`, `.` dot, `r` rest, `~` tie, `[3 e e e]` tuplets incl. 5, 6, 7, `|` between bars), which you can
+    also type or paste.
   - **♪ Rhythm** on a Rhythm item of the week (or Ctrl+Shift+Y) opens the trainer for it: **Log score** goes to that
     item's notes for its day.
   - **Score my playing** records your input during your bars on the same stream as the click, compensating the
     latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm: full marks within
     20 ms of where it should be, less up to the window's edge (100 ms, narrower for fast rhythms), missed notes and
-    extra notes count against you. The notation colours each note (green on time, amber off, red missed) with how many
-    ms early or late it was on average, and the take gets a score, e.g. "92 % (23/24 hit, avg 6 ms late, ±11 ms)".
-    Short, muted notes are detected most reliably.
+    extra notes count against you. A note played past the window but within twice it (nothing else in between) counts
+    once, as missed "way off" (✕ −160), not as a miss plus an extra note. The notation colours each note (green on time,
+    amber off, red missed) with how many ms early or late it was on average, and the take gets a score, e.g. "92 %
+    (23/24 hit, avg 6 ms late, ±11 ms)". Short, muted notes are detected most reliably. **Save recording** writes the
+    take's WAV and a .txt with its rhythm, tempo and settings to the diagnostics folder.
   - **Log score** adds the last take to today's notes of a Rhythm block (or Theory · Rhythm reading); odd meters pick
     Rhythm · Odd meters by default.
 - **MIDI Player…** (Ctrl+I): play along with songs or routines from any MIDI file. **Import MIDI…** (or drop

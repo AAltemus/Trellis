@@ -48,7 +48,10 @@ public sealed class SessionTimer
     public int RemainingSeconds => PracticeProgress.RemainingSeconds(PlannedMinutes, ElapsedSeconds, Completed);
     public bool IsDone => PracticeProgress.IsDone(PlannedMinutes, ElapsedSeconds, Completed);
 
-    public bool CanStart => IsLoaded && !IsRunning && !IsDone;
+    /// <summary>Stopped before its time was up (<see cref="Stop"/>): done, but <see cref="Start"/> picks it up again.</summary>
+    public bool IsStoppedEarly => Completed && ElapsedSeconds < PlannedMinutes * 60;
+
+    public bool CanStart => IsLoaded && !IsRunning && (!IsDone || IsStoppedEarly);
     public bool CanPause => IsRunning;
     public bool CanStop => IsLoaded && !IsDone && (IsRunning || ElapsedSeconds > 0);
     public bool CanReset => IsLoaded && !IsRunning && (ElapsedSeconds > 0 || Completed);
@@ -80,6 +83,7 @@ public sealed class SessionTimer
     public void Start()
     {
         if (!CanStart) throw new InvalidOperationException("Nothing to start: no item loaded, already running, or done.");
+        Completed = false; // resuming an item stopped early
         _runStartTimestamp = _clock.GetTimestamp();
         _lastSaveRunTime = TimeSpan.Zero;
         IsRunning = true;
@@ -94,7 +98,7 @@ public sealed class SessionTimer
         IsRunning = false;
     }
 
-    /// <summary>Finishes the item early: keeps the time practised and marks it completed.</summary>
+    /// <summary>Finishes the item early: keeps the time practised and marks it completed (<see cref="Start"/> resumes it).</summary>
     public void Stop()
     {
         if (!IsLoaded) return;

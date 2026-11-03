@@ -318,6 +318,14 @@ public static class OnsetDetector
     private const int SkipFrames = 4; // 4 ms: a note's own rising click doesn't hide it
 
     /// <summary>
+    /// No onsets in a signal's first 30 ms: with nothing before the start to compare with, a string still ringing when
+    /// the recording begins (from the count-in) looks like a new attack. The user's take of 2026-11-02 got an extra note
+    /// 4 ms in, 96 ms before bar 1, inside the window. The Rhythm Trainer records from 100 ms before your first bar, so
+    /// this only ignores notes played more than 70 ms early on the very first beat.
+    /// </summary>
+    public const double StartGuardSeconds = 0.03;
+
+    /// <summary>
     /// Thresholds of the faint pass in <see cref="DetectNear"/>, which also needs both cues together (louder AND brighter):
     /// on the user's gallop take this found 46/48 notes (vs 31 strict), with no false credit on a ringing, beating
     /// chord; either cue alone at these levels credited 5–6 notes that were never played (sweep, 2026-10-26).
@@ -472,7 +480,8 @@ public static class OnsetDetector
 
         var onsets = new List<double>();
         var last = -gapFrames;
-        for (var f = 1; f < frames; f++)
+        var guard = (int)Math.Round(StartGuardSeconds / FrameSeconds);
+        for (var f = Math.Max(1, guard); f < frames; f++)
         {
             if (f - last < gapFrames) continue;
 
@@ -507,6 +516,7 @@ public static class OnsetDetector
                 at = from;
                 while (at < to && Math.Abs(signal[at]) < threshold) at++;
             }
+            if (at < guard * hop) continue; // placed back into the first 30 ms: still the ring the recording started with
             onsets.Add((double)at / sampleRate);
             last = Math.Max(f, at / hop); // the refractory counts from the attack itself
         }

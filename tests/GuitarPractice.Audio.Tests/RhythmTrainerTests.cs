@@ -158,6 +158,18 @@ public class RhythmTrainerTests
     }
 
     [Fact]
+    public void A_recording_that_starts_on_a_ringing_string_has_no_attack_at_its_start()
+    {
+        // A chord struck 0.3 s before the recording begins (the count-in), so it's ringing from sample 0; then a real note.
+        var notes = new[] { 40, 47, 52 }.Select(m => new SynthNote(0.0, m, 0.45)).Append(new SynthNote(0.6, 45, 0.45)).ToList();
+        var whole = PluckSynth.Render(Rate, notes);
+        var cut = whole.AsSpan((int)(0.3 * Rate)).ToArray();
+        var detected = OnsetDetector.Detect(cut, Rate);
+        Assert.Single(detected);
+        Assert.Equal(0.3, detected[0], 2);
+    }
+
+    [Fact]
     public void Onsets_are_found_in_ringing_chords_quick_notes_and_noise()
     {
         // Ringing E5 chords: quarters, then 16ths at 120 BPM (125 ms apart) over the previous ring, then a gap.

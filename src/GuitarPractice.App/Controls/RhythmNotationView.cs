@@ -47,8 +47,8 @@ public sealed class RhythmNotationView : Control
     public static readonly IBrush CloseBrush = new SolidColorBrush(Color.Parse("#d99a00"));
     public static readonly IBrush MissedBrush = new SolidColorBrush(Color.Parse("#d84a3a"));
 
-    private const double StaffY = 84;
-    private const double StemLength = 34;
+    internal const double StaffY = 84;
+    internal const double StemLength = 34;
     private const double BeamGap = 6;
     private const double Pad = 22;
 
@@ -255,14 +255,14 @@ public sealed class RhythmNotationView : Control
         }
     }
 
-    private static void DrawHead(DrawingContext context, RhythmNote n, double x, IBrush brush)
+    internal static void DrawHead(DrawingContext context, RhythmNote n, double x, IBrush brush)
     {
         var hollow = n.Length is NoteLength.Half or NoteLength.Whole;
         using (context.PushTransform(Matrix.CreateRotation(-0.35) * Matrix.CreateTranslation(x, StaffY)))
             context.DrawEllipse(hollow ? null : brush, hollow ? new Pen(brush, 1.8) : null, new Point(0, 0), 6, 4.3);
     }
 
-    private static void DrawFlags(DrawingContext context, int count, double stemX, double stemTop, IBrush ink)
+    internal static void DrawFlags(DrawingContext context, int count, double stemX, double stemTop, IBrush ink)
     {
         var pen = new Pen(ink, 1.8);
         for (var f = 0; f < count; f++)
@@ -278,7 +278,7 @@ public sealed class RhythmNotationView : Control
         }
     }
 
-    private static void DrawRest(DrawingContext context, RhythmNote n, double x, IBrush ink)
+    internal static void DrawRest(DrawingContext context, RhythmNote n, double x, IBrush ink)
     {
         switch (n.Length)
         {

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -141,7 +142,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             : "Latency not measured: run Recorder → Looper → Calibrate once, or timings will read late.";
         _loading = false;
         SelectDefaultLogBlock();
-        CheckOwn();
+        EditSelected(); // the builder starts from the selected rhythm
     }
 
     public const double MinTempo = 30;
@@ -226,6 +227,10 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     [NotifyCanExecuteChangedFor(nameof(NewRandomCommand), nameof(AddOwnCommand), nameof(DeleteOwnCommand))]
     private bool _isRunning;
 
+    private bool _previewing; // the take is the builder's Listen
+
+    partial void OnIsRunningChanged(bool value) => NotifyBuilderCommands();
+
     public string StartText => IsRunning ? "■ Stop" : "▶ Start";
 
     public bool CanChange => !IsRunning;
@@ -271,6 +276,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             Directory.CreateDirectory(AppPaths.DiagnosticsDirectory);
             var path = Path.Combine(AppPaths.DiagnosticsDirectory, $"rhythm-{_clock.GetLocalNow():yyyyMMdd-HHmmss}.wav");
             WavFile.Write(path, take);
+            if (_lastTakeInfo is { } info) File.WriteAllText(Path.ChangeExtension(path, ".txt"), info);
             SaveStatus = $"Saved to {path}";
         }
 #pragma warning disable CA1031 // A failed diagnostic save is reported, never fatal.
@@ -282,11 +288,28 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     }
     private string? _lastSummary;
 
+    /// <summary>What the saved WAV needs to be scored again exactly (a random rhythm isn't kept anywhere else).</summary>
+    private string? _lastTakeInfo;
+
+    private string TakeInfo(RhythmPattern pattern, RhythmTrainerEngine engine, RhythmResult result) => string.Join(Environment.NewLine,
+        $"Rhythm: {pattern.Name}",
+        $"Meter: {pattern.Meter.Label}",
+        $"Text: {pattern.Text}",
+        $"Tempo: {TempoLabel} {Tempo:0}",
+        $"Bars played: {engine.PlayBars} (rhythm {pattern.Bars} bar{(pattern.Bars == 1 ? "" : "s")}, listen first {(engine.ListenBars > 0 ? "on" : "off")})",
+        $"Input: {SelectedDevice?.Name} (channel {(IsStereoDevice ? SelectedChannel?.Channel ?? 0 : 0)}); output: {SelectedOutput?.Label}",
+        $"Latency removed: {LatencyMs.ToString("0.0", CultureInfo.InvariantCulture)} ms",
+        $"Recording starts {RhythmTrainerEngine.PreRollSeconds.ToString("0.###", CultureInfo.InvariantCulture)} s before your first bar; sample rate {engine.SampleRate} Hz",
+        $"Score: {_lastSummary}",
+        $"Window: ±{result.WindowMs.ToString("0", CultureInfo.InvariantCulture)} ms",
+        "");
+
     partial void OnSelectedMeterChanged(Meter value)
     {
         FillRhythms(SelectedRhythm?.Pattern.Name);
         SelectDefaultLogBlock();
         CheckOwn();
+        LoadBuilder();
     }
 
     /// <summary>The meter's rhythms (built in, easiest first; then yours; then the last random one); keeps
@@ -308,9 +331,16 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         DeleteOwnCommand.NotifyCanExecuteChanged();
         IsDeleteConfirmOpen = false;
         // Its text goes into the editor: tweak it and add it under a new name (keep a random one you like).
-        if (value is null || _loading) return;
+        if (!_loading) EditSelected();
+    }
+
+    private void EditSelected()
+    {
+        if (SelectedRhythm is not { } value) return;
         OwnText = value.Pattern.Text;
         OwnName = value.Source == RhythmSource.Own ? value.Pattern.Name : "";
+        CheckOwn();
+        LoadBuilder();
     }
 
     // ---- Random rhythms ----
@@ -354,7 +384,11 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
 
     public bool IsOwnSelected => SelectedRhythm?.Source == RhythmSource.Own;
 
-    partial void OnOwnTextChanged(string value) => CheckOwn();
+    partial void OnOwnTextChanged(string value)
+    {
+        CheckOwn();
+        LoadBuilder();
+    }
     partial void OnOwnNameChanged(string value) => CheckOwn();
 
     /// <summary>Checks the typed rhythm against the meter as you type (no exceptions: <see cref="RhythmPattern.TryParse"/>).</summary>
@@ -365,8 +399,12 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         OwnStatusIsError = false;
         var name = OwnName.Trim();
         if (string.IsNullOrWhiteSpace(OwnText))
-            OwnStatus = $"Type a rhythm for {SelectedMeter.Signature}, e.g. q e e [3 e e e] q | h h";
-        else if (!RhythmPattern.TryParse(name.Length > 0 ? name : "Your rhythm", 0, SelectedMeter, OwnText, out var pattern, out var error))
+            OwnStatus = $"Click notes above (or type a rhythm) for {SelectedMeter.Signature}.";
+        else if (!RhythmPattern.TryParse(name.Length > 0 ? name : "Your rhythm", 0, SelectedMeter, OwnText, out var pattern, out var error)
+                 && RhythmPattern.TryParseDraft(SelectedMeter, OwnText, out var partial, out _)
+                 && partial!.Notes.Sum(n => n.Ticks) % SelectedMeter.BarTicks != 0)
+            OwnStatus = "Fill the bar to add it."; // being built: not a mistake
+        else if (pattern is null)
         {
             OwnStatus = char.ToUpperInvariant(error![0]) + error[1..];
             OwnStatusIsError = true;
@@ -545,17 +583,19 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             StopTake("Stopped.");
             return;
         }
-        StartTake();
+        if (Pattern is { } pattern) StartTake(pattern, preview: false);
     }
 
-    private void StartTake()
+    /// <summary>A take of <paramref name="pattern"/>; a <paramref name="preview"/> (the builder's Listen) plays it once
+    /// after the count-in and stops, without scoring.</summary>
+    private void StartTake(RhythmPattern pattern, bool preview)
     {
-        if (Pattern is not { } pattern) return;
         Error = null;
         Marks = null;
+        _previewing = preview;
         try
         {
-            var score = ScorePlaying;
+            var score = ScorePlaying && !preview;
             var outputId = OutputId();
             int rate;
             if (score)
@@ -569,7 +609,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
                 rate = _output.GetPreferredSampleRate(outputId);
             }
 
-            var engine = new RhythmTrainerEngine(rate, Plan(pattern));
+            var engine = new RhythmTrainerEngine(rate, Plan(pattern, listenFirst: ListenFirst || preview));
             engine.LatencySamples = (int)Math.Round(LatencyMs / 1000.0 * rate);
             _engine = engine;
             PushLive();
@@ -601,7 +641,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     }
 
     /// <summary>The take's timeline for <paramref name="pattern"/> at the chosen tempo.</summary>
-    private RhythmTrainerPlan Plan(RhythmPattern pattern)
+    private RhythmTrainerPlan Plan(RhythmPattern pattern, bool listenFirst)
     {
         var meter = pattern.Meter;
         var secondsPerTick = 60.0 / (double)Math.Clamp(Tempo ?? 80, (decimal)MinTempo, (decimal)MaxTempo) / meter.UnitTicks;
@@ -618,7 +658,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             }
             lengths.Add(ticks);
         }
-        return new RhythmTrainerPlan(secondsPerTick, meter.BarTicks, meter.BeatTicks, pattern.Onsets, lengths, ListenFirst, PlayBarsFor(pattern),
+        return new RhythmTrainerPlan(secondsPerTick, meter.BarTicks, meter.BeatTicks, pattern.Onsets, lengths, listenFirst, PlayBarsFor(pattern),
             HatTicks: Meter.TicksPerQuarter / 2, PatternBars: pattern.Bars);
     }
 
@@ -632,6 +672,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         _engine?.Stop();
         IsRunning = false;
         PlayheadTick = -1;
+        BuilderPlayheadTick = -1;
         Status = status;
     }
 
@@ -647,7 +688,17 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         var countIn = RhythmTrainerEngine.CountInBars;
         var patternBars = Math.Max(1, engine.Plan.PatternBars);
         var barInPattern = state == RhythmTrainerState.Listen ? bar - countIn : (bar - countIn - engine.ListenBars) % patternBars;
-        PlayheadTick = state is RhythmTrainerState.Listen or RhythmTrainerState.Play ? barInPattern * engine.Plan.BarTicks + tick : -1;
+        var playhead = state is RhythmTrainerState.Listen or RhythmTrainerState.Play ? barInPattern * engine.Plan.BarTicks + tick : -1;
+        if (_previewing)
+        {
+            if (state is RhythmTrainerState.Play or RhythmTrainerState.Done)
+            {
+                StopTake("That's how it sounds. Name it and Add, or keep changing it.");
+                return;
+            }
+            BuilderPlayheadTick = playhead;
+        }
+        else PlayheadTick = playhead;
         var beat = (Pattern?.Meter.BeatAt((int)tick) ?? 0) + 1;
         switch (state)
         {
@@ -667,6 +718,9 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
                 break;
         }
     }
+
+    /// <summary>"+12", "−160", "0" (ms).</summary>
+    private static string Signed(double ms) => $"{(ms >= 0.5 ? "+" : ms <= -0.5 ? "−" : "")}{Math.Abs(Math.Round(ms)):0}";
 
     private void ScoreTake(RhythmTrainerEngine engine)
     {
@@ -702,11 +756,13 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             var index = pattern.NoteIndexOfOnset(o);
             if (hits.Count == 0)
             {
-                marks.Add(new NoteMark(index, NoteMarkKind.Missed, "✕"));
+                // Played every time, but too far off: say how far (else it was never heard).
+                var off = timings.Where(t => t.IsWayOff).Select(t => t.WayOffMs!.Value).ToList();
+                marks.Add(new NoteMark(index, NoteMarkKind.Missed, off.Count == 0 ? "✕" : $"✕ {Signed(off.Average())}"));
                 continue;
             }
             var mean = hits.Average();
-            var label = $"{(mean >= 0.5 ? "+" : mean <= -0.5 ? "−" : "")}{Math.Abs(Math.Round(mean)):0}" + (missed > 0 ? $" ({missed}✕)" : "");
+            var label = Signed(mean) + (missed > 0 ? $" ({missed}✕)" : "");
             marks.Add(new NoteMark(index, missed == 0 && Math.Abs(mean) <= RhythmScore.TightMs ? NoteMarkKind.OnTime : NoteMarkKind.Close, label));
         }
         Marks = marks;
@@ -715,7 +771,9 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             ? Math.Abs(m) < 3 ? "right on average" : $"avg {Math.Abs(m):0} ms {(m > 0 ? "late" : "early")}"
             : "no notes heard";
         var spread = result.MeanAbsOffsetMs is { } a ? $", ±{a:0} ms" : "";
-        _lastSummary = $"{result.Percent} % ({result.Hits}/{result.Notes.Count} hit{(result.Extra > 0 ? $", {result.Extra} extra" : "")}, {tendency}{spread})";
+        _lastSummary = $"{result.Percent} % ({result.Hits}/{result.Notes.Count} hit{(result.WayOff > 0 ? $", {result.WayOff} way off" : "")}" +
+                       $"{(result.Extra > 0 ? $", {result.Extra} extra" : "")}, {tendency}{spread})";
+        _lastTakeInfo = TakeInfo(pattern, engine, result);
         ResultText = played.Count == 0
             ? $"{result.Percent} %: nothing heard on {SelectedDevice?.Name ?? "the input"}. Check the input and its level (the Tuner shows it)."
             : _lastSummary;
