@@ -1,7 +1,8 @@
 namespace GuitarPractice.Domain.Rhythm;
 
 /// <summary>
-/// The built-in rhythms, one bar each, by meter and level (1 basic … 5 hardest). Syntax: <see cref="RhythmPattern.Parse"/>.
+/// The built-in rhythms (one bar, or two where the name says so), by meter and level (1 basic … 5 hardest). Syntax:
+/// <see cref="RhythmPattern.Parse"/>.
 /// </summary>
 public static class RhythmLibrary
 {
@@ -47,6 +48,10 @@ public static class RhythmLibrary
         Add(m, 4, "Sixteenth offbeats", "rs s rs s rs s rs s rs s rs s rs s rs s");
         Add(m, 5, "Displaced sixteenths", "s rs s s rs s rs s s rs s s rs s s rs");
         Add(m, 5, "Sixteenth pushes", "e. s~ e e e. s~ e e");
+        // Two bars (2026-11-01).
+        Add(m, 2, "Call and answer (2 bars)", "q q h | e e e e h");
+        Add(m, 3, "Son clave 3-2 (2 bars)", "q. q. q | rq q q rq");
+        Add(m, 4, "Push into bar 2 (2 bars)", "q q q e e~ | h h");
 
         m = Meter.ThreeFour;
         Add(m, 1, "Quarter notes", "q q q");
@@ -58,6 +63,7 @@ public static class RhythmLibrary
         Add(m, 3, "Offbeat eighths", "re e re e re e");
         Add(m, 4, "Gallop", "e s s e s s e s s");
         Add(m, 4, "Triplets", "[3 e e e] q [3 e e e]");
+        Add(m, 2, "Waltz (2 bars)", "h q | q. e q");
 
         m = Meter.TwoFour;
         Add(m, 1, "Quarter notes", "q q");
@@ -76,6 +82,7 @@ public static class RhythmLibrary
         Add(m, 3, "Sixteenths", "e s s e e s s e");
         Add(m, 3, "Rest and two eighths", "q. re e e");
         Add(m, 4, "Dotted eighths", "e. s e e. s e");
+        Add(m, 3, "Rocking 6/8 (2 bars)", "q e q e | q. e e e");
 
         m = Meter.NineEight;
         Add(m, 1, "Dotted quarters", "q. q. q.");

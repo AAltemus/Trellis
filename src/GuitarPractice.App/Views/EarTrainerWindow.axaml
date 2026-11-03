@@ -138,6 +138,9 @@
                       IsVisible="{Binding ShowPlayKeyFirst}"
                       ToolTip.Tip="Sets the key in your ear (I or i) before each question. Chord questions are just the chord; press K or 🔑 Key to hear the key." />
             <CheckBox Content="Next question after a right answer" IsChecked="{Binding AutoNext}" Margin="0,0,18,0" />
+            <CheckBox Content="Ask the ones I miss more often" IsChecked="{Binding FavorWeak}" Margin="0,0,18,0"
+                      IsVisible="{Binding IsItemQuiz}"
+                      ToolTip.Tip="Picks the intervals or chords you've missed most (all-time results) up to 3–4 times as often as the ones you always get; none drops out." />
             <StackPanel Orientation="Horizontal" Spacing="8">
               <TextBlock Text="Volume" VerticalAlignment="Center" />
               <Slider Minimum="0" Maximum="100" Width="120" Value="{Binding Volume}" />

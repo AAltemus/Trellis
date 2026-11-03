@@ -37,7 +37,7 @@ public sealed partial class MainWindowViewModel
 
     public double TimerProgress => Current?.Fraction ?? 0;
 
-    public string StartLabel => Current is { ElapsedSeconds: > 0, IsDone: false } ? "Resume" : "Start";
+    public string StartLabel => Current is { ElapsedSeconds: > 0 } && _timer.CanStart ? "Resume" : "Start";
 
     public string DayRemaining => Current is null ? "" : $"{Current.Day.Header}: {Current.Day.RemainingLabel}";
 
@@ -113,6 +113,12 @@ public sealed partial class MainWindowViewModel
         _ticker.Start();
         IsRunning = true;
         Current!.IsRunning = true;
+        if (Current.Completed)
+        {
+            // Resuming an item stopped early: it's no longer done.
+            ApplyTimer(Current);
+            Current.Day.RefreshRemaining();
+        }
         RefreshTimer();
     }
 
@@ -127,7 +133,8 @@ public sealed partial class MainWindowViewModel
 
     private bool CanStop() => Current is not null && _timer.CanStop;
 
-    /// <summary>Finish the item early: keeps the time practised, marks it done, takes it off the day's remaining time.</summary>
+    /// <summary>Finish the item early: keeps the time practised, marks it done, takes it off the day's remaining time.
+    /// Selecting it again later offers Resume (back to its remaining time).</summary>
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
     {

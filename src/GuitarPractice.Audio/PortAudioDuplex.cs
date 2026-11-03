@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using PortAudioSharp;
 using PaStream = PortAudioSharp.Stream;
 
@@ -7,9 +8,11 @@ namespace GuitarPractice.Audio;
 /// <summary>
 /// <see cref="IAudioDuplex"/> on PortAudio: one full-duplex stream, so every input sample and output sample share a
 /// clock and the round trip (output → speaker/cable → input) is the same each time the stream runs with the same
-/// devices and settings (the looper calibrates it once). The output is the default output if it's on the input's
-/// driver, else the first output on that driver. Mono in (chosen channel or both mixed) and mono out (to every output
-/// channel); no allocation or locks in the callback.
+/// devices and settings (the looper calibrates it once). Both ends must be on one driver (host API). The output is the
+/// one asked for when it's on the input's driver; if it's on another driver, the input is looked up by name on that
+/// driver instead (one device shows once per driver, with names cut short on some); else the default output if it's on
+/// the input's driver, else the first output on that driver. Mono in (chosen channel or both mixed) and mono out (to
+/// every output channel); no allocation or locks in the callback.
 /// </summary>
 public sealed class PortAudioDuplex : IAudioDuplex
 {
@@ -42,9 +45,8 @@ public sealed class PortAudioDuplex : IAudioDuplex
         Stop();
         EnsureInitialized();
 
-        var inDevice = PortAudioHost.ResolveDevice(options.DeviceId, input: true);
+        var (inDevice, outDevice) = ResolvePair(options.DeviceId, options.OutputDeviceId);
         var inInfo = PortAudio.GetDeviceInfo(inDevice);
-        var outDevice = OutputOnSameDriver(inInfo.hostApi);
         var outInfo = PortAudio.GetDeviceInfo(outDevice);
         _inChannels = Math.Min(2, Math.Max(1, inInfo.maxInputChannels));
         _outChannels = Math.Min(2, Math.Max(1, outInfo.maxOutputChannels));
@@ -75,11 +77,40 @@ public sealed class PortAudioDuplex : IAudioDuplex
         _stream.Start();
     }
 
-    /// <summary>The input device's preferred rate (open the stream at it).</summary>
-    public int GetPreferredSampleRate(string? inputDeviceId)
+    /// <summary>The preferred rate of the input the stream will open (open the stream at it).</summary>
+    public int GetPreferredSampleRate(string? inputDeviceId, string? outputDeviceId = null)
     {
         EnsureInitialized();
-        return PortAudioHost.PreferredSampleRate(inputDeviceId, input: true);
+        var (inDevice, _) = ResolvePair(inputDeviceId, outputDeviceId);
+        return PortAudioHost.PreferredSampleRate(inDevice.ToString(CultureInfo.InvariantCulture), input: true);
+    }
+
+    /// <summary>The input and output to open, both on one driver (see the class summary).</summary>
+    private static (int Input, int Output) ResolvePair(string? inputDeviceId, string? outputDeviceId)
+    {
+        var inDevice = PortAudioHost.ResolveDevice(inputDeviceId, input: true);
+        var inInfo = PortAudio.GetDeviceInfo(inDevice);
+        if (outputDeviceId is not null)
+        {
+            var outDevice = PortAudioHost.ResolveDevice(outputDeviceId, input: false);
+            var outApi = PortAudio.GetDeviceInfo(outDevice).hostApi;
+            if (outApi == inInfo.hostApi) return (inDevice, outDevice);
+            for (var i = 0; i < PortAudio.DeviceCount; i++)
+            {
+                var d = PortAudio.GetDeviceInfo(i);
+                if (d.hostApi == outApi && d.maxInputChannels > 0 && SameDeviceName(d.name, inInfo.name)) return (i, outDevice);
+            }
+        }
+        return (inDevice, OutputOnSameDriver(inInfo.hostApi));
+    }
+
+    /// <summary>One device's names on two drivers: equal, or one cut short (31 characters on some drivers).</summary>
+    internal static bool SameDeviceName(string a, string b)
+    {
+        a = a.Trim();
+        b = b.Trim();
+        if (a.Length > b.Length) (a, b) = (b, a);
+        return a.Length > 0 && (a.Length == b.Length || a.Length >= 24) && b.StartsWith(a, StringComparison.Ordinal);
     }
 
     private static int OutputOnSameDriver(int hostApi)

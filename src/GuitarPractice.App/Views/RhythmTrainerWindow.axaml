@@ -15,17 +15,39 @@
   <!-- Space starts/stops (handled in code-behind, not while typing). -->
 
   <Window.Styles>
-    <Style Selector="Button, CheckBox">
+    <Style Selector="Button, CheckBox, ToggleButton">
       <Setter Property="Focusable" Value="False" />
     </Style>
     <Style Selector="TextBlock.caption">
       <Setter Property="Opacity" Value="0.75" />
       <Setter Property="FontSize" Value="12" />
     </Style>
+    <Style Selector="Button.buildNote">
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="MinWidth" Value="38" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.buildNote:disabled">
+      <Setter Property="Opacity" Value="0.35" />
+    </Style>
+    <Style Selector="TextBlock.error">
+      <Setter Property="Foreground" Value="#d84a3a" />
+    </Style>
   </Window.Styles>
 
   <ScrollViewer>
     <StackPanel Margin="16" Spacing="12">
+      <!-- Opened for a practice item: Log score goes to it -->
+      <Border IsVisible="{Binding HasLink}" Padding="10,6" CornerRadius="6" Background="#14808080">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Text="{Binding LinkTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Classes="caption" Text="Log score adds the take's score to this item's notes for that day." TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Grid.Column="1" Content="✕" Command="{Binding UnlinkCommand}" VerticalAlignment="Center" ToolTip.Tip="Stop logging to this item" />
+        </Grid>
+      </Border>
+
       <!-- What to play -->
       <WrapPanel ItemSpacing="10" LineSpacing="8">
         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -41,7 +63,13 @@
         <StackPanel Orientation="Horizontal" Spacing="6">
           <TextBlock Text="Rhythm" VerticalAlignment="Center" />
           <ComboBox ItemsSource="{Binding Rhythms}" SelectedItem="{Binding SelectedRhythm}" IsEnabled="{Binding CanChange}" MinWidth="250"
-                    ToolTip.Tip="Level 1 (basic) to 5 (hardest)" />
+                    ToolTip.Tip="Level 1 (basic) to 5 (hardest); ★ = yours; then the last random one" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="New random" Command="{Binding NewRandomCommand}"
+                  ToolTip.Tip="Makes up a one-bar rhythm at the chosen level in this meter (it's listed as “Random · level N” until the next one)" />
+          <TextBlock Text="level" VerticalAlignment="Center" />
+          <ComboBox ItemsSource="{Binding RandomLevels}" SelectedItem="{Binding RandomLevel}" IsEnabled="{Binding CanChange}" />
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="6">
           <TextBlock Text="{Binding TempoLabel}" VerticalAlignment="Center" />
@@ -50,7 +78,8 @@
         </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="6">
           <TextBlock Text="Bars to play" VerticalAlignment="Center" />
-          <ComboBox ItemsSource="{Binding BarOptions}" SelectedItem="{Binding SelectedBars}" IsEnabled="{Binding CanChange}" />
+          <ComboBox ItemsSource="{Binding BarOptions}" SelectedItem="{Binding SelectedBars}" IsEnabled="{Binding CanChange}"
+                    ToolTip.Tip="A rhythm of 2 or more bars is played a whole number of times (1 bar of a 2-bar rhythm plays both bars)" />
         </StackPanel>
       </WrapPanel>
 
@@ -60,6 +89,91 @@
                               Ink="{DynamicResource SystemControlForegroundBaseHighBrush}"
                               PlayheadBrush="{DynamicResource SystemControlHighlightAccentBrush}" />
       </Border>
+
+      <!-- Your own: build it by clicking notes (or type it); the selected rhythm is loaded to start from -->
+      <Expander Header="Your own rhythms" HorizontalAlignment="Stretch">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="Click notes and rests to add them to the end. Ones that won't fit in what's left of the bar are greyed out; a full bar starts the next one (up to 4). The selected rhythm is loaded here to start from: change it, or Clear for a blank bar." />
+          <WrapPanel ItemSpacing="4" LineSpacing="6">
+            <TextBlock Text="Notes" VerticalAlignment="Center" Width="44" />
+            <ItemsControl ItemsSource="{Binding BuildNotes}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="4" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BuildNote">
+                  <Button Classes="buildNote" Command="{Binding $parent[Window].((vm:RhythmTrainerViewModel)DataContext).AddNoteCommand}"
+                          CommandParameter="{Binding}" ToolTip.Tip="{Binding Tip}">
+                    <c:NoteGlyph Length="{Binding Length}" IsRest="{Binding IsRest}" Ink="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </WrapPanel>
+          <WrapPanel ItemSpacing="4" LineSpacing="6">
+            <TextBlock Text="Rests" VerticalAlignment="Center" Width="44" />
+            <ItemsControl ItemsSource="{Binding BuildRests}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="4" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:BuildNote">
+                  <Button Classes="buildNote" Command="{Binding $parent[Window].((vm:RhythmTrainerViewModel)DataContext).AddNoteCommand}"
+                          CommandParameter="{Binding}" ToolTip.Tip="{Binding Tip}">
+                    <c:NoteGlyph Length="{Binding Length}" IsRest="{Binding IsRest}" Ink="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </WrapPanel>
+          <WrapPanel ItemSpacing="8" LineSpacing="6">
+            <ToggleButton Content="Dotted" IsChecked="{Binding BuildDotted}" IsEnabled="{Binding CanChange}"
+                          ToolTip.Tip="The next note or rest is dotted (half as long again)" />
+            <ToggleButton Content="Triplet" IsChecked="{Binding BuildTriplet}" IsEnabled="{Binding CanChange}"
+                          ToolTip.Tip="The next click adds three of that note in the time of two (a triplet of 8ths fills one quarter-note beat)" />
+            <Button Content="{Binding TieText}" Command="{Binding TieCommand}"
+                    ToolTip.Tip="Ties the last note to the next one, so the next one isn't struck (it just holds on), also across a bar line" />
+            <Button Content="⌫ Undo" Command="{Binding UndoNoteCommand}" ToolTip.Tip="Removes the last note, rest or triplet" />
+            <Button Content="Clear" Command="{Binding ClearBuilderCommand}" ToolTip.Tip="Starts again from an empty bar" />
+            <Button Content="▶ Listen" Command="{Binding ListenCommand}"
+                    ToolTip.Tip="Plays it once after a count-in (needs full bars). Doesn't score or save anything." />
+          </WrapPanel>
+          <Border Padding="8" CornerRadius="8" Background="#14808080">
+            <c:RhythmNotationView Pattern="{Binding BuilderPattern}" PlayheadTick="{Binding BuilderPlayheadTick}"
+                                  Ink="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                  PlayheadBrush="{DynamicResource SystemControlHighlightAccentBrush}" />
+          </Border>
+          <TextBlock Text="{Binding BuilderStatus}" TextWrapping="Wrap" />
+          <WrapPanel ItemSpacing="8" LineSpacing="6">
+            <TextBox Text="{Binding OwnName}" PlaceholderText="Name" MinWidth="220" MaxLength="40" IsEnabled="{Binding CanChange}" />
+            <Button Content="Add" Command="{Binding AddOwnCommand}" Classes="accent"
+                    ToolTip.Tip="Adds it to this meter's rhythms (★) and selects it" />
+            <Button Content="Delete" Command="{Binding DeleteOwnCommand}" IsVisible="{Binding IsOwnSelected}"
+                    ToolTip.Tip="Deletes the selected rhythm of yours (asks first)" />
+          </WrapPanel>
+          <TextBlock Text="{Binding OwnStatus}" TextWrapping="Wrap" Classes.error="{Binding OwnStatusIsError}" />
+          <Border IsVisible="{Binding IsDeleteConfirmOpen}" Padding="10,6" CornerRadius="6" Background="#22d84a3a">
+            <WrapPanel ItemSpacing="8" LineSpacing="6">
+              <TextBlock Text="{Binding DeleteConfirmText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+              <Button Content="Delete" Command="{Binding ConfirmDeleteOwnCommand}" Foreground="White" Background="#C62828" />
+              <Button Content="Cancel" Command="{Binding CancelDeleteOwnCommand}" />
+            </WrapPanel>
+          </Border>
+          <Expander Header="Type it instead" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="The builder writes this as you click, and a rhythm typed here loads into the builder. w h q e s t = whole … 32nd; . = dot; r in front = rest (rq); ~ after = tie (e~); [3 e e e] = triplet (also 5, 6, 7); | between bars. Example: q e. s [3 e e e] q | h h" />
+              <TextBox Text="{Binding OwnText}" FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" IsEnabled="{Binding CanChange}"
+                       PlaceholderText="q e e [3 e e e] q | h h" />
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </Expander>
 
       <!-- Transport -->
       <StackPanel Orientation="Horizontal" Spacing="12">
@@ -81,7 +195,7 @@
 
       <!-- Sound -->
       <Border Padding="12,8" CornerRadius="8" Background="#14808080">
-        <Grid ColumnDefinitions="Auto,*,50" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+        <Grid ColumnDefinitions="Auto,*,50" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
           <CheckBox Content="Click" IsChecked="{Binding Click}" ToolTip.Tip="On every beat (the count-in always clicks)" />
           <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding ClickVolume}" IsEnabled="{Binding Click}" />
           <TextBlock Grid.Column="2" Text="{Binding ClickVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
@@ -97,6 +211,12 @@
 
           <CheckBox Grid.Row="3" Grid.ColumnSpan="3" Content="Listen first: the rhythm plays once (after the count-in) before your bars"
                     IsChecked="{Binding ListenFirst}" IsEnabled="{Binding CanChange}" />
+
+          <StackPanel Grid.Row="4" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Output" VerticalAlignment="Center" />
+            <ComboBox ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" IsEnabled="{Binding CanChange}" MinWidth="300"
+                      ToolTip.Tip="Where the click, drums and rhythm play. While scoring, it has to be on the input's driver (else the same input is looked for on the output's driver, or the input's own driver is used)." />
+          </StackPanel>
         </Grid>
       </Border>
 

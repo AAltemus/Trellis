@@ -81,7 +81,8 @@ Click an item in the week (or a day's name to jump to its first unfinished item)
 scrolled so today is in view.
 
 - **Pause / Resume** keeps the session; switching items pauses and saves the running one.
-- **Stop** finishes the item early: the time you played is kept and the rest comes off the day.
+- **Stop** finishes the item early: the time you played is kept and the rest comes off the day. Select it again
+  later and **Resume** picks it up with the time it had left.
 - **Reset** clears the item's logged time.
 - The item and the day count down live; a ding (played through the same audio output as the metronome, so it works the
   same on every OS) plays when an item's time is up and the next unfinished item is lined up.
@@ -161,8 +162,11 @@ scrolled so today is in view.
     Progress lists each day's takes with an **Open** button. Takes are WAV files in
     `%LOCALAPPDATA%\GuitarPractice\recordings`.
   - *Looper*: a loop of 1–16 bars at a tempo, with its own click and a one-bar count-in. **● Record layer** records the
-    next whole pass as a layer (up to 8; press again while recording to record the pass after it too), **Undo layer**,
-    **Clear**, **Save as take** mixes the layers into a take. **Calibrate** measures your setup's round-trip latency
+    next whole pass as a layer (up to 8; press again while recording to record the layer after it too), or 2 or 4
+    passes for a layer longer than the loop (a solo over a short chord loop: its passes play in turn). The bar before a
+    recording counts in, even with the click off. Each layer has its own volume and **Mute**; **Undo layer**,
+    **Clear**, **Save as take** mixes the layers into a take. It plays through the Metronome's output when that's on
+    the input's driver. **Calibrate** measures your setup's round-trip latency
     once (8 clicks out, heard back on the input: pickups or a mic near the speakers, a cable, or an interface loopback
     input) so layers land on the beat; a slider fine-tunes it.
   - To hear yourself while playing along, use your interface's direct monitoring (the app doesn't route the live input
@@ -179,22 +183,42 @@ scrolled so today is in view.
   synthesised plucked string, in tune to ±2 cents.
   - More chord types built from the key's notes, offered only on the degrees where they're real chords: sus2, sus4,
     add9, 6th and 9th chords (e.g. in C major Vsus4 but no IVsus4).
+  - Chords from outside the key: **borrowed** from the parallel key (in C major iv, ♭III, ♭VI, ♭VII and their
+    sevenths; in minor I, IV, ♮vi …) and, in minor keys, the **harmonic minor**'s (V, V7, vii°, vii°7, III+, i(maj7)).
+  - **Ask the ones I miss more often** (on by default) weights the questions by your all-time results: an item you
+    usually miss comes up 3–4 times as often as one you always get; none drops out.
   - *Melodies* (dictation): hear a 3–8 note melody in the key (after the key chord) and write it down with the degree
     buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
   - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
 - **Rhythm Trainer…** (Ctrl+Y): read and play rhythms in 4/4, 3/4, 2/4, 6/8, 9/8, 12/8 and the odd meters 5/4, 7/4,
-  5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in one-bar rhythms from level 1 (quarters, eighths) to 5 (dotted
+  5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in rhythms from level 1 (quarters, eighths) to 5 (dotted
   notes, ties across the beat, rests, syncopation such as the Charleston, tresillo and sixteenth pushes, triplets, quintuplets, sextuplets, 32nds), shown as rhythm
-  notation with the beats numbered. A take is a count-in bar, the rhythm played once for you as a muted power chord
-  (optional), then 1–8 bars for you over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8;
+  notation with the beats numbered; a few span two bars (call and answer, the 3-2 son clave, a push tied into bar 2).
+  A take is a count-in bar, the rhythm played once for you as a muted power chord
+  (optional), then 1–8 bars for you (a whole number of times through a longer rhythm) over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8;
   or **only on 2 and 4** after the count-in, in meters with an even number of beats)
   and a kick/snare/hi-hat groove, each with its own volume. Tempo is the meter's note value (♩ in x/4, ♪ in x/8).
+  It plays through the Metronome's output, or one picked in **Output**.
+  - **New random** makes up a one-bar rhythm at a level (1–5) in the meter, from the same building blocks as the
+    built-in ones; it stays in the list until the next one.
+  - **Your own rhythms**: build one by clicking notes and rests (whole … 32nd), with **Dotted**, **Triplet** and
+    **Tie** for the next/last note, **Undo** and **Clear**. Notes that won't fit in what's left of the bar are greyed
+    out and a full bar starts the next one (up to 4), so the bars always add up; the notation and "Bar 2 of up to 4:
+    1.5 of 4 beats, 2.5 left" update as you click, and **Listen** plays it once after a count-in. The selected rhythm
+    is loaded to start from (keep a random one you like, or change a built-in one). Name it and **Add**: it's listed
+    with a ★ for that meter; **Delete** asks first. Under **Type it instead** is the same rhythm as text
+    (`w h q e s t`, `.` dot, `r` rest, `~` tie, `[3 e e e]` tuplets incl. 5, 6, 7, `|` between bars), which you can
+    also type or paste.
+  - **♪ Rhythm** on a Rhythm item of the week (or Ctrl+Shift+Y) opens the trainer for it: **Log score** goes to that
+    item's notes for its day.
   - **Score my playing** records your input during your bars on the same stream as the click, compensating the
     latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm: full marks within
     20 ms of where it should be, less up to the window's edge (100 ms, narrower for fast rhythms), missed notes and
-    extra notes count against you. The notation colours each note (green on time, amber off, red missed) with how many
-    ms early or late it was on average, and the take gets a score, e.g. "92 % (23/24 hit, avg 6 ms late, ±11 ms)".
-    Short, muted notes are detected most reliably.
+    extra notes count against you. A note played past the window but within twice it (nothing else in between) counts
+    once, as missed "way off" (✕ −160), not as a miss plus an extra note. The notation colours each note (green on time,
+    amber off, red missed) with how many ms early or late it was on average, and the take gets a score, e.g. "92 %
+    (23/24 hit, avg 6 ms late, ±11 ms)". Short, muted notes are detected most reliably. **Save recording** writes the
+    take's WAV and a .txt with its rhythm, tempo and settings to the diagnostics folder.
   - **Log score** adds the last take to today's notes of a Rhythm block (or Theory · Rhythm reading); odd meters pick
     Rhythm · Odd meters by default.
 - **MIDI Player…** (Ctrl+I): play along with songs or routines from any MIDI file. **Import MIDI…** (or drop

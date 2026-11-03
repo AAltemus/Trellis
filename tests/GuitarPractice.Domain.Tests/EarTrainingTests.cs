@@ -6,6 +6,8 @@ public class EarTrainingTests
 {
     private static readonly MusicKey CMajor = new(0, KeyMode.Major);
     private static readonly MusicKey AMinor = new(9, KeyMode.Minor);
+    private static readonly int[] MajorTriad = [0, 4, 7];
+    private static readonly int[] MinorTriad = [0, 3, 7];
 
     private static EarItem Interval(int semitones) => new(EarItemKind.Interval, semitones);
 
@@ -35,7 +37,7 @@ public class EarTrainingTests
         Assert.Equal("Vsus4 · Gsus4 (sus4)", item.Label(CMajor));
         Assert.Equal("Vsus4: the 5 chord with a 4th for its 3rd in C major, Gsus4, a sus4 chord", item.Describe(CMajor));
         Assert.Equal("major:Vsus4", item.StatsKey(CMajor));
-        Assert.Equal(7 * 7, EarItem.AllChords.Count);
+        Assert.Equal(7 * 7 + 2 * 2 * 7, EarItem.AllChords.Count); // 7 types × 7 degrees + borrowed/harmonic triads and 7ths
     }
 
     [Fact]
@@ -233,7 +235,106 @@ public class EarTrainingTests
             foreach (var item in EarItem.AllChords.Where(i => i.ExistsIn(key)))
             {
                 Assert.False(string.IsNullOrEmpty(item.Label(key)));
-                Assert.InRange(EarQuiz.ChordRoot(key, item.Value), 48, 59);
+                Assert.InRange(EarQuiz.ChordRoot(key, item.Value, item.Source), 48, 59);
             }
+    }
+
+    private static string[] Names(MusicKey key, ChordType type, ChordSource source) =>
+        [.. Enumerable.Range(0, 7).Select(d => MusicTheory.Exists(key, d, type, source) ? MusicTheory.ChordName(key, d, type, source) : "–")];
+
+    private static string[] Numerals(MusicKey key, ChordType type, ChordSource source) =>
+        [.. Enumerable.Range(0, 7).Select(d => MusicTheory.Exists(key, d, type, source) ? MusicTheory.Numeral(key, d, type, source) : "–")];
+
+    [Fact]
+    public void Borrowed_chords_come_from_the_parallel_key_and_only_where_they_differ()
+    {
+        Assert.Equal(["Cm", "Ddim", "Eb", "Fm", "Gm", "Ab", "Bb"], Names(CMajor, ChordType.Triad, ChordSource.Borrowed));
+        Assert.Equal(["i", "ii°", "♭III", "iv", "v", "♭VI", "♭VII"], Numerals(CMajor, ChordType.Triad, ChordSource.Borrowed));
+        Assert.Equal(["i7", "iiø7", "♭IIImaj7", "iv7", "v7", "♭VImaj7", "♭VII7"], Numerals(CMajor, ChordType.Seventh, ChordSource.Borrowed));
+        Assert.Equal("Ab7", MusicTheory.ChordName(new MusicKey(10, KeyMode.Major), 6, ChordType.Seventh, ChordSource.Borrowed)); // ♭VII7 in Bb
+        Assert.Equal("C", MusicTheory.ChordName(new MusicKey(4, KeyMode.Major), 5, ChordType.Triad, ChordSource.Borrowed)); // ♭VI in E: C, not B#
+
+        // In minor: the major key's chords, but not V or vii° (the harmonic minor's, and the same notes).
+        Assert.Equal(["A", "Bm", "C#m", "D", "–", "F#m", "–"], Names(AMinor, ChordType.Triad, ChordSource.Borrowed));
+        Assert.Equal(["I", "ii", "♮iii", "IV", "–", "♮vi", "–"], Numerals(AMinor, ChordType.Triad, ChordSource.Borrowed));
+        Assert.Equal(["Imaj7", "ii7", "♮iii7", "IVmaj7", "–", "♮vi7", "♮viiø7"], Numerals(AMinor, ChordType.Seventh, ChordSource.Borrowed));
+
+        // Only triads and sevenths.
+        Assert.False(MusicTheory.Exists(CMajor, 5, ChordType.Sus2, ChordSource.Borrowed));
+        Assert.Equal("♭VI: the 6 chord in C major, borrowed from C minor, Ab, a major chord",
+            new EarItem(EarItemKind.Chord, 5, ChordType.Triad, ChordSource.Borrowed).Describe(CMajor));
+    }
+
+    [Fact]
+    public void Harmonic_minor_gives_minor_keys_V_V7_and_the_leading_tone_chords()
+    {
+        Assert.Equal(["–", "–", "Caug", "–", "E", "–", "G#dim"], Names(AMinor, ChordType.Triad, ChordSource.HarmonicMinor));
+        Assert.Equal(["–", "–", "III+", "–", "V", "–", "vii°"], Numerals(AMinor, ChordType.Triad, ChordSource.HarmonicMinor));
+        Assert.Equal(["Am(maj7)", "–", "Caug(maj7)", "–", "E7", "–", "G#dim7"], Names(AMinor, ChordType.Seventh, ChordSource.HarmonicMinor));
+        Assert.Equal(["i(maj7)", "–", "III+maj7", "–", "V7", "–", "vii°7"], Numerals(AMinor, ChordType.Seventh, ChordSource.HarmonicMinor));
+        var dMinor = new MusicKey(2, KeyMode.Minor);
+        Assert.Equal("C#dim", MusicTheory.ChordName(dMinor, 6, ChordType.Triad, ChordSource.HarmonicMinor)); // not Dbdim
+        Assert.Equal("A7", MusicTheory.ChordName(dMinor, 4, ChordType.Seventh, ChordSource.HarmonicMinor));
+        Assert.All(Enumerable.Range(0, 7), d => Assert.False(MusicTheory.Exists(CMajor, d, ChordType.Triad, ChordSource.HarmonicMinor)));
+    }
+
+    [Fact]
+    public void Borrowed_and_harmonic_chords_sound_from_their_own_root_and_keep_their_own_stats()
+    {
+        var flatSix = new EarItem(EarItemKind.Chord, 5, ChordType.Triad, ChordSource.Borrowed);
+        var quiz = new EarQuiz(new EarQuizOptions(CMajor, [flatSix, Chord(5)]), new Random(3));
+        for (var i = 0; i < 10; i++)
+        {
+            var q = quiz.Next();
+            Assert.Equal(q.Item == flatSix ? 56 : 57, q.RootMidi);                 // Ab3 or A3
+            Assert.Equal(q.Item == flatSix ? MajorTriad : MinorTriad, q.Sound.Notes.Select(n => n.Midi - q.RootMidi));
+        }
+
+        foreach (var key in MusicKey.All)
+        {
+            var keys = EarItem.AllChords.Where(i => i.ExistsIn(key)).Select(i => i.StatsKey(key)).ToList();
+            Assert.Equal(keys.Count, keys.Distinct().Count());
+        }
+    }
+
+    [Fact]
+    public void Favoring_weak_items_asks_the_missed_ones_more_often()
+    {
+        Assert.Equal(0.75, EarQuiz.Weight(default), 3);
+        Assert.InRange(EarQuiz.Weight(new EarStat(20, 20)), 0.29, 0.30);
+        Assert.InRange(EarQuiz.Weight(new EarStat(5, 0)), 1.10, 1.11);
+
+        var items = new[] { Interval(3), Interval(4), Interval(7) };
+        var history = new Dictionary<string, EarStat>
+        {
+            [Interval(3).StatsKey(CMajor)] = new(10, 1),
+            [Interval(4).StatsKey(CMajor)] = new(10, 10),
+            [Interval(7).StatsKey(CMajor)] = new(10, 10),
+        };
+        foreach (var favor in new[] { true, false })
+        {
+            var quiz = new EarQuiz(new EarQuizOptions(CMajor, items, FavorWeak: favor, History: history), new Random(7));
+            var counts = new Dictionary<int, int>();
+            EarItem? last = null;
+            for (var i = 0; i < 3_000; i++)
+            {
+                var q = quiz.Next();
+                Assert.NotEqual(last, q.Item);                                     // still never twice in a row
+                last = q.Item;
+                counts[q.Item.Value] = counts.GetValueOrDefault(q.Item.Value) + 1;
+            }
+            // Never twice in a row caps it at every other question (2×); uniform would be 1×.
+            if (favor) Assert.True(counts[3] > 1.3 * counts[4], $"m3 {counts[3]} vs M3 {counts[4]}");
+            else Assert.InRange(counts[3], 900, 1_100);
+        }
+
+        // Without a history the run's own results count: missing one makes it come up more.
+        var own = new EarQuiz(new EarQuizOptions(CMajor, items, FavorWeak: true), new Random(1));
+        for (var i = 0; i < 300; i++)
+        {
+            var q = own.Next();
+            own.Answer(q.Item.Value == 3 ? Interval(4) : q.Item);
+        }
+        Assert.True(own.ByItem[Interval(3)].Asked > own.ByItem[Interval(4)].Asked);
     }
 }

@@ -83,7 +83,9 @@ public sealed partial class MainWindowViewModel
         PracticeWithMetronomeCommand.NotifyCanExecuteChanged();
         PlayAlongCommand.NotifyCanExecuteChanged();
         RecordForItemCommand.NotifyCanExecuteChanged();
+        PracticeRhythmCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(RecordButtonText));
+        OnPropertyChanged(nameof(IsRhythmItem));
         OpenProgressCommand.NotifyCanExecuteChanged();
         RefreshTracked();
         if (Current is not { } entry)
@@ -210,6 +212,18 @@ public sealed partial class MainWindowViewModel
         if (Current is not { } entry) return;
         var exercise = LogExercises.ToLogs().Select(l => l.Name.Trim()).FirstOrDefault(n => n.Length > 0);
         _tools.ShowRecorder(new RecorderLink(entry.Key.SubcategoryId, entry.Key.Date, entry.Name, exercise));
+    }
+
+    /// <summary>A Rhythm block or Theory → Rhythm reading: the strip offers ♪ Rhythm.</summary>
+    public bool IsRhythmItem => CurrentExercise is { } e
+        && (e.Owner.Id == RhythmTrainerViewModel.RhythmCategoryId || e.Id == RhythmTrainerViewModel.RhythmReadingId);
+
+    /// <summary>Opens the Rhythm Trainer for the selected item: Log score goes to its block and day.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void PracticeRhythm()
+    {
+        if (Current is not { } entry) return;
+        _tools.ShowRhythmTrainer(new RhythmTrainerLink(entry.Key.SubcategoryId, entry.Key.Date, entry.Name));
     }
 
     /// <summary>Opens the MIDI player for the selected item: its linked file opens; otherwise pick one and press Link.</summary>

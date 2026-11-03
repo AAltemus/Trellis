@@ -127,6 +127,27 @@ public class SessionTimerTests
     }
 
     [Fact]
+    public void An_item_stopped_early_resumes_where_it_stopped()
+    {
+        var timer = Loaded(10, elapsedSeconds: 14, completed: true); // stopped, then selected again later
+        Assert.True(timer.IsStoppedEarly);
+        Assert.True(timer.CanStart);
+        timer.Start();
+        Assert.False(timer.Completed);
+        _clock.Advance(30);
+        timer.Tick();
+        Assert.Equal(44, timer.ElapsedSeconds);
+        Assert.Equal(600 - 44, timer.RemainingSeconds);
+
+        timer.Stop();
+        Assert.True(timer.CanStart);                                  // and again
+
+        var full = Loaded(1, elapsedSeconds: 60, completed: true);    // ran its whole time: nothing to resume
+        Assert.False(full.IsStoppedEarly);
+        Assert.False(full.CanStart);
+    }
+
+    [Fact]
     public void Reset_clears_progress()
     {
         var timer = Loaded(10, elapsedSeconds: 200, completed: true);
@@ -207,7 +228,8 @@ public class SessionTimerTests
     {
         Assert.False(new SessionTimer(_clock).CanStart);
         Assert.False(Loaded(10, elapsedSeconds: 600).CanStart);
-        Assert.False(Loaded(10, completed: true).CanStart);
+        Assert.False(Loaded(10, elapsedSeconds: 600, completed: true).CanStart);
+        Assert.True(Loaded(10, completed: true).CanStart);              // stopped early (at 0:00): resumable
         Assert.Throws<InvalidOperationException>(new SessionTimer(_clock).Start);
     }
 

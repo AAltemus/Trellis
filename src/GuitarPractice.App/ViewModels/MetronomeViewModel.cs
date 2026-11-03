@@ -357,6 +357,16 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
 
     public const string OutputSettingsKey = "metronomeOutput";
 
+    /// <summary>The output chosen here, among <paramref name="devices"/> (other tools play through it too); null for the
+    /// system default or when it isn't connected.</summary>
+    public static AudioDeviceInfo? SavedOutput(SettingsStore settings, IEnumerable<AudioDeviceInfo> devices)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        return settings.Get<MetronomeOutputSettings>(OutputSettingsKey) is { DeviceName: { } name } saved
+            ? OutputDevices.Find(devices, name, saved.Driver)
+            : null;
+    }
+
     public ObservableCollection<OutputDeviceOption> Outputs { get; } = [];
 
     [ObservableProperty]

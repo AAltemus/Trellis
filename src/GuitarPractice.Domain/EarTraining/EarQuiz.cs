@@ -32,25 +32,32 @@ public enum IntervalRoot
 
 /// <summary>
 /// Something to recognise. Interval: <see cref="Value"/> = semitones (1–12). Chord: <see cref="Value"/> = scale degree
-/// (0 = I … 6 = vii) and <see cref="Chord"/> = which chord is built on it from the key's notes.
+/// (0 = I … 6 = vii), <see cref="Chord"/> = which chord is built on it, and <see cref="Source"/> = from whose notes (the
+/// key's, the parallel key's, or the harmonic minor's).
 /// </summary>
-public sealed record EarItem(EarItemKind Kind, int Value, ChordType Chord = ChordType.Triad)
+public sealed record EarItem(EarItemKind Kind, int Value, ChordType Chord = ChordType.Triad, ChordSource Source = ChordSource.Key)
 {
     public static IReadOnlyList<EarItem> AllIntervals { get; } = [.. Enumerable.Range(1, 12).Select(s => new EarItem(EarItemKind.Interval, s))];
 
-    /// <summary>Every chord type on every degree; not all exist in every mode (<see cref="ExistsIn"/>).</summary>
+    /// <summary>Every chord type on every degree, then borrowed and harmonic-minor triads and sevenths; not all exist in
+    /// every key (<see cref="ExistsIn"/>).</summary>
     public static IReadOnlyList<EarItem> AllChords { get; } =
-        [.. Enum.GetValues<ChordType>().SelectMany(type => Enumerable.Range(0, 7).Select(d => new EarItem(EarItemKind.Chord, d, type)))];
+    [
+        .. Enum.GetValues<ChordType>().SelectMany(type => Enumerable.Range(0, 7).Select(d => new EarItem(EarItemKind.Chord, d, type))),
+        .. new[] { ChordSource.Borrowed, ChordSource.HarmonicMinor }.SelectMany(source => new[] { ChordType.Triad, ChordType.Seventh }
+            .SelectMany(type => Enumerable.Range(0, 7).Select(d => new EarItem(EarItemKind.Chord, d, type, source)))),
+    ];
 
     /// <summary>The diatonic seventh chord (kept for the original two chord types).</summary>
     public bool Seventh => Chord == ChordType.Seventh;
 
-    /// <summary>Intervals always; a chord when the key's notes make a real chord of its type on its degree.</summary>
-    public bool ExistsIn(MusicKey key) => Kind == EarItemKind.Interval || MusicTheory.Exists(key, Value, Chord);
+    /// <summary>Intervals always; a chord when its notes make a real chord of its type on its degree (see
+    /// <see cref="MusicTheory.Exists"/>).</summary>
+    public bool ExistsIn(MusicKey key) => Kind == EarItemKind.Interval || MusicTheory.Exists(key, Value, Chord, Source);
 
-    /// <summary>"P5", or the chord's numeral in the key ("V7", "Vsus4").</summary>
+    /// <summary>"P5", or the chord's numeral in the key ("V7", "Vsus4", "♭VI").</summary>
     public string ShortLabel(MusicKey key) =>
-        Kind == EarItemKind.Interval ? MusicTheory.IntervalShortName(Value) : MusicTheory.Numeral(key, Value, Chord);
+        Kind == EarItemKind.Interval ? MusicTheory.IntervalShortName(Value) : MusicTheory.Numeral(key, Value, Chord, Source);
 
     /// <summary>"P5 · perfect 5th", "ii · Dm (minor)", "V7 · G7 (dominant 7th)".</summary>
     public string Label(MusicKey key) => $"{ShortLabel(key)} · {Detail(key)}";
@@ -58,19 +65,27 @@ public sealed record EarItem(EarItemKind Kind, int Value, ChordType Chord = Chor
     /// <summary>"perfect 5th"; for a chord its name and quality in the key: "Dm (minor)".</summary>
     public string Detail(MusicKey key) => Kind == EarItemKind.Interval
         ? MusicTheory.IntervalLongName(Value)
-        : $"{MusicTheory.ChordName(key, Value, Chord)} ({MusicTheory.QualityName(MusicTheory.Quality(key, Value, Chord))})";
+        : $"{MusicTheory.ChordName(key, Value, Chord, Source)} ({MusicTheory.QualityName(MusicTheory.Quality(key, Value, Chord, Source))})";
 
     /// <summary>
-    /// Said in full: "P5: a perfect 5th"; "ii: the 2 chord in C major, Dm, a minor chord".
+    /// Said in full: "P5: a perfect 5th"; "ii: the 2 chord in C major, Dm, a minor chord"; "♭VI: the 6 chord borrowed
+    /// from C minor, Ab, a major chord".
     /// </summary>
     public string Describe(MusicKey key)
     {
         ArgumentNullException.ThrowIfNull(key);
         return Kind == EarItemKind.Interval
             ? $"{ShortLabel(key)}: a {MusicTheory.IntervalLongName(Value)}"
-            : $"{ShortLabel(key)}: the {Value + 1} chord{TypePhrase(Chord)} in {key.Name}, "
-              + $"{MusicTheory.ChordName(key, Value, Chord)}, a {MusicTheory.QualityName(MusicTheory.Quality(key, Value, Chord))} chord";
+            : $"{ShortLabel(key)}: the {Value + 1} chord{TypePhrase(Chord)}{SourcePhrase(key)}, "
+              + $"{MusicTheory.ChordName(key, Value, Chord, Source)}, a {MusicTheory.QualityName(MusicTheory.Quality(key, Value, Chord, Source))} chord";
     }
+
+    private string SourcePhrase(MusicKey key) => Source switch
+    {
+        ChordSource.Borrowed => $" in {key.Name}, borrowed from {new MusicKey(key.Tonic, key.Mode == KeyMode.Major ? KeyMode.Minor : KeyMode.Major).Name}",
+        ChordSource.HarmonicMinor => $" of {key.NoteName(key.PitchClass)} harmonic minor",
+        _ => $" in {key.Name}",
+    };
 
     private static string TypePhrase(ChordType type) => type switch
     {
@@ -92,7 +107,7 @@ public sealed record EarItem(EarItemKind Kind, int Value, ChordType Chord = Chor
         ArgumentNullException.ThrowIfNull(key);
         return Kind == EarItemKind.Interval
             ? $"int:{MusicTheory.IntervalShortName(Value)}"
-            : $"{(key.Mode == KeyMode.Major ? "major" : "minor")}:{MusicTheory.Numeral(key, Value, Chord)}";
+            : $"{(key.Mode == KeyMode.Major ? "major" : "minor")}:{MusicTheory.Numeral(key, Value, Chord, Source)}";
     }
 }
 
@@ -105,12 +120,18 @@ public sealed record EarSound(IReadOnlyList<NoteEvent> Notes)
     public double Length => Notes.Count == 0 ? 0 : Notes.Max(n => n.Start + n.Duration);
 }
 
+/// <param name="PlayKeyFirst">Intervals only; chord questions are just the chord.</param>
+/// <param name="FavorWeak">Ask the items missed most more often (see <see cref="EarQuiz.Weight"/>).</param>
+/// <param name="History">Results per <see cref="EarItem.StatsKey"/> to weigh by (e.g. all-time results the caller keeps
+/// up to date, this run included); without it, this run's results.</param>
 public sealed record EarQuizOptions(
     MusicKey Key,
     IReadOnlyList<EarItem> Items,
     IntervalDirection Direction = IntervalDirection.Ascending,
     IntervalRoot Root = IntervalRoot.Tonic,
-    bool PlayKeyFirst = true); // intervals only; chord questions are just the chord
+    bool PlayKeyFirst = true,
+    bool FavorWeak = false,
+    IReadOnlyDictionary<string, EarStat>? History = null);
 
 /// <param name="Direction">For intervals: how this one is played (never <see cref="IntervalDirection.Mixed"/>).</param>
 /// <param name="RootMidi">The interval's lower note, or the chord's root.</param>
@@ -127,8 +148,9 @@ public readonly record struct EarStat(int Asked, int Correct)
 public sealed record EarAnswer(EarItem Guess, EarItem Actual, bool IsCorrect, bool Counted);
 
 /// <summary>
-/// A practice run: picks questions from the chosen items (never the same item twice in a row when there's a choice),
-/// builds what they sound like, and scores the first answer to each question (later guesses are for comparing).
+/// A practice run: picks questions from the chosen items (never the same item twice in a row when there's a choice;
+/// at random, or weighted toward the ones missed most with <see cref="EarQuizOptions.FavorWeak"/>), builds what they
+/// sound like, and scores the first answer to each question (later guesses are for comparing).
 /// Pure and deterministic for a given <see cref="Random"/> seed.
 /// </summary>
 public sealed class EarQuiz
@@ -172,17 +194,38 @@ public sealed class EarQuiz
     public EarQuestion Next()
     {
         var candidates = Options.Items.Where(i => i != Current?.Item).ToList(); // at least 2 items: never empty
-        var item = candidates[_random.Next(candidates.Count)];
+        var item = Options.FavorWeak ? PickWeighted(candidates) : candidates[_random.Next(candidates.Count)];
         var direction = Options.Direction == IntervalDirection.Mixed
             ? (IntervalDirection)_random.Next(3)
             : Options.Direction;
         var key = Options.Key;
         var root = item.Kind == EarItemKind.Chord
-            ? ChordRoot(key, item.Value)
+            ? ChordRoot(key, item.Value, item.Source)
             : key.TonicMidi + (Options.Root == IntervalRoot.AnyScaleNote ? key.DegreeOffset(_random.Next(7)) : 0);
         Current = new EarQuestion(item, direction, root, BuildSound(item, direction, root));
         _answered = false;
         return Current;
+    }
+
+    /// <summary>
+    /// How often an item comes up with <see cref="EarQuizOptions.FavorWeak"/>: 0.25 + its smoothed miss rate
+    /// ((missed + 1) / (asked + 2)). Never asked: 0.75; 20 of 20 right: 0.30; 0 of 5 right: 1.11. So a weak item comes
+    /// up about 3–4 times as often as a mastered one, and nothing ever drops out.
+    /// </summary>
+    public static double Weight(EarStat stat) => 0.25 + (stat.Asked - stat.Correct + 1.0) / (stat.Asked + 2.0);
+
+    private EarItem PickWeighted(List<EarItem> candidates)
+    {
+        var weights = candidates.Select(i => Weight(Options.History is { } history
+            ? history.GetValueOrDefault(i.StatsKey(Options.Key))
+            : _byItem.GetValueOrDefault(i))).ToList();
+        var pick = _random.NextDouble() * weights.Sum();
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            pick -= weights[i];
+            if (pick < 0) return candidates[i];
+        }
+        return candidates[^1];
     }
 
     /// <summary>Scores the first answer to the current question; later answers aren't counted.</summary>
@@ -206,7 +249,7 @@ public sealed class EarQuiz
     {
         ArgumentNullException.ThrowIfNull(item);
         var current = Current ?? throw new InvalidOperationException("No question yet.");
-        var root = item.Kind == EarItemKind.Chord ? ChordRoot(Options.Key, item.Value) : current.RootMidi;
+        var root = item.Kind == EarItemKind.Chord ? ChordRoot(Options.Key, item.Value, item.Source) : current.RootMidi;
         return BuildSound(item, current.Direction, root, withKey: false);
     }
 
@@ -246,17 +289,17 @@ public sealed class EarQuiz
         }
         else
         {
-            var tones = MusicTheory.ChordTones(Options.Key, item.Value, item.Chord);
+            var tones = MusicTheory.ChordTones(Options.Key, item.Value, item.Chord, item.Source);
             notes.AddRange(Strum([.. tones.Select(x => root + x)], t, ChordLength));
         }
         return new EarSound(notes);
     }
 
     /// <summary>The chord root on <paramref name="degree"/>, kept in C3–B3 (MIDI 48–59) so chords sit in one register.</summary>
-    public static int ChordRoot(MusicKey key, int degree)
+    public static int ChordRoot(MusicKey key, int degree, ChordSource source = ChordSource.Key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        var root = key.TonicMidi + key.DegreeOffset(degree);
+        var root = key.TonicMidi + MusicTheory.RootOffset(key, degree, source);
         while (root > 59) root -= 12;
         return root;
     }

@@ -23,7 +23,8 @@ public sealed record EarTrainerSettings(
     bool PlayKeyFirst = true,
     bool AutoNext = true,
     double Volume = 80,
-    int MelodyLength = 4);
+    int MelodyLength = 4,
+    bool FavorWeak = true);
 
 /// <summary>All-time results per <see cref="EarItem.StatsKey"/> (AppSettings key "earTrainerStats").</summary>
 public sealed record EarTrainerStats(Dictionary<string, EarStat> Items);
@@ -176,6 +177,7 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
         SelectedMelodyLength = Math.Clamp(s.MelodyLength, MelodyDictation.MinLength, MelodyDictation.MaxLength);
         PlayKeyFirst = s.PlayKeyFirst;
         AutoNext = s.AutoNext;
+        FavorWeak = s.FavorWeak;
         Volume = Math.Clamp(s.Volume, 0, 100);
         _player.Volume = (float)(Volume / 100.0);
         _loading = false;
@@ -250,6 +252,10 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _autoNext = true;
 
+    /// <summary>Ask the intervals / chords missed most (all-time) more often.</summary>
+    [ObservableProperty]
+    private bool _favorWeak = true;
+
     [ObservableProperty]
     private double _volume = 80;
 
@@ -303,6 +309,7 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
     partial void OnSelectedMelodyLengthChanged(int value) => SettingsChanged();
     partial void OnPlayKeyFirstChanged(bool value) => SettingsChanged();
     partial void OnAutoNextChanged(bool value) => SaveSettings();
+    partial void OnFavorWeakChanged(bool value) => SettingsChanged();
     partial void OnVolumeChanged(double value)
     {
         _player.Volume = (float)(value / 100.0);
@@ -352,19 +359,25 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
         _ => "9th chords",
     };
 
-    /// <summary>One group per chord type, holding only the degrees where the key has that chord.</summary>
+    /// <summary>One group per chord type, holding only the degrees where the key has that chord; then the chords borrowed
+    /// from the parallel key, and in minor the harmonic minor's (triads, then sevenths).</summary>
     private void BuildChordGroups()
     {
         _building = true;
         ChordGroups.Clear();
         var key = Key;
-        foreach (var type in Enum.GetValues<ChordType>())
+        void AddGroup(string title, Func<EarItem, bool> pick)
         {
-            var choices = EarItem.AllChords.Where(i => i.Chord == type && i.ExistsIn(key))
+            var choices = EarItem.AllChords.Where(i => pick(i) && i.ExistsIn(key))
                 .Select(i => new EarChoiceViewModel(this, i) { IsSelected = _chordIds.Contains(ChordId(i)) })
                 .ToList();
-            if (choices.Count > 0) ChordGroups.Add(new EarChordGroup(GroupTitle(type), choices));
+            if (choices.Count > 0) ChordGroups.Add(new EarChordGroup(title, choices));
         }
+        foreach (var type in Enum.GetValues<ChordType>())
+            AddGroup(GroupTitle(type), i => i.Chord == type && i.Source == ChordSource.Key);
+        var parallel = new MusicKey(key.Tonic, key.Mode == KeyMode.Major ? KeyMode.Minor : KeyMode.Major);
+        AddGroup($"Borrowed from {parallel.Name}", i => i.Source == ChordSource.Borrowed);
+        AddGroup("Harmonic minor (raised 7th)", i => i.Source == ChordSource.HarmonicMinor);
         _building = false;
     }
 
@@ -430,7 +443,7 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
         if (_quiz is null)
         {
             _quiz = new EarQuiz(new EarQuizOptions(Key, items, SelectedDirection?.Value ?? IntervalDirection.Ascending,
-                SelectedRoot?.Value ?? IntervalRoot.Tonic, PlayKeyFirst), new Random());
+                SelectedRoot?.Value ?? IntervalRoot.Tonic, PlayKeyFirst, FavorWeak, _allTime), new Random());
             Answers.Clear();
             var n = 0;
             foreach (var item in _quiz.Options.Items)
@@ -768,7 +781,8 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
 
     // ---- Persistence ----
 
-    /// <summary>"4" (V), "47" (V7), "4sus4", "0add9", "16", "49": the triad/7th forms are the ones saved before 2026-10-18.</summary>
+    /// <summary>"4" (V), "47" (V7), "4sus4", "0add9", "16", "49": the triad/7th forms are the ones saved before 2026-10-18.
+    /// Borrowed and harmonic-minor chords add ":b" / ":h" ("5:b" = ♭VI in major, "47:h" = V7 in minor).</summary>
     private static string ChordId(EarItem item) => item.Value.ToString(CultureInfo.InvariantCulture) + item.Chord switch
     {
         ChordType.Triad => "",
@@ -778,6 +792,11 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
         ChordType.Add9 => "add9",
         ChordType.Sixth => "6",
         _ => "9",
+    } + item.Source switch
+    {
+        ChordSource.Borrowed => ":b",
+        ChordSource.HarmonicMinor => ":h",
+        _ => "",
     };
 
     private void SaveSettings()
@@ -794,7 +813,8 @@ public sealed partial class EarTrainerViewModel : ObservableObject, IDisposable
             PlayKeyFirst,
             AutoNext,
             Volume,
-            SelectedMelodyLength));
+            SelectedMelodyLength,
+            FavorWeak));
     }
 
     private T? Load<T>(string key) where T : class
