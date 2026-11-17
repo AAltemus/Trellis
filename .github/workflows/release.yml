@@ -8,8 +8,10 @@ on:
   push:
     tags: ['v*']
 
+# Read-only by default: the build jobs restore packages, run the tests and build, and only read the previous release
+# (public). Only the publish job, which neither builds nor tests the project, gets a token that can write the release.
 permissions:
-  contents: write
+  contents: read
 
 env:
   APP_PROJECT: src/GuitarPractice.App/GuitarPractice.App.csproj
@@ -105,6 +107,8 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
