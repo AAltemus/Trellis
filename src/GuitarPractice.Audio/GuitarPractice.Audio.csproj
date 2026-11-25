@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- M4/M5: PortAudio backend + DSP (YIN tuner, sample-accurate metronome) land here. -->
+  <!-- The audio engines (metronome, tuner, looper, rhythm trainer, MIDI, …) and the IAudio* interfaces they run on.
+       No backend here: the desktop one is GuitarPractice.Audio.PortAudio; phones bring their own. -->
   <PropertyGroup>
     <RootNamespace>GuitarPractice.Audio</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -8,7 +9,6 @@
     <InternalsVisibleTo Include="GuitarPractice.Audio.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="PortAudioSharp2" />
     <PackageReference Include="MeltySynth" />
   </ItemGroup>
 </Project>

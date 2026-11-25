@@ -270,7 +270,7 @@ public sealed partial class TunerViewModel : ObservableObject, IDisposable
         }
 #pragma warning restore CA1031
 
-        var device = (_input as PortAudioInput)?.DeviceName ?? SelectedDevice?.Name ?? "Default input";
+        var device = _input.DeviceName ?? SelectedDevice?.Name ?? "Default input";
         Status = $"Listening on {device} · {_engine.SampleRate / 1000.0:0.#} kHz";
         _poll.Start();
     }

@@ -50,6 +50,7 @@ public partial class App : Application
         var mainVm = host.Services.GetRequiredService<MainWindowViewModel>();
         var updates = host.Services.GetRequiredService<UpdateViewModel>();
         updates.RequestExit = () => mainVm.ExitCommand.Execute(null); // "Update and restart" closes the normal way first
+        mainVm.Shutdown = () => desktop.Shutdown();                    // File → Exit
         var main = new MainWindow { DataContext = mainVm, Updates = updates };
         host.Services.GetRequiredService<WindowPlacementService>().Attach(main, "main"); // reopen at the last size and place
         // Tool windows still open close (and save) here, while the database services are alive. Disposing the host

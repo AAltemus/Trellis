@@ -515,7 +515,7 @@ public sealed partial class RecorderViewModel : ObservableObject, IDisposable
         }
 #pragma warning restore CA1031
         IsRecording = true;
-        Status = $"Recording from {(_input as PortAudioInput)?.DeviceName ?? SelectedDevice?.Name} · {_recorder.SampleRate / 1000.0:0.#} kHz";
+        Status = $"Recording from {_input.DeviceName ?? SelectedDevice?.Name} · {_recorder.SampleRate / 1000.0:0.#} kHz";
         _poll.Start();
     }
 

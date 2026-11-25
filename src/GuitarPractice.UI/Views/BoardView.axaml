@@ -1,0 +1,465 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GuitarPractice.App.ViewModels"
+             xmlns:dom="using:GuitarPractice.Domain"
+             xmlns:sys="using:System"
+             xmlns:c="using:GuitarPractice.App.Controls"
+             x:Class="GuitarPractice.App.Views.BoardView"
+             x:DataType="vm:MainWindowViewModel">
+  <!-- The board: routine + library, the week, the timer and log, and the save/delete-week dialogs. Shared by the
+       desktop main window (which adds the menu, keyboard shortcuts and the update banner) and the phone shell. -->
+
+  <UserControl.Styles>
+    <Style Selector="Border.day">
+      <Setter Property="Background" Value="#14808080" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.day.today">
+      <Setter Property="BorderBrush" Value="#40808080" />
+    </Style>
+    <Style Selector="Border.day.selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="Button.flat">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="Button.entry.selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3360A5FA" />
+    </Style>
+    <Style Selector="Button.entry.done">
+      <Setter Property="Opacity" Value="0.55" />
+    </Style>
+    <!-- While dragging an item: where it can be dropped (swap), and where it can't. -->
+    <Style Selector="Button.entry.droptarget /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#5560A5FA" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Button.entry.dropblocked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="BorderBrush" Value="#99E53935" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+  </UserControl.Styles>
+
+  <Panel>
+    <Grid ColumnDefinitions="420,*">
+
+      <!-- Routine + library -->
+      <Border Grid.Column="0" Padding="16,16,8,16" Background="#0C808080">
+        <ScrollViewer>
+          <StackPanel Spacing="10" Margin="0,0,8,0">
+            <TextBlock Text="My routine" FontSize="20" FontWeight="SemiBold" />
+
+            <TextBlock Text="Minutes per day" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="40,*,64" ToolTip.Tip="Sets every day to the same minutes">
+              <TextBlock Text="All" VerticalAlignment="Center" />
+              <Slider Grid.Column="1" Minimum="15" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+                      Value="{Binding EveryDayMinutes}" />
+              <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right"
+                         Text="{Binding EveryDayMinutes, StringFormat='{}{0:0} min'}" />
+            </Grid>
+            <Expander Header="Per weekday (0 = rest day)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+              <ItemsControl ItemsSource="{Binding DayBudgets}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DayBudgetViewModel">
+                    <Grid ColumnDefinitions="40,*,64" Margin="0,1">
+                      <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                      <Slider Grid.Column="1" Minimum="0" Maximum="180" TickFrequency="5" IsSnapToTickEnabled="True"
+                              Value="{Binding Minutes}" />
+                      <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Text="{Binding MinutesText}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Expander>
+
+            <CheckBox IsChecked="{Binding PinnedTimeOnTopOfBudget}"
+                      Content="Add warmup time on top of daily practice time"
+                      ToolTip.Tip="Unchecked: warmup is taken out of each day's minutes. Checked: warmup is extra." />
+            <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding DailyTotalSummary}" />
+
+            <!-- Two even columns: the reshuffles side by side, lock/unlock across the full width under them. -->
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+              <Grid.Styles>
+                <Style Selector="Button">
+                  <Setter Property="HorizontalAlignment" Value="Stretch" />
+                  <Setter Property="HorizontalContentAlignment" Value="Center" />
+                </Style>
+              </Grid.Styles>
+              <Button Content="Reshuffle week" Command="{Binding ReshuffleCommand}" />
+              <Button Grid.Column="1" Content="Reshuffle from today" Command="{Binding ReshuffleFromTodayCommand}"
+                      ToolTip.Tip="This week only: days before today stay as they are; today to Sunday are planned again so the whole week matches your weights (new items catch up). Items you've already practised stay put. Locks the week." />
+              <Button Grid.Row="1" Grid.ColumnSpan="2" Content="{Binding LockButtonText}" Command="{Binding ToggleLockCommand}" />
+            </Grid>
+
+            <ItemsControl ItemsSource="{Binding Warnings}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="sys:String">
+                  <TextBlock Classes="warning" Text="{Binding}" Margin="0,2" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Library tree (collapsible; state remembered) -->
+            <Expander IsExpanded="{Binding IsLibraryExpanded}" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+              <Expander.Header>
+                <TextBlock Text="Library" FontSize="16" FontWeight="SemiBold" />
+              </Expander.Header>
+              <StackPanel Spacing="10">
+            <TextBlock Classes="caption" TextWrapping="Wrap"
+                       Text="Set a weight on any subcategory to add it to your routine. 0 removes it. Hover a name for practice notes." />
+
+            <ItemsControl ItemsSource="{Binding Categories}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:CategoryViewModel">
+                  <Expander IsExpanded="{Binding IsExpanded}" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch" Margin="0,3">
+                    <Expander.Header>
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Width="10" Height="10" CornerRadius="5" Background="{Binding Brush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Classes="caption" Text="{Binding Summary}" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Expander.Header>
+
+                    <StackPanel Spacing="4">
+                      <ItemsControl ItemsSource="{Binding Subcategories}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:SubcategoryViewModel">
+                            <StackPanel Margin="0,4">
+                              <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                  <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" ToolTip.Tip="{Binding Notes}" />
+                                  <TextBlock Classes="caption" Text="{Binding Detail}"
+                                             IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="✕" Padding="8,2" VerticalAlignment="Top"
+                                        Command="{Binding DeleteCommand}" IsVisible="{Binding !IsConfirmingDelete}"
+                                        ToolTip.Tip="Remove from the library (asks first). Practice time, progress and past weeks are kept." />
+                              </Grid>
+                              <StackPanel IsVisible="{Binding IsConfirmingDelete}" Spacing="4" Margin="0,2,0,2">
+                                <TextBlock Classes="caption" TextWrapping="Wrap"
+                                           Text="Remove from the library and your routine? Its practice time and progress history are kept." />
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                  <Button Content="Remove" Command="{Binding DeleteCommand}" Padding="8,2" Foreground="#E53935" />
+                                  <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" Padding="8,2" />
+                                </StackPanel>
+                              </StackPanel>
+                              <Grid ColumnDefinitions="*,28" IsVisible="{Binding !IsPinned}">
+                                <Slider Minimum="0" Maximum="10" TickFrequency="1" IsSnapToTickEnabled="True"
+                                        Value="{Binding Weight}" />
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                           Text="{Binding WeightValue}" />
+                              </Grid>
+                              <CheckBox IsVisible="{Binding IsPinned}" IsChecked="{Binding IsIncluded}">
+                                <TextBlock Classes="caption" Text="{Binding PinnedLabel}" TextWrapping="Wrap" />
+                              </CheckBox>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+
+                      <!-- Add a subcategory (exercise categories) -->
+                      <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsExercise}" Margin="0,6,0,0">
+                        <TextBox PlaceholderText="New subcategory…" Text="{Binding NewSubcategoryName}" />
+                        <Button Grid.Column="1" Content="Add" Margin="6,0,0,0" Command="{Binding AddSubcategoryCommand}" />
+                      </Grid>
+
+                      <!-- Add a song (Songs category) -->
+                      <Border IsVisible="{Binding IsSongs}" Padding="8" CornerRadius="6" Background="#14808080" Margin="0,6,0,0">
+                        <StackPanel Spacing="6">
+                          <TextBlock Text="Add a song" FontWeight="SemiBold" />
+                          <TextBox PlaceholderText="Title" Text="{Binding NewSongTitle}" />
+                          <TextBox PlaceholderText="Artist" Text="{Binding NewSongArtist}" />
+                          <Grid ColumnDefinitions="*,*">
+                            <ComboBox ItemsSource="{Binding Tunings}" SelectedItem="{Binding NewSongTuning}"
+                                      HorizontalAlignment="Stretch" Margin="0,0,3,0">
+                              <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="dom:Tuning">
+                                  <TextBlock Text="{Binding Name}" />
+                                </DataTemplate>
+                              </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ComboBox Grid.Column="1" ItemsSource="{Binding SongStatuses}" SelectedItem="{Binding NewSongStatus}"
+                                      HorizontalAlignment="Stretch" Margin="3,0,0,0" />
+                          </Grid>
+                          <Button Content="Add song" HorizontalAlignment="Right" Command="{Binding AddSongCommand}" />
+                        </StackPanel>
+                      </Border>
+
+                      <!-- Remove the whole category (asks first) -->
+                      <Button Content="Remove category…" Command="{Binding RemoveCommand}" IsVisible="{Binding !IsConfirmingRemove}"
+                              HorizontalAlignment="Right" Padding="8,2" Margin="0,6,0,0"
+                              ToolTip.Tip="Remove this category and its items from the library (asks first). History is kept." />
+                      <StackPanel IsVisible="{Binding IsConfirmingRemove}" Spacing="4" Margin="0,6,0,0">
+                        <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding RemoveConfirmText}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <Button Content="Remove category" Command="{Binding RemoveCommand}" Padding="8,2" Foreground="#E53935" />
+                          <Button Content="Cancel" Command="{Binding CancelRemoveCommand}" Padding="8,2" />
+                        </StackPanel>
+                      </StackPanel>
+                    </StackPanel>
+                  </Expander>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+              <TextBox PlaceholderText="New category…" Text="{Binding NewCategoryName}" />
+              <Button Grid.Column="1" Content="Add category" Margin="6,0,0,0" Command="{Binding AddCategoryCommand}" />
+            </Grid>
+
+            <!-- Removed items: soft-deleted, history kept; Restore puts them back at weight 0 -->
+            <Expander IsVisible="{Binding HasRemovedItems}" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch">
+              <Expander.Header>
+                <TextBlock Text="{Binding RemovedCount, StringFormat='Removed items ({0})'}" />
+              </Expander.Header>
+              <StackPanel Spacing="4">
+                <TextBlock Classes="caption" TextWrapping="Wrap"
+                           Text="Their practice time and progress are kept. Restore puts one back in its category (a category with its items) at weight 0; set a weight to add it to your routine." />
+                <ItemsControl ItemsSource="{Binding RemovedCategories}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RemovedCategoryViewModel">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                        <StackPanel>
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                          <TextBlock Classes="caption" Text="{Binding Detail}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Restore" Command="{Binding RestoreCommand}" Padding="8,2"
+                                VerticalAlignment="Center" ToolTip.Tip="Put the category and its items back in the library (weight 0)" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding RemovedItems}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RemovedSubcategoryViewModel">
+                      <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                        <StackPanel>
+                          <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                          <TextBlock Classes="caption" Text="{Binding Category}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Restore" Command="{Binding RestoreCommand}" Padding="8,2"
+                                VerticalAlignment="Center" ToolTip.Tip="Put it back in the library (weight 0)" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Expander>
+              </StackPanel>
+            </Expander>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Session runner + week -->
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,Auto,*">
+
+        <Border Grid.Row="0" Margin="16,16,16,4" Padding="16" CornerRadius="10" Background="#14808080">
+          <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+            <TextBlock Text="{Binding TimerTitle}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Grid.Row="1" Classes="caption" Text="{Binding TimerSubtitle}" TextWrapping="Wrap" />
+            <ProgressBar Grid.Row="2" Minimum="0" Maximum="1" Value="{Binding TimerProgress}"
+                         Margin="0,10,0,0" Height="6" MinHeight="6" />
+
+            <StackPanel Grid.Column="1" Grid.RowSpan="3" Margin="24,0" VerticalAlignment="Center">
+              <TextBlock Text="{Binding TimerRemaining}" FontSize="44" HorizontalAlignment="Right"
+                         FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+              <TextBlock Classes="caption" Text="{Binding DayRemaining}" HorizontalAlignment="Right"
+                         IsVisible="{Binding HasSelection}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Grid.RowSpan="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+              <Button Classes="accent" MinWidth="84" Content="{Binding StartLabel}" Command="{Binding StartCommand}" />
+              <Button Content="Pause" Command="{Binding PauseCommand}" />
+              <Button Content="Stop" Command="{Binding StopCommand}"
+                      ToolTip.Tip="Finish this item now: keeps the time you practised and marks it done." />
+              <Button Content="Reset" Command="{Binding ResetCommand}"
+                      ToolTip.Tip="Clear the time logged for this item." />
+              <Button Content="♩ Metronome" Command="{Binding PracticeWithMetronomeCommand}"
+                      ToolTip.Tip="Practice this item with the metronome (Ctrl+Shift+M): starts at your last logged tempo for the exercise, in its note value, with its target for the trainer. On Stop the tempo reached goes into the log below." />
+              <Button Content="♫ Play along" Command="{Binding PlayAlongCommand}"
+                      ToolTip.Tip="Open the MIDI player for this item (Ctrl+Shift+I): its linked MIDI file opens, or pick one and press Link." />
+              <Button Content="{Binding RecordButtonText}" Command="{Binding RecordForItemCommand}"
+                      ToolTip.Tip="Open the Recorder for this item (Ctrl+Shift+R): new takes are attached to it and this day (and the first exercise in the log)." />
+              <Button Content="♪ Rhythm" Command="{Binding PracticeRhythmCommand}" IsVisible="{Binding IsRhythmItem}"
+                      ToolTip.Tip="Open the Rhythm Trainer for this item (Ctrl+Shift+Y): Log score adds the take's score to this item's notes for this day." />
+            </StackPanel>
+
+            <!-- Progress log for the selected item's block and day (collapsible; state remembered) -->
+            <TextBlock Grid.Row="3" Grid.ColumnSpan="3" Margin="0,12,0,0" Classes="caption" TextWrapping="Wrap"
+                       Text="{Binding NotTrackedText}" IsVisible="{Binding ShowNotTracked}" />
+            <Expander Grid.Row="3" Grid.ColumnSpan="3" Margin="0,12,0,0" IsVisible="{Binding ShowLog}"
+                      IsExpanded="{Binding IsLogExpanded}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+              <Expander.Header>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Text="{Binding LogTitle}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <TextBlock Classes="caption" Text="{Binding ProgressHint}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="caption" Text="{Binding LogStatus}" Foreground="#43A047" VerticalAlignment="Center" />
+                </StackPanel>
+              </Expander.Header>
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="130,*,Auto,Auto" ColumnSpacing="8">
+                  <ComboBox ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding LogRating}"
+                            HorizontalAlignment="Stretch" ToolTip.Tip="How the block went, 1 (rough) to 5 (clean)" />
+                  <TextBox Grid.Column="1" Text="{Binding LogNotes}" PlaceholderText="Notes for this block" />
+                  <Button Grid.Column="2" Content="Save log" Command="{Binding SaveLogCommand}" />
+                  <Button Grid.Column="3" Content="Progress…" Command="{Binding OpenProgressCommand}"
+                          ToolTip.Tip="History and charts for this block (Ctrl+P)" />
+                </Grid>
+                <c:ExerciseLinesEditor DataContext="{Binding LogExercises}" />
+              </StackPanel>
+            </Expander>
+          </Grid>
+        </Border>
+
+        <!-- Week navigation -->
+        <DockPanel Grid.Row="1" Margin="16,10,16,0">
+          <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="6">
+            <Button Content="◀" Command="{Binding ShowPreviousWeekCommand}" ToolTip.Tip="Previous week (Alt+Left)" />
+            <Button Content="▶" Command="{Binding ShowNextWeekCommand}" ToolTip.Tip="Next week (Alt+Right)" />
+            <TextBlock Text="{Binding WeekTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
+            <Button Content="Back to this week" Command="{Binding ShowThisWeekCommand}"
+                    IsVisible="{Binding !IsViewingCurrentWeek}" ToolTip.Tip="Alt+Home" />
+          </StackPanel>
+          <!-- Fills the rest of the row and wraps, so a long message (swap, reshuffle from today) is never cut off. -->
+          <Panel VerticalAlignment="Center" Margin="14,0,0,0">
+            <TextBlock Classes="caption" Text="{Binding BoardMessage}" TextWrapping="Wrap"
+                       ToolTip.Tip="Drag an item onto another (or right-click it) to swap them: the exercises trade places, each keeps its day's minutes." />
+            <TextBlock Classes="caption" Text="Drag an item onto another to swap them" TextWrapping="Wrap"
+                       IsVisible="{Binding BoardMessage, Converter={x:Static ObjectConverters.IsNull}}" />
+          </Panel>
+        </DockPanel>
+
+        <Border Grid.Row="2" IsVisible="{Binding IsLocked}" Margin="16,8,16,0" Padding="12,8" CornerRadius="8" Background="#26FFB300">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel>
+              <TextBlock Text="{Binding LockStatus}" FontWeight="SemiBold" />
+              <TextBlock Classes="caption" TextWrapping="Wrap"
+                         Text="The plan won't change. Weight and minute changes are still saved to your routine and apply when you unlock." />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Unlock" Command="{Binding ToggleLockCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="3" IsVisible="{Binding ShowNextWeekStrip}" Margin="16,8,16,0" Padding="12,8" CornerRadius="8" Background="#2242A5F5">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding NextWeekStatus}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Clear" Command="{Binding ClearNextWeekCommand}" VerticalAlignment="Center" Margin="12,0,0,0"
+                    ToolTip.Tip="Remove the plan queued for next week; it will be generated from your routine instead." />
+          </Grid>
+        </Border>
+
+        <!-- 12 px around the board as a Margin, not ScrollViewer Padding: Avalonia leaves the right padding out of the
+             scroll extent, which cut off the last column (Sunday) even at full scroll. -->
+        <ScrollViewer x:Name="WeekBoard" Grid.Row="4" HorizontalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Days}" Margin="12">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="7" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:DayViewModel">
+                <Border Classes="day" Classes.today="{Binding IsToday}" Classes.selected="{Binding IsSelected}"
+                        Margin="4" Padding="8" CornerRadius="8" MinWidth="140">
+                  <StackPanel Spacing="6">
+                    <Button Classes="flat" Command="{Binding SelectCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                            ToolTip.Tip="Start with this day's first unfinished item">
+                      <StackPanel>
+                        <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <TextBlock Text="{Binding Total}" FontSize="18" />
+                          <Border CornerRadius="4" Padding="4,1" Background="#33808080" VerticalAlignment="Center"
+                                  IsVisible="{Binding PinnedBadge, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <TextBlock Text="{Binding PinnedBadge}" FontSize="11" />
+                          </Border>
+                        </StackPanel>
+                        <TextBlock Classes="caption" Text="{Binding RemainingLabel}" />
+                      </StackPanel>
+                    </Button>
+                    <ProgressBar Minimum="0" Maximum="1" Value="{Binding Fraction}" Height="4" MinHeight="4"
+                                 IsVisible="{Binding !IsRestDay}" />
+
+                    <ItemsControl ItemsSource="{Binding Entries}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:EntryViewModel">
+                          <!-- Drag onto another item (or right-click → Swap with…) to swap them: see MainWindow.axaml.cs. -->
+                          <Button Classes="flat entry" Classes.selected="{Binding IsSelected}" Classes.done="{Binding IsDone}"
+                                  Command="{Binding SelectCommand}" Margin="0,2" DragDrop.AllowDrop="True"
+                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                            <Button.ContextMenu>
+                              <ContextMenu Opened="OnEntryMenuOpened">
+                                <MenuItem Header="Swap with" />
+                              </ContextMenu>
+                            </Button.ContextMenu>
+                            <Grid ColumnDefinitions="4,*">
+                              <Border Background="{Binding Brush}" CornerRadius="2" />
+                              <StackPanel Grid.Column="1" Margin="8,2,0,2">
+                                <TextBlock Text="{Binding Category}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                                <TextBlock Classes="caption" Text="{Binding Name}" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                  <TextBlock Text="▶" FontSize="11" VerticalAlignment="Center" IsVisible="{Binding IsRunning}"
+                                             Foreground="{DynamicResource SystemControlHighlightAccentBrush}" />
+                                  <TextBlock Text="{Binding StatusLabel}" FontSize="12" />
+                                </StackPanel>
+                              </StackPanel>
+                            </Grid>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+
+    <!-- Save week dialog -->
+    <Border IsVisible="{Binding IsSaveDialogOpen}" Background="#99000000">
+      <Border Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="10"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Save week" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Classes="caption" TextWrapping="Wrap"
+                     Text="Keeps this week's plan so you can load it into any later week from Week → Load saved week. Saving with an existing name replaces it." />
+          <TextBox Text="{Binding SaveWeekName}" PlaceholderText="Name, e.g. Shred block">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding ConfirmSaveCommand}" />
+              <KeyBinding Gesture="Escape" Command="{Binding CancelSaveCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Command="{Binding CancelSaveCommand}" />
+            <Button Classes="accent" Content="Save" Command="{Binding ConfirmSaveCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- Delete saved week confirmation -->
+    <Border IsVisible="{Binding IsDeleteConfirmOpen}" Background="#99000000">
+      <Border Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="10"
+              Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Delete saved week" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding DeleteConfirmText}" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+            <Button Content="Delete" Command="{Binding ConfirmDeleteCommand}" Foreground="White" Background="#C62828" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</UserControl>

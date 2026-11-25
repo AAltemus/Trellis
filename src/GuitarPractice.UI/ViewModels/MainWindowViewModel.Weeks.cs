@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using Avalonia;
-using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GuitarPractice.Domain.Planning;
@@ -255,12 +253,14 @@ public sealed partial class MainWindowViewModel
 
     // ---- File ----
 
+    /// <summary>Set by the desktop app (File → Exit closes it); phones have no Exit.</summary>
+    public Action? Shutdown { get; set; }
+
     [RelayCommand]
     private void Exit()
     {
         SaveOnExit();
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.Shutdown();
+        Shutdown?.Invoke();
     }
 }
 

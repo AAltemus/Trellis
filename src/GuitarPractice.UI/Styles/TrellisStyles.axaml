@@ -1,0 +1,17 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- App-wide styles, the same on desktop and phones (each head includes this after FluentTheme). -->
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Opacity" Value="0.7" />
+  </Style>
+  <Style Selector="TextBlock.warning">
+    <Setter Property="Foreground" Value="#E65100" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <!-- Fluent gives horizontal progress bars MinWidth 200 (measured); in narrower slots (Progress target bars, day cards,
+       the recorder meter) they overflowed into neighbouring controls. Let them size to their layout slot. -->
+  <Style Selector="ProgressBar:horizontal">
+    <Setter Property="MinWidth" Value="0" />
+  </Style>
+</Styles>

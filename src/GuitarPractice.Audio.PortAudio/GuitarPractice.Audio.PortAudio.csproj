@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The desktop audio backend (Windows, macOS, Linux): PortAudio behind the IAudio* interfaces of GuitarPractice.Audio.
+       Phones use their own backends (plans: mobile port), so nothing outside the desktop app references this. -->
+  <PropertyGroup>
+    <RootNamespace>GuitarPractice.Audio</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GuitarPractice.Audio.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GuitarPractice.Audio\GuitarPractice.Audio.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="PortAudioSharp2" />
+  </ItemGroup>
+</Project>

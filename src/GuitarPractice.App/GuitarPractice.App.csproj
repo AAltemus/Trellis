@@ -37,5 +37,7 @@
     <ProjectReference Include="..\GuitarPractice.Domain\GuitarPractice.Domain.csproj" />
     <ProjectReference Include="..\GuitarPractice.Infrastructure\GuitarPractice.Infrastructure.csproj" />
     <ProjectReference Include="..\GuitarPractice.Audio\GuitarPractice.Audio.csproj" />
+    <ProjectReference Include="..\GuitarPractice.Audio.PortAudio\GuitarPractice.Audio.PortAudio.csproj" />
+    <ProjectReference Include="..\GuitarPractice.UI\GuitarPractice.UI.csproj" />
   </ItemGroup>
 </Project>
