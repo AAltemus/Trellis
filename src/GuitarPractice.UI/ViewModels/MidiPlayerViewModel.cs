@@ -85,6 +85,9 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
     private readonly Task _soundFontLoading;
     private MidiPlayerEngine? _engine;
     private MidiSong? _song;
+    private float _songGain = 1f;                 // the selected song's level correction (MidiLevel), 1 until measured
+    private CancellationTokenSource? _levelCancel; // the running level measurement (a new file cancels it)
+    private string _songInfoBase = "";
     private MidiPlayerLink? _link;
     private bool _applying;          // loading a file's settings: don't push or save yet
     private bool _positionFromEngine;
@@ -375,6 +378,8 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         BarCaption = "";
         BeatCaption = "";
         _song = null;
+        _levelCancel?.Cancel();
+        _songGain = 1f;
         Error = File.Exists(SoundFontPath) ? null : Error;
         if (file is null)
         {
@@ -403,8 +408,9 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         RenameText = file.Name;
         SongTitle = file.Name;
         var sig = song.TimeSignatures[0];
-        SongInfo = $"{Format(song.LengthSeconds)} · {song.BarCount} bars · {Math.Round(song.QuarterBpmAt(0))} BPM · {sig.Numerator}/{sig.Denominator}"
+        SongInfo = _songInfoBase = $"{Format(song.LengthSeconds)} · {song.BarCount} bars · {Math.Round(song.QuarterBpmAt(0))} BPM · {sig.Numerator}/{sig.Denominator}"
             + (song.Tempos.Count > 1 ? " (tempo changes)" : "");
+        MeasureLevel(song);
         BarCount = song.BarCount;
         Length = Math.Max(0.1, song.LengthSeconds);
 
@@ -470,7 +476,44 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         var to = (int)Math.Clamp(LoopToBar ?? from, from, Math.Max(1, BarCount));
         float[] trackVolumes = [.. Tracks.OrderBy(t => t.Slot).Select(t => (float)(t.Volume / 100.0))]; // a new array each time
         return new MidiPlayerSettings(SpeedPercent / 100.0, LoopEnabled, from, to, CountIn, (float)(Volume / 100.0), muted, soloed,
-            CountInEachLoop, trackVolumes, Click, (float)(ClickVolume / 100.0));
+            CountInEachLoop, trackVolumes, Click, (float)(ClickVolume / 100.0), _songGain);
+    }
+
+    /// <summary>
+    /// Measures how loud <paramref name="song"/> plays (on a background thread, with a synth of its own) and then sets
+    /// its level correction, so quiet one-instrument riffs and full band files play about equally loud. Playback can
+    /// start before it's done: the engine glides to the new level.
+    /// </summary>
+    private void MeasureLevel(MidiSong song)
+    {
+        _levelCancel?.Cancel();
+        var cancel = _levelCancel = new CancellationTokenSource();
+        var token = cancel.Token;
+        _ = Task.Run(async () =>
+        {
+            await _soundFontLoading.ConfigureAwait(false);
+            if (token.IsCancellationRequested || !File.Exists(SoundFontPath)) return;
+            float? gain;
+#pragma warning disable CA1031 // A failed measurement only leaves the level uncorrected.
+            try
+            {
+                gain = MidiLevel.SongGain(song, new SoundFontSynth(SoundFontPath, 48_000), 48_000, token);
+            }
+            catch (Exception)
+            {
+                gain = null;
+            }
+#pragma warning restore CA1031
+            if (gain is not { } g) return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (token.IsCancellationRequested || !ReferenceEquals(_song, song)) return;
+                _songGain = g;
+                var db = Math.Round(20 * Math.Log10(g));
+                SongInfo = $"{_songInfoBase} · level {(db > 0 ? "+" : db < 0 ? "−" : "")}{Math.Abs(db):0} dB";
+                PushSettings();
+            });
+        });
     }
 
     private void PushSettings()
@@ -686,6 +729,7 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
         // services are gone): only the first call may do anything.
         if (_disposed) return;
         _disposed = true;
+        _levelCancel?.Cancel();
         _poll.Stop();
         SaveFileSettings();
         _engine?.Pause();
