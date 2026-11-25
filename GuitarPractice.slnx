@@ -2,8 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/GuitarPractice.App/GuitarPractice.App.csproj" />
     <Project Path="src/GuitarPractice.Audio/GuitarPractice.Audio.csproj" />
+    <Project Path="src/GuitarPractice.Audio.PortAudio/GuitarPractice.Audio.PortAudio.csproj" />
     <Project Path="src/GuitarPractice.Domain/GuitarPractice.Domain.csproj" />
     <Project Path="src/GuitarPractice.Infrastructure/GuitarPractice.Infrastructure.csproj" />
+    <Project Path="src/GuitarPractice.UI/GuitarPractice.UI.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/GuitarPractice.Audio.Tests/GuitarPractice.Audio.Tests.csproj" />

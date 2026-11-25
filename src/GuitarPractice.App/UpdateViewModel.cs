@@ -130,3 +130,6 @@ public sealed partial class UpdateViewModel : ObservableObject
     [RelayCommand]
     private void Dismiss() => BannerText = null;
 }
+
+/// <summary>The desktop Settings window's DataContext: the shared settings plus the updater (desktop only).</summary>
+public sealed record DesktopSettings(SettingsViewModel Settings, UpdateViewModel Updates);

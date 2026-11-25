@@ -605,7 +605,7 @@ public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
             engine.Seek(Position);
             _output.Start(new AudioStreamOptions(SampleRate: rate, FramesPerBuffer: 256), engine.Render);
             _engine = engine;
-            var device = (_output as PortAudioOutput)?.DeviceName;
+            var device = _output.DeviceName;
             Status = $"{device ?? "Default output"} · {_output.SampleRate / 1000.0:0.#} kHz · Space: play/pause · Home: back to the start";
             return true;
         }

@@ -285,7 +285,7 @@ public sealed partial class RecorderViewModel
         {
             _duplex ??= _duplexDevices.CreateDuplex();
             var outputId = MetronomeOutputId();
-            var rate = (_duplex as PortAudioDuplex)?.GetPreferredSampleRate(SelectedDevice?.Id, outputId) ?? 48_000;
+            var rate = _duplex.GetPreferredSampleRate(SelectedDevice?.Id, outputId);
             var bpm = (double)(LooperBpm ?? 100);
             if (_looper is null || _looper.SampleRate != rate || _looper.Bpm != Math.Clamp(bpm, Looper.MinBpm, Looper.MaxBpm)
                 || _looper.BeatsPerBar != LooperBeats || _looper.Bars != LooperBars)
@@ -297,7 +297,7 @@ public sealed partial class RecorderViewModel
             var looper = _looper;
             if (!_duplex.IsRunning)
                 _duplex.Start(DuplexOptions(rate, outputId), (input, output) => looper.Process(input, output));
-            LooperRoute = (_duplex as PortAudioDuplex)?.DeviceNames;
+            LooperRoute = _duplex.DeviceNames;
             looper.Start();
         }
 #pragma warning disable CA1031 // Any audio failure is shown, not thrown.
@@ -336,10 +336,10 @@ public sealed partial class RecorderViewModel
             _duplex ??= _duplexDevices.CreateDuplex();
             _duplex.Stop();                       // restart with the probe as the callback
             var outputId = MetronomeOutputId();
-            var rate = (_duplex as PortAudioDuplex)?.GetPreferredSampleRate(SelectedDevice?.Id, outputId) ?? 48_000;
+            var rate = _duplex.GetPreferredSampleRate(SelectedDevice?.Id, outputId);
             var probe = _probe = new LatencyProbe(rate);
             _duplex.Start(DuplexOptions(rate, outputId), (input, output) => probe.Process(input, output));
-            LooperRoute = (_duplex as PortAudioDuplex)?.DeviceNames;
+            LooperRoute = _duplex.DeviceNames;
         }
 #pragma warning disable CA1031 // Any audio failure is shown, not thrown.
         catch (Exception ex)

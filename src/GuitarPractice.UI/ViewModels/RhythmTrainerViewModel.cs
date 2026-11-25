@@ -601,7 +601,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             if (score)
             {
                 _duplex ??= _devices.CreateDuplex();
-                rate = (_duplex as PortAudioDuplex)?.GetPreferredSampleRate(SelectedDevice?.Id, outputId) ?? 48_000;
+                rate = _duplex.GetPreferredSampleRate(SelectedDevice?.Id, outputId);
             }
             else
             {

@@ -31,6 +31,9 @@ public interface IAudioInput : IDisposable
     int SampleRate { get; }
     bool IsRunning { get; }
 
+    /// <summary>The device the running stream actually opened (shown in status lines); null when unknown.</summary>
+    string? DeviceName => null;
+
     /// <summary>The device's native rate; capture at it to avoid resampling.</summary>
     int GetPreferredSampleRate(string? deviceId = null);
 
@@ -47,6 +50,9 @@ public interface IAudioOutput : IDisposable
     TimeSpan OutputLatency { get; }
 
     bool IsRunning { get; }
+
+    /// <summary>The device the running stream actually opened (shown in status lines); null when unknown.</summary>
+    string? DeviceName => null;
 
     /// <summary>The device's native rate; open the stream at it to avoid resampling. Prepare DSP for this rate.</summary>
     int GetPreferredSampleRate(string? deviceId = null);
@@ -80,20 +86,18 @@ public interface IAudioDuplex : IDisposable
     int SampleRate { get; }
     bool IsRunning { get; }
 
+    /// <summary>"input → output" as opened (the Looper's "Plays through" line); null when unknown.</summary>
+    string? DeviceNames => null;
+
+    /// <summary>The rate to open the input/output pair at (both must agree); 48 kHz when the backend can't tell.</summary>
+    int GetPreferredSampleRate(string? inputDeviceId, string? outputDeviceId = null) => 48_000;
+
     /// <summary>Opens the input <see cref="AudioStreamOptions.DeviceId"/> (channel as for capture) with an output on
     /// the same driver: <see cref="AudioStreamOptions.OutputDeviceId"/> when given (if it's on another driver, the same
     /// input on that driver), else the default output when it's on that driver.</summary>
     void Start(AudioStreamOptions options, AudioDuplexCallback callback);
 
     void Stop();
-}
-
-/// <summary>PortAudio-backed <see cref="IAudioDevices"/>.</summary>
-public sealed class PortAudioDevices : IAudioDevices
-{
-    public IAudioInput CreateInput() => new PortAudioInput();
-    public IAudioOutput CreateOutput() => new PortAudioOutput();
-    public IAudioDuplex CreateDuplex() => new PortAudioDuplex();
 }
 
 /// <summary>Pitch math shared by the tuner and the bend-accuracy mode.</summary>

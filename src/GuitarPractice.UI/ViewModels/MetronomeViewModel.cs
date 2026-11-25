@@ -450,7 +450,7 @@ public sealed partial class MetronomeViewModel : ObservableObject, IDisposable
         CurrentBpm = 0;
         IsMutedBar = false;
         IsPlaying = true;
-        var device = (_output as PortAudioOutput)?.DeviceName;
+        var device = _output.DeviceName;
         Status = $"{device ?? "Default output"} · {_output.SampleRate / 1000.0:0.#} kHz · latency {_output.OutputLatency.TotalMilliseconds:0} ms";
         _uiTimer.Start();
     }
