@@ -1,0 +1,282 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GuitarPractice.App.ViewModels"
+             x:Class="GuitarPractice.App.Views.MetronomeView"
+             x:DataType="vm:MetronomeViewModel">
+  <!-- The Metronome: shared by the desktop window (MetronomeWindow, desktop app) and the phone page. -->
+
+  <!-- Keys (Space, arrows, PgUp/PgDn, T) are handled in code-behind so they don't fire while typing in a text box. -->
+
+  <UserControl.Styles>
+    <!-- Keyboard shortcuts drive the window; focusable buttons would also react to Space. -->
+    <Style Selector="Button">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <Style Selector="Border.light">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="CornerRadius" Value="17" />
+      <Setter Property="Background" Value="#22808080" />
+      <Setter Property="BorderBrush" Value="#55808080" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+    <Style Selector="Border.light.lit">
+      <Setter Property="Background" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="Border.light.accent">
+      <Setter Property="BorderBrush" Value="#FFB300" />
+    </Style>
+    <Style Selector="Border.light.accent.lit">
+      <Setter Property="Background" Value="#FFB300" />
+    </Style>
+    <!-- Gap training silent bar: the light moves but stays hollow. -->
+    <Style Selector="Border.light.muted.lit">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="ToggleButton">
+      <Setter Property="Focusable" Value="False" />
+    </Style>
+    <!-- Drum grid -->
+    <Style Selector="ToggleButton.cell">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ToggleButton.hat:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1baf7a" />
+    </Style>
+    <Style Selector="ToggleButton.snare:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#eb6834" />
+    </Style>
+    <Style Selector="ToggleButton.kick:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2a78d6" />
+    </Style>
+    <Style Selector="Border.step">
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="Border.step.now">
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="TextBlock.drumlabel">
+      <Setter Property="Height" Value="22" />
+      <Setter Property="Padding" Value="0,3,0,0" />
+    </Style>
+    <Style Selector="WrapPanel.mode > :is(Control)">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,2,6,2" />
+    </Style>
+  </UserControl.Styles>
+
+  <StackPanel Margin="20" Spacing="14">
+    <!-- Practice with metronome: the item this is playing for; the tempo reached goes to its log on Stop -->
+    <Border IsVisible="{Binding IsLinked}" Padding="10,6" CornerRadius="6" Background="#14808080">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="{Binding LinkTitle, StringFormat='Playing for: {0}'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <TextBlock Classes="caption" Text="{Binding LinkStatus}" TextWrapping="Wrap"
+                     IsVisible="{Binding LinkStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="✕" Command="{Binding UnlinkCommand}" VerticalAlignment="Center"
+                ToolTip.Tip="Stop linking: the tempo reached won't be added to the log" />
+      </Grid>
+    </Border>
+
+    <!-- Tempo -->
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+      <Button Content="−5" Command="{Binding AdjustBpmCommand}" CommandParameter="-5" MinWidth="44" />
+      <Button Grid.Column="1" Content="−1" Command="{Binding AdjustBpmCommand}" CommandParameter="-1" MinWidth="44" Margin="6,0,0,0" />
+      <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+        <TextBlock Text="{Binding BpmText}" FontSize="56" FontWeight="SemiBold" HorizontalAlignment="Center"
+                   FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
+        <TextBlock Text="{Binding BpmCaption}" Classes="caption" HorizontalAlignment="Center" Margin="0,-6,0,0" />
+      </StackPanel>
+      <Button Grid.Column="3" Content="+1" Command="{Binding AdjustBpmCommand}" CommandParameter="1" MinWidth="44" Margin="0,0,6,0" />
+      <Button Grid.Column="4" Content="+5" Command="{Binding AdjustBpmCommand}" CommandParameter="5" MinWidth="44" />
+    </Grid>
+    <Slider Minimum="20" Maximum="300" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Bpm}" />
+
+    <!-- Beat lights -->
+    <ItemsControl ItemsSource="{Binding BeatLights}" HorizontalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:BeatLightViewModel">
+          <Border Classes="light" Classes.lit="{Binding IsLit}" Classes.accent="{Binding IsAccent}"
+                  Classes.muted="{Binding IsMuted}" Margin="4">
+            <TextBlock Text="{Binding Number}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" />
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBlock Text="{Binding LiveText}" HorizontalAlignment="Center" FontWeight="SemiBold"
+               IsVisible="{Binding LiveText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+    <!-- Transport -->
+    <Grid ColumnDefinitions="*,12,*">
+      <Button Classes="accent" Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"
+              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,10" FontSize="16" />
+      <Button Grid.Column="2" Content="Tap tempo" Command="{Binding TapCommand}"
+              HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,10" FontSize="16" />
+    </Grid>
+
+    <!-- Meter -->
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+      <TextBlock Text="Beats per bar" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" ItemsSource="{Binding BeatsPerBarOptions}" SelectedItem="{Binding BeatsPerBar}"
+                HorizontalAlignment="Stretch" />
+
+      <TextBlock Grid.Row="1" Text="Subdivision" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding SubdivisionOptions}"
+                SelectedItem="{Binding SelectedSubdivision}" HorizontalAlignment="Stretch" />
+
+      <TextBlock Grid.Row="2" Text="Volume" VerticalAlignment="Center" />
+      <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,52">
+        <Slider Minimum="0" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding Volume}"
+                ToolTip.Tip="Above 100 % a soft limiter makes the click louder without distorting." />
+        <TextBlock Grid.Column="1" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+      </Grid>
+
+      <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="16" IsVisible="{Binding !IsDrums}">
+        <CheckBox Content="Accent beat 1" IsChecked="{Binding AccentFirstBeat}" IsEnabled="{Binding !IsBackbeatOn}" />
+        <CheckBox Content="Only on 2 and 4" IsChecked="{Binding Backbeat}" IsEnabled="{Binding CanBackbeat}"
+                  ToolTip.Tip="Backbeat: beats 1 and 3 are silent (subdivisions still click), so you feel the downbeat yourself. Needs an even number of beats per bar." />
+      </StackPanel>
+    </Grid>
+
+    <!-- Sound: beep click or drums (kick / snare / closed hi-hat on a step grid, saved patterns) -->
+    <Border Padding="12,8" CornerRadius="8" Background="#14808080">
+      <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <TextBlock Text="Sound" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding SoundOptions}" SelectedItem="{Binding SelectedSound}"
+                    HorizontalAlignment="Stretch" />
+        </Grid>
+
+        <StackPanel Spacing="8" IsVisible="{Binding IsDrums}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <TextBlock Text="Pattern" VerticalAlignment="Center"
+                       ToolTip.Tip="Each column is one step of the bar (beats × subdivision). Changing beats or subdivision resizes the grid; picking a pattern sets them." />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Patterns}" SelectedItem="{Binding SelectedPattern}"
+                      PlaceholderText="(your edits: not saved yet)" HorizontalAlignment="Stretch" />
+          </Grid>
+
+          <Grid ColumnDefinitions="Auto,*">
+            <StackPanel Margin="0,20,8,0">
+              <TextBlock Classes="drumlabel" Text="Hi-hat" />
+              <TextBlock Classes="drumlabel" Text="Snare" />
+              <TextBlock Classes="drumlabel" Text="Kick" />
+            </StackPanel>
+            <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding DrumBeats}" Margin="0,0,0,10">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DrumBeatViewModel">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Number}" Classes="caption" Height="18" Margin="4,0,0,0" />
+                      <ItemsControl ItemsSource="{Binding Steps}">
+                        <ItemsControl.ItemsPanel>
+                          <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                          </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:DrumStepViewModel">
+                            <Border Classes="step" Classes.now="{Binding IsNow}">
+                              <StackPanel Spacing="2">
+                                <ToggleButton Classes="cell hat" IsChecked="{Binding HiHat}" ToolTip.Tip="Closed hi-hat" />
+                                <ToggleButton Classes="cell snare" IsChecked="{Binding Snare}" ToolTip.Tip="Snare" />
+                                <ToggleButton Classes="cell kick" IsChecked="{Binding Kick}" ToolTip.Tip="Kick" />
+                              </StackPanel>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+            <TextBox Text="{Binding PatternName}" PlaceholderText="Name your pattern" MaxLength="40" />
+            <Button Grid.Column="1" Content="Save" Command="{Binding SavePatternCommand}"
+                    ToolTip.Tip="Save this grid under the name (same name: updates it)" />
+            <Button Grid.Column="2" Content="Clear" Command="{Binding ClearStepsCommand}"
+                    ToolTip.Tip="Empty the grid to build your own" />
+            <Button Grid.Column="3" Content="Delete" Command="{Binding DeletePatternCommand}"
+                    IsVisible="{Binding !IsConfirmingDelete}" ToolTip.Tip="Delete the selected saved pattern" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsConfirmingDelete}">
+              <Button Content="Delete it" Command="{Binding DeletePatternCommand}" Foreground="#E53935" />
+              <Button Content="Cancel" Command="{Binding CancelDeleteCommand}" />
+            </StackPanel>
+          </Grid>
+          <TextBlock Classes="caption" Text="{Binding PatternStatus}" TextWrapping="Wrap"
+                     IsVisible="{Binding PatternStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Practice modes -->
+    <Border Padding="12,8" CornerRadius="8" Background="#14808080">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Practice modes" FontWeight="SemiBold" />
+
+        <WrapPanel Classes="mode">
+          <CheckBox Content="Gap training:" IsChecked="{Binding GapEnabled}" />
+          <TextBlock Text="play" />
+          <ComboBox ItemsSource="{Binding GapBarOptions}" SelectedItem="{Binding GapPlayBars}" IsEnabled="{Binding GapEnabled}" />
+          <TextBlock Text="bars, then mute" />
+          <ComboBox ItemsSource="{Binding GapBarOptions}" SelectedItem="{Binding GapMuteBars}" IsEnabled="{Binding GapEnabled}" />
+          <TextBlock Text="bars" />
+        </WrapPanel>
+
+        <WrapPanel Classes="mode">
+          <CheckBox Content="Tempo trainer:" IsChecked="{Binding TrainerEnabled}" />
+          <TextBlock Text="+" />
+          <ComboBox ItemsSource="{Binding TrainerStepOptions}" SelectedItem="{Binding TrainerStepBpm}" IsEnabled="{Binding TrainerEnabled}" />
+          <TextBlock Text="BPM every" />
+          <ComboBox ItemsSource="{Binding TrainerEveryOptions}" SelectedItem="{Binding TrainerEveryBars}" IsEnabled="{Binding TrainerEnabled}" />
+          <TextBlock Text="bars, up to" />
+          <NumericUpDown Value="{Binding TrainerTargetBpm}" Minimum="20" Maximum="300" Increment="5" FormatString="0"
+                         Width="120" IsEnabled="{Binding TrainerEnabled}" />
+          <TextBlock Text="BPM" />
+        </WrapPanel>
+        <TextBlock Classes="caption" TextWrapping="Wrap" Opacity="0.7"
+                   Text="The tempo above is where the trainer starts; it steps up on the downbeat and restarts when you change the tempo." />
+      </StackPanel>
+    </Border>
+
+    <!-- Output device: each device is listed once per audio driver with that driver's latency -->
+    <StackPanel Spacing="4">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+        <TextBlock Text="Output" VerticalAlignment="Center" />
+        <ComboBox Grid.Column="1" ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" HorizontalAlignment="Stretch"
+                  ToolTip.Tip="The same device can appear more than once (one per audio driver): the lowest ms starts soonest." />
+      </Grid>
+      <TextBlock Classes="caption" TextWrapping="Wrap" Opacity="0.7"
+                 Text="Lower ms = the click starts sooner after you press Start. If a device won't play, pick another entry for it." />
+      <TextBlock Classes="caption" Text="{Binding OutputNote}" TextWrapping="Wrap"
+                 IsVisible="{Binding OutputNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    </StackPanel>
+
+    <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
+               IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    <TextBlock Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" Opacity="0.7" />
+  </StackPanel>
+</UserControl>

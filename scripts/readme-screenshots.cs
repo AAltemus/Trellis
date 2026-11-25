@@ -247,9 +247,11 @@ sealed class ShotApp : Application
     {
         RequestedThemeVariant = ThemeVariant.Light;
         Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
-        Styles.Add(new Style(x => x.OfType<TextBlock>().Class("caption")) { Setters = { new Setter(TextBlock.FontSizeProperty, 12.0), new Setter(Visual.OpacityProperty, 0.7) } });
-        Styles.Add(new Style(x => x.OfType<TextBlock>().Class("warning")) { Setters = { new Setter(TextBlock.ForegroundProperty, Brush.Parse("#E65100")), new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap) } });
-        Styles.Add(new Style(x => x.OfType<ProgressBar>().Class(":horizontal")) { Setters = { new Setter(Layoutable.MinWidthProperty, 0.0) } });
+        // The same app-wide styles as App.axaml (shared with phones), not a copy.
+        Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://Trellis/"))
+        {
+            Source = new Uri("avares://GuitarPractice.UI/Styles/TrellisStyles.axaml"),
+        });
     }
 }
 sealed class MemFactory : IDbContextFactory<PracticeDbContext>, IDisposable

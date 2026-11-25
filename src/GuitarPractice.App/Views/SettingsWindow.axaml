@@ -1,23 +1,17 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GuitarPractice.App.ViewModels"
+        xmlns:views="using:GuitarPractice.App.Views"
         x:Class="GuitarPractice.App.Views.SettingsWindow"
-        x:DataType="vm:SettingsViewModel"
+        x:DataType="vm:DesktopSettings"
         Title="Settings"
         Icon="/Assets/Icon/trellis.ico"
         Width="420" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner">
 
-  <!-- Changes apply as you make them and are remembered; there's nothing to save or cancel. -->
+  <!-- Desktop: the shared SettingsView (Appearance) + Updates (Velopack, desktop only). -->
   <StackPanel Margin="20" Spacing="14">
-    <StackPanel Spacing="6">
-      <TextBlock Text="Appearance" FontSize="16" FontWeight="SemiBold" />
-      <TextBlock Text="Theme" Classes="caption" />
-      <RadioButton GroupName="theme" IsChecked="{Binding IsLight}" Content="Light" />
-      <RadioButton GroupName="theme" IsChecked="{Binding IsDark}" Content="Dark" />
-      <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,4,0,0"
-                 Text="Applies to every window right away and is remembered next time." />
-    </StackPanel>
+    <views:SettingsView DataContext="{Binding Settings}" />
 
     <StackPanel Spacing="6">
       <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" />

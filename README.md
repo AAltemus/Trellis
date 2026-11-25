@@ -289,8 +289,10 @@ open it (with a message) instead of failing halfway.
 |---|---|
 | `GuitarPractice.Domain` | Entities, the planner, the practice timer state machine. No package dependencies; warnings are errors. |
 | `GuitarPractice.Infrastructure` | `PracticeDbContext`, entity configs, seed data, migrations, stores (incl. the MIDI library), startup migration/backup. |
-| `GuitarPractice.Audio` | PortAudio input/output/full-duplex, metronome engine, YIN tuner pipeline, bend tracker, recorder, time-stretch, overdub looper + latency calibration, MIDI reader + player (MeltySynth), notification ding. |
-| `GuitarPractice.App` | Avalonia UI: library/routine panel, week view, session timer, Week and Tools menus, tool windows (metronome, tuner, recorder, ear trainer, MIDI player, progress). |
+| `GuitarPractice.Audio` | The audio engines behind small `IAudio*` interfaces: metronome engine, YIN tuner pipeline, bend tracker, recorder, time-stretch, overdub looper + latency calibration, rhythm trainer, MIDI reader + player (MeltySynth), notification ding. No audio backend. |
+| `GuitarPractice.Audio.PortAudio` | The desktop audio backend: PortAudio input/output/full-duplex. |
+| `GuitarPractice.UI` | Avalonia views and view models shared by every platform: the board (library/routine panel, week view, session timer + log), the tool views (metronome, tuner, recorder, ear trainer, rhythm trainer, MIDI player, progress, settings), custom controls, app-wide styles. |
+| `GuitarPractice.App` | The desktop app (`Trellis`): windows that host the shared views, menus and keyboard shortcuts, window placement, self-update (Velopack). |
 | `GuitarPractice.Domain.Tests` | xUnit + FsCheck: planner properties and examples, progress math, week cloning, timer. |
 | `GuitarPractice.Infrastructure.Tests` | xUnit on in-memory SQLite: stores, week rules, settings, MIDI library, migrations up/down. |
 | `GuitarPractice.Audio.Tests` | xUnit: metronome timing (sample positions, no drift, no allocation), YIN accuracy, tuner, bends, drums, MIDI reading and playback (incl. the real SoundFont). |

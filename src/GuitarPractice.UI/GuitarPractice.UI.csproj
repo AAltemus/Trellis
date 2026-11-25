@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Everything on screen that desktop and phones share: view models, custom controls, the tool and board views,
+       styles. No windows, no PortAudio, no updater: those belong to the heads (GuitarPractice.App = desktop).
+       Namespaces stay GuitarPractice.App.* (they were moved here from the App project, 2026-11-25). -->
+  <PropertyGroup>
+    <RootNamespace>GuitarPractice.App</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Trellis" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GuitarPractice.Domain\GuitarPractice.Domain.csproj" />
+    <ProjectReference Include="..\GuitarPractice.Infrastructure\GuitarPractice.Infrastructure.csproj" />
+    <ProjectReference Include="..\GuitarPractice.Audio\GuitarPractice.Audio.csproj" />
+  </ItemGroup>
+</Project>
