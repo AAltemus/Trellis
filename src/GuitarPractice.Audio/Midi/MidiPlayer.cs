@@ -52,7 +52,9 @@ public sealed class SoundFontSynth : IMidiSynth
 /// every track that isn't soloed. <see cref="TrackVolumes"/>[n]: 0–1 for <see cref="MidiSong.Tracks"/>[n] (missing = 1);
 /// pass a new array to change it, never edit one the engine already has. <see cref="Click"/>: a metronome click on every
 /// beat of the song (its tempo changes, time signatures and the speed), accented on each bar's first beat, at
-/// <see cref="ClickVolume"/> (0–2, separate from <see cref="Volume"/>).
+/// <see cref="ClickVolume"/> (0–2, separate from <see cref="Volume"/>). <see cref="SongGain"/>: the song's own level
+/// correction (<see cref="MidiLevel.SongGain"/>), so a one-instrument riff and a full band play about equally loud;
+/// <see cref="Volume"/> applies on top.
 /// </summary>
 public sealed record MidiPlayerSettings(
     double Speed = 1.0,
@@ -66,7 +68,8 @@ public sealed record MidiPlayerSettings(
     bool CountInEachLoop = false,
     IReadOnlyList<float>? TrackVolumes = null,
     bool Click = false,
-    float ClickVolume = 0.8f)
+    float ClickVolume = 0.8f,
+    float SongGain = 1f)
 {
     public const double MinSpeed = 0.25;
     public const double MaxSpeed = 1.5;
@@ -81,6 +84,7 @@ public sealed record MidiPlayerSettings(
         LoopToBar = Math.Max(Math.Max(1, LoopFromBar), LoopToBar),
         Volume = float.IsFinite(Volume) ? Math.Clamp(Volume, 0f, MaxVolume) : 1f,
         ClickVolume = float.IsFinite(ClickVolume) ? Math.Clamp(ClickVolume, 0f, MaxVolume) : 0.8f,
+        SongGain = float.IsFinite(SongGain) ? Math.Clamp(SongGain, MidiLevel.MinGain, MidiLevel.MaxGain) : 1f,
     };
 
     /// <summary>True when the track at <paramref name="trackSlot"/> (index into <see cref="MidiSong.Tracks"/>) is silenced.</summary>
@@ -142,6 +146,7 @@ public sealed class MidiPlayerEngine
     private readonly sbyte[] _noteOwner = new sbyte[16 * 128]; // track slot holding (channel, note), -1 = none
     private readonly int[] _trackSlot = new int[256];           // file track index → slot in Tracks (or -1)
     private readonly ulong[] _channelTracks = new ulong[16];    // track slots (bits) that play on each channel
+    private float _gain = -1;                                    // the song's gain at the end of the last block (-1 = none yet)
     private readonly int[] _fileVolume = new int[16];           // the file's CC 7 per channel (synth default 100)
     private readonly int[] _sentVolume = new int[16];           // CC 7 last sent per channel
 
@@ -263,8 +268,15 @@ public sealed class MidiPlayerEngine
             var left = _left.AsSpan(0, n);
             var right = _right.AsSpan(0, n);
             _synth.Render(left, right);
-            var gain = settings.Volume * MixGain;
-            for (var i = 0; i < n; i++) output[done + i] = SoftLimit((left[i] + right[i]) * gain + ClickSample(_sample + i, settings));
+            // Glide to a new gain across the block (volume slider, a song's level arriving): no clicks or zipper noise.
+            var target = settings.Volume * settings.SongGain * MixGain;
+            var from = _gain < 0 ? target : _gain;
+            for (var i = 0; i < n; i++)
+            {
+                var gain = from + (target - from) * (i + 1) / n;
+                output[done + i] = SoftLimit((left[i] + right[i]) * gain + ClickSample(_sample + i, settings));
+            }
+            _gain = target;
             done += n;
             _sample += n;
         }

@@ -583,6 +583,88 @@ public class MidiTests
         Assert.InRange(cents, -10, 10);
     }
 
+    [Fact]
+    public void Song_gain_brings_a_lone_riff_and_a_full_band_to_about_the_same_level()
+    {
+        var path = FindSoundFont();
+        // A one-instrument riff (8ths on one guitar) and a band (the same riff + bass + drums + a second guitar).
+        var riff = new List<(long, byte[])> { (0, Smf.Program(0, 30)) };
+        for (var i = 0; i < 32; i++) { riff.Add((i == 0 ? 0 : Q / 2, Smf.On(0, 52))); riff.Add((Q / 2, Smf.Off(0, 52))); }
+        var lone = MidiFileReader.Read(new Smf(Q, 0).Track([.. riff]).Build());
+        var bandSong = new Smf(Q);
+        bandSong.Track([.. riff]);
+        foreach (var (ch, program, note) in new[] { (1, 30, 59), (2, 33, 40) })
+        {
+            var t = new List<(long, byte[])> { (0, Smf.Program(ch, program)) };
+            for (var i = 0; i < 32; i++) { t.Add((i == 0 ? 0 : Q / 2, Smf.On(ch, note))); t.Add((Q / 2, Smf.Off(ch, note))); }
+            bandSong.Track([.. t]);
+        }
+        var drums = new List<(long, byte[])>();
+        for (var i = 0; i < 32; i++) { drums.Add((i == 0 ? 0 : Q / 2, Smf.On(9, i % 2 == 0 ? 36 : 38))); drums.Add((Q / 2, Smf.Off(9, i % 2 == 0 ? 36 : 38))); }
+        bandSong.Track([.. drums]);
+        var band = MidiFileReader.Read(bandSong.Build());
+
+        double LoudestDb(MidiSong song, float gain)
+        {
+            var engine = new MidiPlayerEngine(Rate, new SoundFontSynth(path, Rate)) { Settings = new MidiPlayerSettings(SongGain: gain) };
+            engine.Load(song);
+            engine.Play();
+            var audio = new float[Rate * 8];
+            for (var i = 0; i < audio.Length; i += 1024) engine.Render(audio.AsSpan(i, Math.Min(1024, audio.Length - i)));
+            var loudest = 0.0;
+            for (var s = 0; s + Rate <= audio.Length; s += Rate)
+                loudest = Math.Max(loudest, Math.Sqrt(audio.AsSpan(s, Rate).ToArray().Average(x => (double)x * x)));
+            return 20 * Math.Log10(loudest);
+        }
+
+        var loneGain = MidiLevel.SongGain(lone, new SoundFontSynth(path, Rate), Rate)!.Value;
+        var bandGain = MidiLevel.SongGain(band, new SoundFontSynth(path, Rate), Rate)!.Value;
+        Assert.True(loneGain > bandGain, $"the lone riff gets more gain ({loneGain}) than the band ({bandGain})");
+        var before = LoudestDb(band, 1) - LoudestDb(lone, 1);
+        var after = LoudestDb(band, bandGain) - LoudestDb(lone, loneGain);
+        Assert.True(before > 4, $"the band is clearly louder uncorrected ({before:0.0} dB)");
+        Assert.InRange(after, -2.0, 2.0); // within 2 dB once corrected (the soft limiter shaves the loudest)
+        Assert.InRange(LoudestDb(lone, loneGain), MidiLevel.TargetDb - 2, MidiLevel.TargetDb + 1);
+    }
+
+    [Fact]
+    public void Song_gain_is_bounded_ignores_silence_and_stops_when_cancelled()
+    {
+        Assert.Equal(1f, MidiLevel.GainFor(0));                                  // nothing playing: leave it
+        Assert.Equal(MidiLevel.MaxGain, MidiLevel.GainFor(Math.Pow(10, -60 / 20.0))); // very quiet: at most +18 dB
+        Assert.Equal(MidiLevel.MinGain, MidiLevel.GainFor(1));                    // already hot: at most −6 dB
+        Assert.Equal(1f, MidiLevel.GainFor(Math.Pow(10, MidiLevel.TargetDb / 20)), 3);
+
+        using var cancel = new CancellationTokenSource();
+        cancel.Cancel();
+        Assert.Null(MidiLevel.SongGain(MidiFileReader.Read(Song()), new FakeSynth(), Rate, cancel.Token));
+        Assert.Equal(1f, MidiLevel.SongGain(MidiFileReader.Read(Song()), new SilentSynth(), Rate));  // silent synth: no change
+        Assert.Equal(MidiLevel.MaxGain, new MidiPlayerSettings(SongGain: 100).Normalized().SongGain);
+        Assert.Equal(1f, new MidiPlayerSettings(SongGain: float.NaN).Normalized().SongGain);
+    }
+
+    [Fact]
+    public void Song_gain_scales_the_output_and_glides_to_a_new_value()
+    {
+        var synth = new ConstantSynth(0.05f);                                     // L + R = 0.1, well under the limiter
+        var engine = new MidiPlayerEngine(Rate, synth) { Settings = new MidiPlayerSettings() };
+        var buffer = new float[256];
+        engine.Render(buffer);
+        Assert.Equal(0.1f * MidiPlayerEngine.MixGain, buffer[^1], 4);
+        engine.Settings = new MidiPlayerSettings(SongGain: 2f);
+        engine.Render(buffer);
+        Assert.True(buffer[0] < 0.2f * MidiPlayerEngine.MixGain * 0.99f, "no jump: the first sample is still on the way");
+        Assert.Equal(0.2f * MidiPlayerEngine.MixGain, buffer[^1], 4);              // there by the end of the block
+        for (var i = 1; i < buffer.Length; i++) Assert.True(buffer[i] >= buffer[i - 1]);
+    }
+
+    private sealed class ConstantSynth(float value) : IMidiSynth
+    {
+        public void Send(int channel, int command, int data1, int data2) { }
+        public void Render(Span<float> left, Span<float> right) { left.Fill(value); right.Fill(value); }
+        public void Reset() { }
+    }
+
     private static string FindSoundFont()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
