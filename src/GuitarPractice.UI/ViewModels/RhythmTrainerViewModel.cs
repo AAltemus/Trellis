@@ -22,7 +22,7 @@ public sealed record RhythmTrainerSettings(
     bool Click = true, double ClickVolume = 80, bool Drums = true, double DrumVolume = 70,
     bool Score = true, string? DeviceName = null, int Channel = 0, bool Backbeat = false,
     List<OwnRhythm>? Own = null, int RandomLevel = 2, string? OutputName = null, int OutputDriver = -1,
-    bool OutputFollowsMetronome = true);
+    bool OutputFollowsMetronome = true, bool SilentWhilePlaying = false);
 
 /// <summary>A rhythm you typed in the text syntax (<see cref="RhythmPattern.Parse"/>), for one meter.</summary>
 public sealed record OwnRhythm(string Name, string Meter, string Text);
@@ -66,6 +66,18 @@ public sealed record RhythmOutputOption(AudioDeviceInfo? Device, string Label, b
 /// each note is coloured and labelled with how early/late it was on average, and the take gets a score that
 /// "Log score" adds to today's notes of a Rhythm block.
 /// </summary>
+/// <summary>One beat of the bar in the trainer's beat lights (<see cref="RhythmTrainerViewModel.BeatLights"/>).</summary>
+public sealed partial class BeatLight(int number) : ObservableObject
+{
+    public int Number { get; } = number;
+
+    /// <summary>The bar's first beat (drawn heavier).</summary>
+    public bool IsFirst => Number == 1;
+
+    [ObservableProperty]
+    private bool _isOn;
+}
+
 public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposable
 {
     public const string SettingsKey = "rhythmTrainer";
@@ -129,6 +141,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         ListenFirst = s.ListenFirst;
         Click = s.Click;
         Backbeat = s.Backbeat;
+        SilentWhilePlaying = s.SilentWhilePlaying;
         ClickVolume = Math.Clamp(s.ClickVolume, 0, 100);
         Drums = s.Drums;
         DrumVolume = Math.Clamp(s.DrumVolume, 0, 100);
@@ -143,6 +156,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         _loading = false;
         SelectDefaultLogBlock();
         EditSelected(); // the builder starts from the selected rhythm
+        FillBeatLights(SelectedMeter.BeatTicks.Count);
     }
 
     public const double MinTempo = 30;
@@ -190,6 +204,22 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     private bool _backbeat;
 
     public bool CanBackbeat => RhythmTrainerEngine.CanBackbeat(SelectedMeter.Groups.Count);
+
+    /// <summary>Only the count-in (and listen bar) sound; nothing while you're recorded (see
+    /// <see cref="RhythmTrainerEngine.SilentWhilePlaying"/>): for a speaker the input can hear.</summary>
+    [ObservableProperty]
+    private bool _silentWhilePlaying;
+
+    /// <summary>The last take recorded the trainer's own click/drums (<see cref="SpeakerBleed"/>): its score can't be trusted.</summary>
+    [ObservableProperty]
+    private bool _heardSpeaker;
+
+    [RelayCommand]
+    private void SilenceWhilePlaying()
+    {
+        SilentWhilePlaying = true;
+        SaveSettings();
+    }
 
     [ObservableProperty]
     private bool _drums = true;
@@ -299,13 +329,38 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         $"Bars played: {engine.PlayBars} (rhythm {pattern.Bars} bar{(pattern.Bars == 1 ? "" : "s")}, listen first {(engine.ListenBars > 0 ? "on" : "off")})",
         $"Input: {SelectedDevice?.Name} (channel {(IsStereoDevice ? SelectedChannel?.Channel ?? 0 : 0)}); output: {SelectedOutput?.Label}",
         $"Latency removed: {LatencyMs.ToString("0.0", CultureInfo.InvariantCulture)} ms",
+        $"While you play: {(engine.SilentWhilePlaying ? "silent (count-in only)" : $"click {(engine.ClickEnabled ? engine.Backbeat && CanBackbeat ? "on 2 and 4" : "on" : "off")}, drums {(engine.DrumsEnabled ? "on" : "off")}")}",
+        $"Speaker bleed: {(HeardSpeaker ? "yes (the click/drums were recorded too)" : "not detected")}",
         $"Recording starts {RhythmTrainerEngine.PreRollSeconds.ToString("0.###", CultureInfo.InvariantCulture)} s before your first bar; sample rate {engine.SampleRate} Hz",
         $"Score: {_lastSummary}",
         $"Window: ±{result.WindowMs.ToString("0", CultureInfo.InvariantCulture)} ms",
         "");
 
+    /// <summary>
+    /// A visual click: one light per beat, lit for the first <see cref="BeatFlashSeconds"/> of its beat (at most half the
+    /// beat) through the count-in, listen bar and your bars. With "Silent while I play" it's the only beat you get.
+    /// Follows the engine's sample clock (what has been rendered), like the clicks themselves.
+    /// </summary>
+    public ObservableCollection<BeatLight> BeatLights { get; } = [];
+
+    public const double BeatFlashSeconds = 0.15;
+
+    private void FillBeatLights(int beats)
+    {
+        if (BeatLights.Count == beats) return;
+        BeatLights.Clear();
+        for (var b = 1; b <= beats; b++) BeatLights.Add(new BeatLight(b));
+    }
+
+    /// <summary>Lights beat <paramref name="index"/> (0-based); -1 = all off.</summary>
+    private void LightBeat(int index)
+    {
+        for (var i = 0; i < BeatLights.Count; i++) BeatLights[i].IsOn = i == index;
+    }
+
     partial void OnSelectedMeterChanged(Meter value)
     {
+        if (!IsRunning) FillBeatLights(value.BeatTicks.Count);
         FillRhythms(SelectedRhythm?.Pattern.Name);
         SelectDefaultLogBlock();
         CheckOwn();
@@ -556,6 +611,12 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         PushLive();
     }
     partial void OnDrumsChanged(bool value) => PushLive();
+
+    partial void OnSilentWhilePlayingChanged(bool value)
+    {
+        if (value) HeardSpeaker = false;
+        PushLive();
+    }
     partial void OnDrumVolumeChanged(double value) => PushLive();
 
     // A different input: the stream reopens on it next time.
@@ -571,6 +632,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         e.ClickVolume = (float)(ClickVolume / 100.0);
         e.DrumsEnabled = Drums;
         e.DrumVolume = (float)(DrumVolume / 100.0);
+        e.SilentWhilePlaying = SilentWhilePlaying;
     }
 
     private bool CanStartStop() => IsRunning || Pattern is not null;
@@ -592,6 +654,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
     {
         Error = null;
         Marks = null;
+        HeardSpeaker = false;
         _previewing = preview;
         try
         {
@@ -610,6 +673,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             }
 
             var engine = new RhythmTrainerEngine(rate, Plan(pattern, listenFirst: ListenFirst || preview));
+            FillBeatLights(engine.Plan.BeatTicks.Count);
             engine.LatencySamples = (int)Math.Round(LatencyMs / 1000.0 * rate);
             _engine = engine;
             PushLive();
@@ -671,6 +735,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         _poll.Stop();
         _engine?.Stop();
         IsRunning = false;
+        LightBeat(-1);
         PlayheadTick = -1;
         BuilderPlayheadTick = -1;
         Status = status;
@@ -700,6 +765,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
         }
         else PlayheadTick = playhead;
         var beat = (Pattern?.Meter.BeatAt((int)tick) ?? 0) + 1;
+        LightBeat(LitBeat(engine, state, bar, tick));
         switch (state)
         {
             case RhythmTrainerState.CountIn:
@@ -717,6 +783,21 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
                 if (ScorePlaying) ScoreTake(engine);
                 break;
         }
+    }
+
+    /// <summary>The beat whose light is on now (0-based), or -1: off between flashes and after your last bar.</summary>
+    private static int LitBeat(RhythmTrainerEngine engine, RhythmTrainerState state, int bar, double tick)
+    {
+        if (state is not (RhythmTrainerState.CountIn or RhythmTrainerState.Listen or RhythmTrainerState.Play)) return -1;
+        if (bar >= RhythmTrainerEngine.CountInBars + engine.ListenBars + engine.PlayBars) return -1; // the tail
+        var plan = engine.Plan;
+        var beats = plan.BeatTicks;
+        if (beats.Count == 0) return -1;
+        var b = beats.Count - 1;
+        while (b > 0 && beats[b] > tick) b--;
+        var beatSeconds = ((b + 1 < beats.Count ? beats[b + 1] : plan.BarTicks) - beats[b]) * plan.SecondsPerTick;
+        var since = (tick - beats[b]) * plan.SecondsPerTick;
+        return since >= 0 && since < Math.Min(BeatFlashSeconds, beatSeconds / 2) ? b : -1;
     }
 
     /// <summary>"+12", "−160", "0" (ms).</summary>
@@ -740,6 +821,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             .Where(t => t >= -RhythmScore.MaxWindowMs / 1000 && t <= engine.PlayBars * barSeconds)
             .ToList();
         var result = RhythmScore.Score(expected, played);
+        HeardSpeaker = SpeakerBleed.Detect(played, engine.BeatSoundTimes());
         _lastResult = result;
         _lastPlayBars = engine.PlayBars;
         _lastRecording = new AudioTake((float[])engine.Recording.Clone(), rate);
@@ -872,7 +954,7 @@ public sealed partial class RhythmTrainerViewModel : ObservableObject, IDisposab
             _settings.Set(SettingsKey, new RhythmTrainerSettings(SelectedMeter.Signature, Pattern?.Name, (double)(Tempo ?? 80), SelectedBars,
                 ListenFirst, Click, ClickVolume, Drums, DrumVolume, ScorePlaying, SelectedDevice?.Name, SelectedChannel?.Channel ?? 0, Backbeat,
                 [.. _own], RandomLevel, SelectedOutput?.Device?.Name, SelectedOutput?.Device?.Driver ?? -1,
-                SelectedOutput?.FollowsMetronome ?? true));
+                SelectedOutput?.FollowsMetronome ?? true, SilentWhilePlaying));
         }
 #pragma warning disable CA1031 // Losing a preference must not break the trainer.
         catch (Exception ex)

@@ -146,6 +146,17 @@ public sealed class RhythmTrainerEngine
     public static bool CanBackbeat(int beatsPerBar) => beatsPerBar >= 2 && beatsPerBar % 2 == 0;
 
     public bool DrumsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Nothing plays while you're recorded: click, drums (and a listen bar's last notes) fade out over
+    /// <see cref="SilenceFadeSeconds"/> just before the recording starts (<see cref="PreRollSamples"/> before your first
+    /// bar). The count-in (and the listen bar) sound as usual. For a speaker the input can hear (a phone's speaker and
+    /// mic, a laptop's): otherwise the click is recorded too and counts as notes (<see cref="SpeakerBleed"/>).
+    /// </summary>
+    public bool SilentWhilePlaying { get; set; }
+
+    public const double SilenceFadeSeconds = 0.005;
+
     public float ClickVolume { get; set; } = 0.8f;
     public float DrumVolume { get; set; } = 0.8f;
     public float RhythmVolume { get; set; } = 0.9f;
@@ -205,6 +216,9 @@ public sealed class RhythmTrainerEngine
 
         var latency = Math.Max(0, LatencySamples);
         var countInEnd = At(CountInBars, 0);
+        var silentFrom = PlayStart - PreRollSamples;
+        var fade = Math.Max(1, (int)(SilenceFadeSeconds * SampleRate));
+        var silent = SilentWhilePlaying;
         for (var i = 0; i < output.Length; i++)
         {
             var s = _sample + i;
@@ -227,6 +241,7 @@ public sealed class RhythmTrainerEngine
                 value += data[_voicePos[v]] * Gain((SoundId)_voiceSound[v], s < countInEnd);
                 if (++_voicePos[v] >= data.Length) _voice[v] = null;
             }
+            if (silent) value *= Math.Clamp((silentFrom - s) / (float)fade, 0f, 1f);
             output[i] = SoftLimit(value);
 
             var heard = s - latency - (PlayStart - PreRollSamples);
@@ -234,6 +249,27 @@ public sealed class RhythmTrainerEngine
         }
         _sample += output.Length;
         Publish();
+    }
+
+    /// <summary>
+    /// When the click or drums sounded on a beat of your bars (seconds from your first downbeat, ascending), with the
+    /// current settings: what <see cref="SpeakerBleed.Detect"/> compares the recording with. Hi-hats (quiet, between the
+    /// beats) are left out. Empty with <see cref="SilentWhilePlaying"/>.
+    /// </summary>
+    public IReadOnlyList<double> BeatSoundTimes()
+    {
+        if (SilentWhilePlaying) return [];
+        var times = new List<double>();
+        for (var e = 0; e < _eventTimes.Length; e++)
+        {
+            var t = _eventTimes[e];
+            if (t < PlayStart || t >= PlayEnd) continue;
+            var sound = (SoundId)_eventSounds[e];
+            if (sound is SoundId.HiHat or SoundId.Rhythm || Gain(sound, countIn: false) <= 0) continue;
+            var seconds = (t - PlayStart) / (double)SampleRate;
+            if (times.Count == 0 || seconds - times[^1] > 1e-6) times.Add(seconds);
+        }
+        return times;
     }
 
     private float Gain(SoundId sound, bool countIn) => sound switch
@@ -285,6 +321,49 @@ public sealed class RhythmTrainerEngine
         if (m <= Knee) return x;
         var limited = Knee + (1 - Knee) * MathF.Tanh((m - Knee) / (1 - Knee));
         return x < 0 ? -limited : limited;
+    }
+}
+
+/// <summary>
+/// Tells whether a take recorded the trainer's own click/drums (a speaker the input can hear: a phone's speaker and mic).
+/// That sound arrives a fixed time after each beat: the same to within a millisecond or two every time, which a player
+/// can't do (even a tight player spreads 5–20 ms). User's phone take of 2026-11-25: onsets at +23/+24 ms after 7 of 8
+/// beats (the uncompensated round trip), 11 "extra notes".
+/// </summary>
+public static class SpeakerBleed
+{
+    /// <summary>How far an onset may be from the shared offset.</summary>
+    public const double ToleranceSeconds = 0.002;
+
+    /// <summary>Where the bleed can be relative to the beat: a little early (latency over-compensated) to quite late.</summary>
+    public const double EarliestSeconds = -0.03;
+    public const double LatestSeconds = 0.2;
+
+    /// <summary>Share of the beats that must have an onset at the shared offset.</summary>
+    public const double MinShare = 0.75;
+
+    public const int MinBeats = 4;
+
+    /// <summary>
+    /// True when at least <see cref="MinShare"/> (and <see cref="MinBeats"/>) of <paramref name="beatTimes"/> have an
+    /// onset at one shared offset (±<see cref="ToleranceSeconds"/>). Same time base for both lists (seconds).
+    /// </summary>
+    public static bool Detect(IReadOnlyList<double> onsets, IReadOnlyList<double> beatTimes)
+    {
+        ArgumentNullException.ThrowIfNull(onsets);
+        ArgumentNullException.ThrowIfNull(beatTimes);
+        if (beatTimes.Count < MinBeats) return false;
+        var needed = Math.Max(MinBeats, (int)Math.Ceiling(MinShare * beatTimes.Count));
+        var offsets = new List<double>();
+        foreach (var b in beatTimes)
+            foreach (var o in onsets)
+                if (o - b >= EarliestSeconds && o - b <= LatestSeconds) offsets.Add(o - b);
+        foreach (var candidate in offsets)
+        {
+            var count = beatTimes.Count(b => onsets.Any(o => Math.Abs(o - b - candidate) <= ToleranceSeconds));
+            if (count >= needed) return true;
+        }
+        return false;
     }
 }
 

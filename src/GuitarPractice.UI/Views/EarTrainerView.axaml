@@ -62,21 +62,38 @@
       <Setter Property="FontSize" Value="12" />
       <Setter Property="Opacity" Value="0.7" />
     </Style>
+
+    <!-- Narrow (a phone, or a narrow window): the prompt over its buttons, the direction/root pickers one per line,
+         narrower score columns. Positions and widths live in styles so the narrow query can override them. -->
+    <Style Selector="TextBlock.scoreLabel"><Setter Property="Width" Value="110" /></Style>
+    <Style Selector="TextBlock.scoreRound"><Setter Property="Width" Value="90" /></Style>
+    <Style Selector="TextBlock.scoreAll"><Setter Property="Width" Value="130" /></Style>
+    <Style Selector="ComboBox.rootPicker"><Setter Property="Grid.Column" Value="1" /></Style>
+    <ContainerQuery Name="earRoot" Query="max-width:599">
+      <Style Selector="TextBlock.prompt"><Setter Property="Grid.ColumnSpan" Value="4" /><Setter Property="Margin" Value="0,0,0,4" /></Style>
+      <Style Selector="Button.questionButton"><Setter Property="Grid.Row" Value="1" /></Style>
+      <Style Selector="ComboBox.directionPicker"><Setter Property="Grid.ColumnSpan" Value="2" /></Style>
+      <Style Selector="ComboBox.rootPicker"><Setter Property="Grid.Column" Value="0" /><Setter Property="Grid.ColumnSpan" Value="2" /><Setter Property="Grid.Row" Value="1" /></Style>
+      <Style Selector="Grid.pickers"><Setter Property="RowSpacing" Value="8" /></Style>
+      <Style Selector="TextBlock.scoreLabel"><Setter Property="Width" Value="72" /></Style>
+      <Style Selector="TextBlock.scoreRound"><Setter Property="Width" Value="72" /></Style>
+      <Style Selector="TextBlock.scoreAll"><Setter Property="Width" Value="100" /></Style>
+    </ContainerQuery>
   </UserControl.Styles>
 
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="20" Spacing="14">
+    <StackPanel Margin="20" Spacing="14" Container.Name="earRoot" Container.Sizing="Width">
 
       <!-- What to practise -->
       <Border Padding="12,10" CornerRadius="8" Background="#14808080">
         <StackPanel Spacing="10">
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <WrapPanel ItemSpacing="8" LineSpacing="6">
             <TextBlock Text="Practise" VerticalAlignment="Center" FontWeight="SemiBold" />
             <ComboBox ItemsSource="{Binding ModeOptions}" SelectedItem="{Binding SelectedMode}" Width="130" />
             <TextBlock Text="in" VerticalAlignment="Center" Margin="4,0" />
             <ComboBox ItemsSource="{Binding TonicOptions}" SelectedItem="{Binding SelectedTonic}" Width="100" />
             <ComboBox ItemsSource="{Binding KeyModeOptions}" SelectedItem="{Binding SelectedKeyMode}" Width="170" />
-          </StackPanel>
+          </WrapPanel>
 
           <!-- Intervals -->
           <StackPanel Spacing="8" IsVisible="{Binding IsIntervals}">
@@ -93,9 +110,9 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-              <ComboBox ItemsSource="{Binding DirectionOptions}" SelectedItem="{Binding SelectedDirection}" HorizontalAlignment="Stretch" />
-              <ComboBox Grid.Column="1" ItemsSource="{Binding RootOptions}" SelectedItem="{Binding SelectedRoot}" HorizontalAlignment="Stretch" />
+            <Grid Classes="pickers" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+              <ComboBox Classes="directionPicker" ItemsSource="{Binding DirectionOptions}" SelectedItem="{Binding SelectedDirection}" HorizontalAlignment="Stretch" />
+              <ComboBox Classes="rootPicker" ItemsSource="{Binding RootOptions}" SelectedItem="{Binding SelectedRoot}" HorizontalAlignment="Stretch" />
             </Grid>
           </StackPanel>
 
@@ -124,11 +141,11 @@
           </ItemsControl>
 
           <!-- Melodies -->
-          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsMelodies}">
+          <WrapPanel ItemSpacing="8" LineSpacing="6" IsVisible="{Binding IsMelodies}">
             <TextBlock Text="Melody length" VerticalAlignment="Center" />
             <ComboBox ItemsSource="{Binding MelodyLengthOptions}" SelectedItem="{Binding SelectedMelodyLength}" Width="80" />
             <TextBlock Text="notes, from the key's root up to its octave" VerticalAlignment="Center" Classes="caption" />
-          </StackPanel>
+          </WrapPanel>
 
           <WrapPanel>
             <CheckBox Content="Play the key chord first" IsChecked="{Binding PlayKeyFirst}" Margin="0,0,18,0"
@@ -148,11 +165,11 @@
 
       <!-- Question -->
       <StackPanel Spacing="10">
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
-          <TextBlock Text="{Binding Prompt}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
-          <Button Grid.Column="1" Content="🔑 Key" Command="{Binding PlayKeyCommand}" ToolTip.Tip="Hear the key chord again (K)" />
-          <Button Grid.Column="2" Content="↻ Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Hear the question again (Space or R)" />
-          <Button Grid.Column="3" Classes="accent" Content="{Binding NextText}" Command="{Binding NextCommand}" MinWidth="96"
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+          <TextBlock Classes="prompt" Text="{Binding Prompt}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+          <Button Classes="questionButton" Grid.Column="1" Content="🔑 Key" Command="{Binding PlayKeyCommand}" ToolTip.Tip="Hear the key chord again (K)" />
+          <Button Classes="questionButton" Grid.Column="2" Content="↻ Replay" Command="{Binding ReplayCommand}" ToolTip.Tip="Hear the question again (Space or R)" />
+          <Button Grid.Column="3" Classes="accent questionButton" Content="{Binding NextText}" Command="{Binding NextCommand}" MinWidth="96"
                   ToolTip.Tip="Enter or N" />
         </Grid>
 
@@ -248,20 +265,20 @@
           </Grid>
           <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding LogStatus}"
                      IsVisible="{Binding LogStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-          <Grid ColumnDefinitions="110,90,*,130" Opacity="0.7">
-            <TextBlock Classes="caption" Text="" />
-            <TextBlock Grid.Column="1" Classes="caption" Text="This round" />
-            <TextBlock Grid.Column="3" Classes="caption" Text="All time" />
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto" Opacity="0.7">
+            <TextBlock Classes="caption scoreLabel" Text="" />
+            <TextBlock Grid.Column="1" Classes="caption scoreRound" Text="This round" />
+            <TextBlock Grid.Column="3" Classes="caption scoreAll" Text="All time" />
           </Grid>
           <ItemsControl ItemsSource="{Binding ScoreRows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:EarScoreRow">
-                <Grid ColumnDefinitions="110,90,*,130" Height="24">
-                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Text="{Binding Session}" VerticalAlignment="Center" />
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" Height="24">
+                  <TextBlock Classes="scoreLabel" Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Classes="scoreRound" Grid.Column="1" Text="{Binding Session}" VerticalAlignment="Center" />
                   <ProgressBar Grid.Column="2" Minimum="0" Maximum="1" Value="{Binding Accuracy}" Height="6" MinHeight="6"
                                Margin="0,0,12,0" VerticalAlignment="Center" IsVisible="{Binding HasAllTime}" />
-                  <TextBlock Grid.Column="3" Text="{Binding AllTime}" VerticalAlignment="Center" />
+                  <TextBlock Classes="scoreAll" Grid.Column="3" Text="{Binding AllTime}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

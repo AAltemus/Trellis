@@ -19,11 +19,59 @@
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
+
+    <!-- Exercises | the selected one side by side; narrow (a phone, or a narrow window): the list on top, the rest under
+         it, and the wide rows re-flowed. Positions and widths live in styles (not on the elements) so the narrow query
+         can override them. -->
+    <Style Selector="ScrollViewer.detail"><Setter Property="Grid.Column" Value="2" /></Style>
+    <Style Selector="Grid.detailBody"><Setter Property="Margin" Value="0,0,16,0" /></Style>
+    <Style Selector="TextBlock.summaryLabel"><Setter Property="Width" Value="240" /></Style>
+    <Style Selector="TextBlock.summaryDetail"><Setter Property="Grid.Column" Value="2" /></Style>
+    <Style Selector="Panel.summaryBar"><Setter Property="Width" Value="110" /><Setter Property="Grid.Column" Value="3" /></Style>
+    <Style Selector="NumericUpDown.summaryTarget"><Setter Property="Width" Value="150" /><Setter Property="Grid.Column" Value="4" /></Style>
+    <Style Selector="TextBox.renameBox"><Setter Property="Width" Value="260" /></Style>
+    <Style Selector="TextBlock.removedLabel"><Setter Property="Width" Value="240" /></Style>
+    <Style Selector="TextBlock.dayCol"><Setter Property="Width" Value="150" /></Style>
+    <Style Selector="TextBlock.timeCol"><Setter Property="Width" Value="70" /></Style>
+    <Style Selector="TextBlock.ratingCol"><Setter Property="Width" Value="60" /></Style>
+    <Style Selector="TextBlock.takesCol"><Setter Property="Width" Value="50" /></Style>
+    <Style Selector="TextBlock.notesCol"><Setter Property="Width" Value="200" /></Style>
+    <Style Selector="CalendarDatePicker.editDate"><Setter Property="Width" Value="170" /></Style>
+    <Style Selector="ComboBox.editRating"><Setter Property="Width" Value="130" /><Setter Property="Grid.Column" Value="1" /></Style>
+    <Style Selector="TextBox.editNotes"><Setter Property="Grid.Column" Value="2" /></Style>
+    <ContainerQuery Name="progressRoot" Query="max-width:599">
+      <Style Selector="DockPanel.exercises"><Setter Property="Grid.ColumnSpan" Value="3" /><Setter Property="Margin" Value="0,0,0,16" /></Style>
+      <Style Selector="DockPanel.exercises > ListBox"><Setter Property="MinHeight" Value="64" /><Setter Property="MaxHeight" Value="240" /></Style>
+      <Style Selector="ScrollViewer.detail"><Setter Property="Grid.Column" Value="0" /><Setter Property="Grid.ColumnSpan" Value="3" /><Setter Property="Grid.Row" Value="1" /></Style>
+      <Style Selector="Grid.detailBody"><Setter Property="Margin" Value="0" /></Style>
+      <!-- An exercise: name, then its detail, then target + bar + Rename/Remove -->
+      <Style Selector="TextBlock.summaryLabel"><Setter Property="Width" Value="NaN" /><Setter Property="Grid.ColumnSpan" Value="5" /></Style>
+      <Style Selector="TextBlock.summaryDetail"><Setter Property="Grid.Row" Value="1" /><Setter Property="Grid.Column" Value="1" /><Setter Property="Grid.ColumnSpan" Value="5" /></Style>
+      <Style Selector="NumericUpDown.summaryTarget"><Setter Property="Width" Value="110" /><Setter Property="Grid.Row" Value="2" /><Setter Property="Grid.Column" Value="1" /></Style>
+      <Style Selector="Panel.summaryBar"><Setter Property="Width" Value="NaN" /><Setter Property="Grid.Row" Value="2" /><Setter Property="Grid.Column" Value="2" /><Setter Property="Grid.ColumnSpan" Value="2" /></Style>
+      <Style Selector="StackPanel.summaryButtons"><Setter Property="Grid.Row" Value="2" /><Setter Property="Grid.Column" Value="4" /><Setter Property="Grid.ColumnSpan" Value="2" /></Style>
+      <Style Selector="Grid.summaryRow"><Setter Property="Margin" Value="0,4" /></Style>
+      <Style Selector="TextBox.renameBox"><Setter Property="Width" Value="200" /></Style>
+      <Style Selector="TextBlock.removedLabel"><Setter Property="Width" Value="120" /></Style>
+      <!-- Day table: Day, Time, Exercises, Rating (Takes and Notes are in the editor below) -->
+      <Style Selector="TextBlock.dayCol"><Setter Property="Width" Value="96" /></Style>
+      <Style Selector="TextBlock.timeCol"><Setter Property="Width" Value="48" /></Style>
+      <Style Selector="TextBlock.ratingCol"><Setter Property="Width" Value="40" /></Style>
+      <Style Selector="TextBlock.takesCol"><Setter Property="IsVisible" Value="False" /></Style>
+      <Style Selector="TextBlock.notesCol"><Setter Property="IsVisible" Value="False" /></Style>
+      <Style Selector="Grid.dayHeader"><Setter Property="Margin" Value="0,12,0,4" /></Style>
+      <!-- Editor: date + rating, then notes + Save + Clear -->
+      <Style Selector="Grid.editRow"><Setter Property="RowSpacing" Value="8" /></Style>
+      <Style Selector="CalendarDatePicker.editDate"><Setter Property="Width" Value="150" /></Style>
+      <Style Selector="ComboBox.editRating"><Setter Property="Width" Value="110" /><Setter Property="Grid.ColumnSpan" Value="4" /><Setter Property="HorizontalAlignment" Value="Left" /></Style>
+      <Style Selector="TextBox.editNotes"><Setter Property="Grid.Row" Value="1" /><Setter Property="Grid.Column" Value="0" /><Setter Property="Grid.ColumnSpan" Value="3" /></Style>
+      <Style Selector="Button.editButton"><Setter Property="Grid.Row" Value="1" /></Style>
+    </ContainerQuery>
   </UserControl.Styles>
 
-  <Grid ColumnDefinitions="300,16,*" Margin="16">
+  <Grid ColumnDefinitions="300,16,*" RowDefinitions="*,Auto" Margin="16" Container.Name="progressRoot" Container.Sizing="Width">
     <!-- Exercises -->
-    <DockPanel Grid.Column="0">
+    <DockPanel Classes="exercises">
       <TextBlock DockPanel.Dock="Top" Text="Exercises" FontWeight="SemiBold" Margin="0,0,0,6" />
       <!-- What's tracked: untick a category or block to leave it out (history is kept) -->
       <Expander DockPanel.Dock="Bottom" Header="What's tracked" Margin="0,6,0,0" HorizontalAlignment="Stretch"
@@ -68,8 +116,8 @@
 
     <!-- Selected exercise -->
     <!-- Scrolls when the window is short (charts, day table and editor no longer paint over each other). -->
-    <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,0,16,0">
+    <ScrollViewer Classes="detail" HorizontalScrollBarVisibility="Disabled">
+    <Grid Classes="detailBody" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Re-read practice time (the timer saves it while you practise)" />
@@ -92,11 +140,11 @@
         </StackPanel>
         <StackPanel>
           <TextBlock Text="Block target" Classes="label" />
-          <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+          <WrapPanel ItemSpacing="6" LineSpacing="4" Margin="0,2,0,0">
             <NumericUpDown Value="{Binding BlockTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0" Width="150"
                            PlaceholderText="none" ToolTip.Tip="Target BPM for the whole block; leave empty for none" />
             <TextBlock Text="{Binding TargetText}" VerticalAlignment="Center" Opacity="0.8" FontSize="12" TextWrapping="Wrap" MaxWidth="260" />
-          </StackPanel>
+          </WrapPanel>
         </StackPanel>
       </WrapPanel>
 
@@ -106,33 +154,35 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:ExerciseSummaryRow">
               <StackPanel>
-              <Grid ColumnDefinitions="20,240,*,110,150,Auto" ColumnSpacing="6" Margin="0,1">
+              <Grid Classes="summaryRow" ColumnDefinitions="20,Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="6" Margin="0,1">
                 <c:SeriesSwatch Slot="{Binding Slot}" IsVisible="{Binding IsCharted}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="{Binding Detail}" Opacity="0.8" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <ProgressBar Grid.Column="3" Minimum="0" Maximum="1" Value="{Binding TargetFraction}" Height="6" MinHeight="6"
-                             VerticalAlignment="Center" IsVisible="{Binding HasTarget}" ToolTip.Tip="Progress toward this exercise's target" />
-                <NumericUpDown Grid.Column="4" Value="{Binding OwnTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
+                <TextBlock Classes="summaryLabel" Grid.Column="1" Text="{Binding Label}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Classes="summaryDetail" Text="{Binding Detail}" Opacity="0.8" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Panel Classes="summaryBar">
+                  <ProgressBar Minimum="0" Maximum="1" Value="{Binding TargetFraction}" Height="6" MinHeight="6"
+                               VerticalAlignment="Center" IsVisible="{Binding HasTarget}" ToolTip.Tip="Progress toward this exercise's target" />
+                </Panel>
+                <NumericUpDown Classes="summaryTarget" Value="{Binding OwnTarget}" Minimum="1" Maximum="400" Increment="1" FormatString="0"
                                PlaceholderText="{Binding TargetWatermark}" ToolTip.Tip="Your own target for this exercise; empty = use the block target" />
-                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding !IsConfirmingRemove}">
+                <StackPanel Classes="summaryButtons" Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding !IsConfirmingRemove}">
                   <Button Content="Rename" Command="{Binding StartRenameCommand}" Padding="8,2" FontSize="12"
                           ToolTip.Tip="Fix a typo, or give it another exercise's name to merge the two" />
                   <Button Content="Remove" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12"
                           ToolTip.Tip="Stop tracking this exercise: it leaves the list and chart, its history is kept. Log the same name again to start over." />
                 </StackPanel>
-                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsConfirmingRemove}">
+                <StackPanel Classes="summaryButtons" Grid.Column="5" Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsConfirmingRemove}">
                   <Button Content="Remove it" Command="{Binding RemoveCommand}" Padding="8,2" FontSize="12" Foreground="#E53935" />
                   <Button Content="Cancel" Command="{Binding CancelRemoveCommand}" Padding="8,2" FontSize="12" />
                 </StackPanel>
               </Grid>
               <!-- Rename / merge, inline under the row -->
               <StackPanel IsVisible="{Binding IsRenaming}" Spacing="2" Margin="26,2,0,6">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBox Text="{Binding RenameText}" Width="260" PlaceholderText="New name" />
+                <WrapPanel ItemSpacing="6" LineSpacing="4">
+                  <TextBox Classes="renameBox" Text="{Binding RenameText}" PlaceholderText="New name" />
                   <Button Content="{Binding RenameButtonText}" Command="{Binding ApplyRenameCommand}" Padding="8,2" FontSize="12"
                           Classes.accent="{Binding IsMerge}" />
                   <Button Content="Cancel" Command="{Binding CancelRenameCommand}" Padding="8,2" FontSize="12" />
-                </StackPanel>
+                </WrapPanel>
                 <TextBlock Text="{Binding RenameHint}" FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
               </StackPanel>
               </StackPanel>
@@ -149,8 +199,8 @@
           <ItemsControl ItemsSource="{Binding RemovedExercises}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:RemovedExerciseRow">
-                <Grid ColumnDefinitions="240,*" ColumnSpacing="6" Margin="20,1,0,1">
-                  <TextBlock Text="{Binding Label}" Opacity="0.8" TextTrimming="CharacterEllipsis" />
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6" Margin="20,1,0,1">
+                  <TextBlock Classes="removedLabel" Text="{Binding Label}" Opacity="0.8" TextTrimming="CharacterEllipsis" />
                   <TextBlock Grid.Column="1" Text="{Binding Detail}" Opacity="0.7" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Grid>
               </DataTemplate>
@@ -173,25 +223,25 @@
         <TextBlock Grid.Row="2" Text="Minutes practised per day" Classes="charttitle" Margin="0,10,0,4" />
         <c:ProgressChart Grid.Row="3" Kind="Bars" Points="{Binding MinutePoints}" From="{Binding ChartFrom}" To="{Binding ChartTo}"
                          EmptyText="Practice time appears here when you use the timer" />
-        <Grid Grid.Row="4" ColumnDefinitions="150,70,*,60,50,200" Margin="8,12,8,4">
-          <TextBlock Text="Day" Classes="label" />
-          <TextBlock Grid.Column="1" Text="Time" Classes="label" />
-          <TextBlock Grid.Column="2" Text="Exercises (BPM, note value)" Classes="label" />
-          <TextBlock Grid.Column="3" Text="Rating" Classes="label" />
-          <TextBlock Grid.Column="4" Text="Takes" Classes="label" />
-          <TextBlock Grid.Column="5" Text="Notes" Classes="label" />
+        <Grid Classes="dayHeader" Grid.Row="4" ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="8,12,8,4">
+          <TextBlock Text="Day" Classes="label dayCol" />
+          <TextBlock Grid.Column="1" Text="Time" Classes="label timeCol" />
+          <TextBlock Grid.Column="2" Text="Exercises (BPM, note value)" Classes="label" TextTrimming="CharacterEllipsis" />
+          <TextBlock Grid.Column="3" Text="Rating" Classes="label ratingCol" />
+          <TextBlock Grid.Column="4" Text="Takes" Classes="label takesCol" />
+          <TextBlock Grid.Column="5" Text="Notes" Classes="label notesCol" />
         </Grid>
         <ListBox Grid.Row="5" ItemsSource="{Binding DayRows}" SelectedItem="{Binding SelectedDay}" Height="220"
                  ToolTip.Tip="Pick a day to edit it below">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:DayRowViewModel">
-              <Grid ColumnDefinitions="150,70,*,60,50,200">
-                <TextBlock Text="{Binding DateText}" />
-                <TextBlock Grid.Column="1" Text="{Binding TimeText}" />
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                <TextBlock Classes="dayCol" Text="{Binding DateText}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="timeCol" Grid.Column="1" Text="{Binding TimeText}" />
                 <TextBlock Grid.Column="2" Text="{Binding ExercisesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ExercisesText}" Margin="0,0,8,0" />
-                <TextBlock Grid.Column="3" Text="{Binding RatingText}" />
-                <TextBlock Grid.Column="4" Text="{Binding TakesText}" ToolTip.Tip="Recorder takes attached to this day" />
-                <TextBlock Grid.Column="5" Text="{Binding NotesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding NotesText}" />
+                <TextBlock Classes="ratingCol" Grid.Column="3" Text="{Binding RatingText}" />
+                <TextBlock Classes="takesCol" Grid.Column="4" Text="{Binding TakesText}" ToolTip.Tip="Recorder takes attached to this day" />
+                <TextBlock Classes="notesCol" Grid.Column="5" Text="{Binding NotesText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding NotesText}" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -201,14 +251,14 @@
       <!-- Editor: log or fix any day -->
       <Border Grid.Row="4" Margin="0,10,0,0" Padding="12" CornerRadius="8" Background="#14808080">
         <StackPanel Spacing="6">
-          <TextBlock Text="Log a day (pick a row above or any date)" FontWeight="SemiBold" />
-          <Grid ColumnDefinitions="170,130,*,Auto,Auto" ColumnSpacing="8">
-            <CalendarDatePicker SelectedDate="{Binding EditDate}" HorizontalAlignment="Stretch" />
-            <ComboBox Grid.Column="1" ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding EditRating}" HorizontalAlignment="Stretch"
+          <TextBlock Text="Log a day (pick a row above or any date)" FontWeight="SemiBold" TextWrapping="Wrap" />
+          <Grid Classes="editRow" ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+            <CalendarDatePicker Classes="editDate" SelectedDate="{Binding EditDate}" HorizontalAlignment="Stretch" />
+            <ComboBox Classes="editRating" ItemsSource="{Binding RatingOptions}" SelectedItem="{Binding EditRating}"
                       ToolTip.Tip="How the block went, 1 (rough) to 5 (clean)" />
-            <TextBox Grid.Column="2" Text="{Binding EditNotes}" PlaceholderText="Notes for this block" />
-            <Button Grid.Column="3" Content="Save" Command="{Binding SaveEntryCommand}" />
-            <Button Grid.Column="4" Content="Clear" Command="{Binding ClearEntryCommand}"
+            <TextBox Classes="editNotes" Text="{Binding EditNotes}" PlaceholderText="Notes for this block" />
+            <Button Classes="editButton" Grid.Column="3" Content="Save" Command="{Binding SaveEntryCommand}" />
+            <Button Classes="editButton" Grid.Column="4" Content="Clear" Command="{Binding ClearEntryCommand}"
                     ToolTip.Tip="Remove the exercises, rating and notes for this day (practice time is kept)" />
           </Grid>
           <ScrollViewer MaxHeight="170">
