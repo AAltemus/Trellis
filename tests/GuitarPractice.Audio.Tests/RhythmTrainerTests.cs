@@ -380,4 +380,62 @@ public class RhythmTrainerTests
         var bar = 3 * Rate;                                                   // 12 eighths at 120 BPM per quarter = 3 s
         Assert.Equal([3.0, 5.75], SoundStarts(output, bar, 2 * bar).Select(t => Math.Round(t, 2)));
     }
+
+    [Fact]
+    public void Silent_while_playing_keeps_the_count_in_and_listen_bar_but_nothing_plays_while_you_are_recorded()
+    {
+        var engine = new RhythmTrainerEngine(Rate, FourFour([0, 2 * Q], [Q, Q], listen: true, bars: 2)) { SilentWhilePlaying = true };
+        var output = Run(engine);
+        Assert.Equal([0.0, 0.5, 1.0, 1.5], SoundStarts(output, 0, 2 * Rate).Select(t => Math.Round(t, 3)));   // count-in
+        Assert.NotEmpty(SoundStarts(output, 2 * Rate, 3 * Rate));                                               // listen bar
+        var silentFrom = (int)(engine.PlayStart - engine.PreRollSamples);
+        Assert.All(output[silentFrom..], x => Assert.Equal(0f, x));                                             // recorded part
+        // Faded, not cut: the last fade samples step down to silence.
+        var fade = (int)(RhythmTrainerEngine.SilenceFadeSeconds * Rate);
+        Assert.True(output[(silentFrom - fade)..silentFrom].Max(Math.Abs) <= output[..(silentFrom - fade)].Max(Math.Abs));
+
+        // The same take without it: click and drums in your bars.
+        var normal = Run(new RhythmTrainerEngine(Rate, FourFour([0, 2 * Q], [Q, Q], listen: true, bars: 2)));
+        Assert.NotEmpty(SoundStarts(normal, silentFrom, normal.Length));
+    }
+
+    [Fact]
+    public void Beat_sound_times_follow_click_drums_and_backbeat()
+    {
+        RhythmTrainerEngine Engine() => new(Rate, FourFour([0], [4 * Q], listen: true, bars: 2));
+        Assert.Equal([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5], Engine().BeatSoundTimes().Select(t => Math.Round(t, 6)));
+        var clickOnly = Engine();
+        clickOnly.DrumsEnabled = false;
+        Assert.Equal(8, clickOnly.BeatSoundTimes().Count);
+        var backbeat = Engine();
+        backbeat.DrumsEnabled = false;
+        backbeat.Backbeat = true;
+        Assert.Equal([0.5, 1.5, 2.5, 3.5], backbeat.BeatSoundTimes().Select(t => Math.Round(t, 6)));
+        var none = Engine();
+        none.DrumsEnabled = false;
+        none.ClickEnabled = false;
+        Assert.Empty(none.BeatSoundTimes());
+        var silent = Engine();
+        silent.SilentWhilePlaying = true;
+        Assert.Empty(silent.BeatSoundTimes());
+    }
+
+    [Fact]
+    public void Speaker_bleed_is_onsets_at_one_fixed_offset_after_the_beats()
+    {
+        // The user's phone take (2026-11-25, 80 BPM, 2 bars): the click came back +23/+24 ms after 7 of 8 beats (one
+        // merged with a note they played on the beat), between their own notes on the 8ths.
+        var beats = Enumerable.Range(0, 8).Select(b => b * 0.75).ToList();
+        var bleed = new[] { 0.023, 0.757, 1.524, 2.273, 3.023, 3.774, 4.524, 5.274 }.ToList();
+        bleed[1] = 0.757; // +7 ms: merged with a played note
+        var played = new[] { 0.480, 1.155, 1.905, 2.290, 2.640, 3.427, 4.110, 4.867, 5.209, 5.569 };
+        Assert.True(SpeakerBleed.Detect([.. bleed.Concat(played).Order()], beats));
+
+        // A player on every beat, even a tight one (±5 ms, plus a steady late tendency): no bleed.
+        var human = new[] { 0.012, 0.742, 1.519, 2.247, 3.025, 3.741, 4.508, 5.262 };
+        Assert.False(SpeakerBleed.Detect(human, beats));
+        Assert.False(SpeakerBleed.Detect([], beats));
+        Assert.False(SpeakerBleed.Detect([0.023, 0.773, 1.523], [0.0, 0.75, 1.5]));     // too few beats to tell
+        Assert.False(SpeakerBleed.Detect([0.023, 0.773, 1.523, 2.273], [0.0, 0.75, 1.5, 2.25, 3.0, 3.75, 4.5, 5.25])); // half the beats
+    }
 }

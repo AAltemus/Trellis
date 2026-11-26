@@ -30,10 +30,35 @@
     <Style Selector="TextBlock.error">
       <Setter Property="Foreground" Value="#d84a3a" />
     </Style>
+    <!-- Beat lights: a visual click -->
+    <Style Selector="Border.beatLight">
+      <Setter Property="Width" Value="44" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="CornerRadius" Value="22" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BorderBrush" Value="#60808080" />
+      <Setter Property="Background" Value="#14808080" />
+    </Style>
+    <Style Selector="Border.beatLight.first">
+      <Setter Property="BorderThickness" Value="3" />
+    </Style>
+    <Style Selector="Border.beatLight.on">
+      <Setter Property="Background" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+    </Style>
+    <Style Selector="Border.beatLight.on > TextBlock">
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+
+    <!-- Narrow (a phone, or a narrow window): the output picker may shrink to the screen -->
+    <Style Selector="ComboBox.outputPicker"><Setter Property="MinWidth" Value="300" /></Style>
+    <ContainerQuery Name="rhythmRoot" Query="max-width:599">
+      <Style Selector="ComboBox.outputPicker"><Setter Property="MinWidth" Value="0" /><Setter Property="HorizontalAlignment" Value="Stretch" /></Style>
+    </ContainerQuery>
   </UserControl.Styles>
 
   <ScrollViewer>
-    <StackPanel Margin="16" Spacing="12">
+    <StackPanel Margin="16" Spacing="12" Container.Name="rhythmRoot" Container.Sizing="Width">
       <!-- Opened for a practice item: Log score goes to it -->
       <Border IsVisible="{Binding HasLink}" Padding="10,6" CornerRadius="6" Background="#14808080">
         <Grid ColumnDefinitions="*,Auto">
@@ -173,13 +198,37 @@
       </Expander>
 
       <!-- Transport -->
-      <StackPanel Orientation="Horizontal" Spacing="12">
+      <DockPanel>
         <Button Content="{Binding StartText}" Command="{Binding StartStopCommand}" MinWidth="110" Classes="accent"
-                HorizontalContentAlignment="Center" />
-        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" FontSize="16" />
-      </StackPanel>
+                HorizontalContentAlignment="Center" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Status}" VerticalAlignment="Center" FontSize="16" Margin="12,0,0,0" TextWrapping="Wrap" />
+      </DockPanel>
+      <!-- Beat lights: lit on each beat during a take (the only beat with "Silent while I play") -->
+      <ItemsControl ItemsSource="{Binding BeatLights}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel ItemSpacing="10" LineSpacing="10" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:BeatLight">
+            <Border Classes="beatLight" Classes.on="{Binding IsOn}" Classes.first="{Binding IsFirst}">
+              <TextBlock Text="{Binding Number}" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
       <TextBlock Text="{Binding ResultText}" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"
                  IsVisible="{Binding ResultText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      <!-- The trainer heard its own click/drums: the score can't be trusted -->
+      <Border IsVisible="{Binding HeardSpeaker}" Padding="12,8" CornerRadius="8" Background="#33D98C00">
+        <StackPanel Spacing="8">
+          <TextBlock TextWrapping="Wrap"
+                     Text="The click and drums were recorded too (the speaker reaches the input), so they count as extra notes and can earn notes you didn't play. Wear earbuds or headphones (wired: Bluetooth adds a long delay) and the click can stay on, or play without it and follow the beat lights:" />
+          <Button Content="Silent while I play" Command="{Binding SilenceWhilePlayingCommand}" />
+        </StackPanel>
+      </Border>
       <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ResultText, Converter={x:Static ObjectConverters.IsNotNull}}">
         <Button Content="Save recording" Command="{Binding SaveRecordingCommand}"
                 ToolTip.Tip="Saves what the input heard in this take as a WAV in the diagnostics folder (to check an odd score)" />
@@ -192,7 +241,7 @@
 
       <!-- Sound -->
       <Border Padding="12,8" CornerRadius="8" Background="#14808080">
-        <Grid ColumnDefinitions="Auto,*,50" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+        <Grid ColumnDefinitions="Auto,*,50" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
           <CheckBox Content="Click" IsChecked="{Binding Click}" ToolTip.Tip="On every beat (the count-in always clicks)" />
           <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="{Binding ClickVolume}" IsEnabled="{Binding Click}" />
           <TextBlock Grid.Column="2" Text="{Binding ClickVolume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
@@ -209,11 +258,15 @@
           <CheckBox Grid.Row="3" Grid.ColumnSpan="3" Content="Listen first: the rhythm plays once (after the count-in) before your bars"
                     IsChecked="{Binding ListenFirst}" IsEnabled="{Binding CanChange}" />
 
-          <StackPanel Grid.Row="4" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="8">
+          <CheckBox Grid.Row="4" Grid.ColumnSpan="3" IsChecked="{Binding SilentWhilePlaying}" IsEnabled="{Binding CanChange}"
+                    Content="Silent while I play: only the count-in (and listen bar) sound"
+                    ToolTip.Tip="Nothing plays while you're recorded, so a speaker the input can hear (a phone's or laptop's) doesn't get recorded as notes. Not needed with headphones or an interface's direct monitoring." />
+
+          <Grid Grid.Row="5" Grid.ColumnSpan="3" ColumnDefinitions="Auto,*" ColumnSpacing="8">
             <TextBlock Text="Output" VerticalAlignment="Center" />
-            <ComboBox ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" IsEnabled="{Binding CanChange}" MinWidth="300"
+            <ComboBox Grid.Column="1" Classes="outputPicker" ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" IsEnabled="{Binding CanChange}"
                       ToolTip.Tip="Where the click, drums and rhythm play. While scoring, it has to be on the input's driver (else the same input is looked for on the output's driver, or the input's own driver is used)." />
-          </StackPanel>
+          </Grid>
         </Grid>
       </Border>
 
@@ -240,11 +293,11 @@
       </Border>
 
       <!-- Log -->
-      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasLogBlocks}">
+      <WrapPanel ItemSpacing="8" LineSpacing="6" IsVisible="{Binding HasLogBlocks}">
         <TextBlock Text="Log the last take to" VerticalAlignment="Center" />
         <ComboBox ItemsSource="{Binding LogBlocks}" SelectedItem="{Binding SelectedLogBlock}" MinWidth="260" />
         <Button Content="Log score" Command="{Binding LogCommand}" ToolTip.Tip="Adds the score to today's notes of that block" />
-      </StackPanel>
+      </WrapPanel>
       <TextBlock Classes="caption" Text="{Binding LogStatus}" TextWrapping="Wrap"
                  IsVisible="{Binding LogStatus, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
