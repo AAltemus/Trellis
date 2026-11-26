@@ -52,11 +52,26 @@
       <Setter Property="Foreground" Value="#D98C00" />
       <Setter Property="Opacity" Value="1" />
     </Style>
+
+    <!-- Library | song side by side; narrow (a phone, or a narrow window): the library on top, the song under it.
+         Positions live in styles (not on the elements) so the narrow query can override them. -->
+    <Style Selector="DockPanel.library"><Setter Property="Margin" Value="0,0,16,0" /></Style>
+    <Style Selector="ScrollViewer.song"><Setter Property="Grid.Column" Value="1" /></Style>
+    <Style Selector="StackPanel.songBody"><Setter Property="Margin" Value="0,0,12,0" /></Style>
+    <ContainerQuery Name="midiRoot" Query="max-width:599">
+      <Style Selector="DockPanel.library"><Setter Property="Margin" Value="0,0,0,16" /><Setter Property="Grid.ColumnSpan" Value="2" /></Style>
+      <Style Selector="DockPanel.library ListBox"><Setter Property="MinHeight" Value="64" /><Setter Property="MaxHeight" Value="200" /></Style>
+      <Style Selector="ScrollViewer.song"><Setter Property="Grid.Column" Value="0" /><Setter Property="Grid.ColumnSpan" Value="2" /><Setter Property="Grid.Row" Value="1" /></Style>
+      <Style Selector="StackPanel.songBody"><Setter Property="Margin" Value="0" /></Style>
+      <!-- A track's name on its own line, its controls under it -->
+      <Style Selector="StackPanel.trackName"><Setter Property="Grid.ColumnSpan" Value="5" /></Style>
+      <Style Selector=":is(Control).trackControl"><Setter Property="Grid.Row" Value="1" /></Style>
+    </ContainerQuery>
   </UserControl.Styles>
 
-  <Grid ColumnDefinitions="270,*" Margin="16">
+  <Grid ColumnDefinitions="270,*" RowDefinitions="*,Auto" Margin="16" Container.Name="midiRoot" Container.Sizing="Width">
     <!-- Library -->
-    <DockPanel Margin="0,0,16,0">
+    <DockPanel Classes="library">
       <TextBlock DockPanel.Dock="Top" Text="Library" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
       <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
         <Button Content="Import MIDI…" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Click="OnImport"
@@ -85,8 +100,8 @@
     </DockPanel>
 
     <!-- Song -->
-    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Spacing="12" Margin="0,0,12,0">
+    <ScrollViewer Classes="song" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Classes="songBody" Spacing="12">
         <!-- Opened from a practice item -->
         <Border IsVisible="{Binding IsLinkedItem}" Padding="10,6" CornerRadius="6" Background="#14808080">
           <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
@@ -207,17 +222,17 @@
           <ItemsControl ItemsSource="{Binding Tracks}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:MidiTrackViewModel">
-                <Grid ColumnDefinitions="*,Auto,48,Auto,Auto" ColumnSpacing="6" Margin="0,2">
-                  <StackPanel VerticalAlignment="Center">
+                <Grid ColumnDefinitions="*,Auto,48,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" Margin="0,2">
+                  <StackPanel Classes="trackName" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <TextBlock Classes="caption" Text="{Binding Detail}" />
                   </StackPanel>
-                  <Slider Grid.Column="1" Minimum="0" Maximum="100" Width="110" Value="{Binding Volume}" VerticalAlignment="Center"
+                  <Slider Classes="trackControl" Grid.Column="1" Minimum="0" Maximum="100" Width="110" Value="{Binding Volume}" VerticalAlignment="Center"
                           Margin="0,-8" ToolTip.Tip="This track's volume" />
-                  <TextBlock Grid.Column="2" Text="{Binding VolumeText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                  <ToggleButton Grid.Column="3" Classes="mute" Content="Mute" IsChecked="{Binding IsMuted}" MinWidth="64"
+                  <TextBlock Classes="trackControl" Grid.Column="2" Text="{Binding VolumeText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                  <ToggleButton Grid.Column="3" Classes="mute trackControl" Content="Mute" IsChecked="{Binding IsMuted}" MinWidth="64"
                                 HorizontalContentAlignment="Center" />
-                  <ToggleButton Grid.Column="4" Classes="solo" Content="Solo" IsChecked="{Binding IsSoloed}" MinWidth="64"
+                  <ToggleButton Grid.Column="4" Classes="solo trackControl" Content="Solo" IsChecked="{Binding IsSoloed}" MinWidth="64"
                                 HorizontalContentAlignment="Center" />
                 </Grid>
               </DataTemplate>

@@ -12,6 +12,45 @@
       <Setter Property="Foreground" Value="#E53935" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <!-- Takes tab: list | waveform side by side; narrow (a phone, or a narrow window): one column, the list first.
+         Positions and widths live in styles (not on the elements) so the narrow query can override them. -->
+    <Style Selector="DockPanel.takesList"><Setter Property="Grid.Row" Value="2" /><Setter Property="Grid.RowSpan" Value="4" /></Style>
+    <Style Selector="DockPanel.wave"><Setter Property="Grid.Row" Value="2" /><Setter Property="Grid.Column" Value="2" /></Style>
+    <Style Selector="WrapPanel.transport"><Setter Property="Grid.Row" Value="3" /><Setter Property="Grid.Column" Value="2" /></Style>
+    <Style Selector="StackPanel.playControls"><Setter Property="Grid.Row" Value="4" /><Setter Property="Grid.Column" Value="2" /></Style>
+    <Style Selector="StackPanel.status"><Setter Property="Grid.Row" Value="5" /><Setter Property="Grid.Column" Value="2" /></Style>
+    <Style Selector="TextBlock.layerTitle"><Setter Property="Width" Value="170" /></Style>
+    <Style Selector="Slider.layerVolume"><Setter Property="Width" Value="180" /></Style>
+    <Style Selector="Slider.latency"><Setter Property="Width" Value="220" /></Style>
+    <Style Selector="Border.dialog"><Setter Property="Width" Value="420" /></Style>
+    <Style Selector="Panel.channelBox"><Setter Property="Width" Value="180" /></Style>
+
+    <ContainerQuery Name="recorderTakes" Query="max-width:599">
+      <Style Selector=":is(Control).narrow">
+        <Setter Property="Grid.Column" Value="0" />
+        <Setter Property="Grid.ColumnSpan" Value="3" />
+        <Setter Property="Grid.RowSpan" Value="1" />
+      </Style>
+      <Style Selector="DockPanel.takesList"><Setter Property="Grid.Row" Value="2" /><Setter Property="Margin" Value="0,0,0,12" /></Style>
+      <Style Selector="DockPanel.takesList ListBox"><Setter Property="MinHeight" Value="64" /><Setter Property="MaxHeight" Value="240" /></Style>
+      <Style Selector="DockPanel.wave"><Setter Property="Grid.Row" Value="3" /></Style>
+      <Style Selector="WrapPanel.transport"><Setter Property="Grid.Row" Value="4" /></Style>
+      <Style Selector="StackPanel.playControls"><Setter Property="Grid.Row" Value="5" /></Style>
+      <Style Selector="StackPanel.status"><Setter Property="Grid.Row" Value="6" /></Style>
+    </ContainerQuery>
+    <ContainerQuery Name="recorderLooper" Query="max-width:599">
+      <Style Selector="TextBlock.layerTitle"><Setter Property="Width" Value="80" /></Style>
+      <Style Selector="Slider.layerVolume"><Setter Property="Width" Value="110" /></Style>
+      <Style Selector="Slider.latency"><Setter Property="Width" Value="160" /></Style>
+    </ContainerQuery>
+    <ContainerQuery Name="recorderInput" Query="max-width:599">
+      <!-- The empty channel column would squeeze the input's name -->
+      <Style Selector="Panel.channelBox"><Setter Property="Width" Value="NaN" /></Style>
+    </ContainerQuery>
+    <ContainerQuery Name="recorderOverlay" Query="max-width:459">
+      <Style Selector="Border.dialog"><Setter Property="Width" Value="NaN" /><Setter Property="Margin" Value="16" /></Style>
+    </ContainerQuery>
   </UserControl.Styles>
 
 
@@ -29,7 +68,8 @@
     </Border>
 
     <!-- Input (takes and looper) -->
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,180" ColumnSpacing="8" Margin="16,12,16,0">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="16,12,16,0"
+          Container.Name="recorderInput" Container.Sizing="Width">
       <TextBlock Text="Input" VerticalAlignment="Center" />
       <ComboBox Grid.Column="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}" HorizontalAlignment="Stretch">
         <ComboBox.ItemTemplate>
@@ -39,13 +79,16 @@
         </ComboBox.ItemTemplate>
       </ComboBox>
       <TextBlock Grid.Column="2" Text="Channel" VerticalAlignment="Center" IsVisible="{Binding IsStereoDevice}" />
-      <ComboBox Grid.Column="3" ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
-                HorizontalAlignment="Stretch" IsVisible="{Binding IsStereoDevice}" />
+      <Panel Grid.Column="3" Classes="channelBox">
+        <ComboBox ItemsSource="{Binding ChannelOptions}" SelectedItem="{Binding SelectedChannel}"
+                  HorizontalAlignment="Stretch" IsVisible="{Binding IsStereoDevice}" />
+      </Panel>
     </Grid>
 
     <TabControl Margin="8,4,8,0">
     <TabItem Header="Takes">
-    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,Auto" Margin="8,8,8,8" ColumnDefinitions="220,16,*">
+    <Grid Classes="takesGrid" Container.Name="recorderTakes" Container.Sizing="Width"
+          RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto" Margin="8,8,8,8" ColumnDefinitions="220,16,*">
 
       <!-- Record -->
       <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="10">
@@ -60,7 +103,7 @@
       <Border Grid.Row="1" Height="10" />
 
       <!-- Takes -->
-      <DockPanel Grid.Row="2" Grid.RowSpan="4" Grid.Column="0">
+      <DockPanel Classes="takesList narrow">
         <TextBlock DockPanel.Dock="Top" Text="Takes" FontWeight="SemiBold" Margin="0,0,0,6" />
         <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
           <TextBox Text="{Binding RenameText}" PlaceholderText="Name" />
@@ -84,7 +127,7 @@
       </DockPanel>
 
       <!-- Waveform: click to seek, drag to loop -->
-      <DockPanel Grid.Row="2" Grid.Column="2">
+      <DockPanel Classes="wave narrow">
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding PositionText}" Margin="0,6,0,0"
                    FontFamily="Consolas, Menlo, DejaVu Sans Mono, monospace" />
         <c:WaveformView Peaks="{Binding Peaks}" Position="{Binding PositionFraction}"
@@ -94,14 +137,14 @@
       </DockPanel>
 
       <!-- Transport -->
-      <StackPanel Grid.Row="3" Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+      <WrapPanel Classes="transport narrow" ItemSpacing="8" LineSpacing="6" Margin="0,10,0,0">
         <Button Classes="accent" Content="{Binding PlayButtonText}" Command="{Binding PlayPauseCommand}" MinWidth="100" />
         <Button Content="■ Stop" Command="{Binding StopCommand}" />
         <CheckBox Content="Loop" IsChecked="{Binding IsLoopEnabled}" Margin="12,0,0,0" />
         <Button Content="Clear loop" Command="{Binding ClearLoopCommand}" />
-      </StackPanel>
+      </WrapPanel>
 
-      <StackPanel Grid.Row="4" Grid.Column="2" Spacing="8" Margin="0,8,0,0">
+      <StackPanel Classes="playControls narrow" Spacing="8" Margin="0,8,0,0">
         <TextBlock Text="{Binding LoopText}" Classes="caption" Opacity="0.8" />
         <WrapPanel>
           <CheckBox Content="Count-in: 4 clicks at" IsChecked="{Binding IsCountInEnabled}" VerticalAlignment="Center" />
@@ -140,7 +183,7 @@
         </Border>
       </StackPanel>
 
-      <StackPanel Grid.Row="5" Grid.Column="2" Spacing="4" Margin="0,10,0,0">
+      <StackPanel Classes="status narrow" Spacing="4" Margin="0,10,0,0">
         <TextBlock Text="{Binding Error}" Foreground="#E53935" TextWrapping="Wrap"
                    IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <TextBlock Text="{Binding Status}" Classes="caption" TextWrapping="Wrap" Opacity="0.7" />
@@ -151,7 +194,7 @@
     <!-- Looper: overdub layers on a loop synced to its own click -->
     <TabItem Header="Looper">
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="8" Spacing="12">
+        <StackPanel Margin="8" Spacing="12" Container.Name="recorderLooper" Container.Sizing="Width">
           <WrapPanel IsEnabled="{Binding CanChangeLoop}">
             <TextBlock Text="Tempo" VerticalAlignment="Center" Margin="0,0,6,0" />
             <NumericUpDown Value="{Binding LooperBpm}" Minimum="30" Maximum="300" Increment="1" FormatString="0" Width="120" />
@@ -203,9 +246,9 @@
           <ItemsControl ItemsSource="{Binding LooperLayers}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LooperLayerViewModel">
-                <Grid ColumnDefinitions="170,180,50,Auto" Margin="0,2">
-                  <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
-                  <Slider Grid.Column="1" Minimum="0" Maximum="150" Value="{Binding Volume}" IsEnabled="{Binding !IsMuted}" />
+                <Grid ColumnDefinitions="Auto,Auto,50,Auto" Margin="0,2">
+                  <TextBlock Classes="layerTitle" Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                  <Slider Classes="layerVolume" Grid.Column="1" Minimum="0" Maximum="150" Value="{Binding Volume}" IsEnabled="{Binding !IsMuted}" />
                   <TextBlock Grid.Column="2" Text="{Binding Volume, StringFormat='{}{0:0} %'}" VerticalAlignment="Center" HorizontalAlignment="Right" />
                   <CheckBox Grid.Column="3" Content="Mute" IsChecked="{Binding IsMuted}" Margin="12,0,0,0" />
                 </Grid>
@@ -221,7 +264,7 @@
                          Text="Calibrate plays 8 clicks and listens for them on the input above: put the guitar's pickups or a mic near the speakers, loop a cable from output to input, or pick your interface's loopback input if it has one (then switch back). Fine-tune by ear if layers land early or late." />
               <WrapPanel>
                 <Button Content="Calibrate" Command="{Binding CalibrateCommand}" Margin="0,0,12,0" />
-                <Slider Minimum="0" Maximum="300" Value="{Binding LatencyMs}" Width="220" SmallChange="0.5" LargeChange="5"
+                <Slider Classes="latency" Minimum="0" Maximum="300" Value="{Binding LatencyMs}" SmallChange="0.5" LargeChange="5"
                         ToolTip.Tip="Recorded layers are moved this much earlier" />
                 <TextBlock Text="{Binding LatencyText}" VerticalAlignment="Center" Margin="8,0,0,0" />
               </WrapPanel>
@@ -242,8 +285,8 @@
     </DockPanel>
 
     <!-- Delete take confirmation -->
-    <Border IsVisible="{Binding IsDeleteConfirmOpen}" Background="#99000000">
-      <Border Width="420" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="10"
+    <Border IsVisible="{Binding IsDeleteConfirmOpen}" Background="#99000000" Container.Name="recorderOverlay" Container.Sizing="Width">
+      <Border Classes="dialog" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20" CornerRadius="10"
               Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
         <StackPanel Spacing="12">
           <TextBlock Text="Delete take" FontSize="18" FontWeight="SemiBold" />
