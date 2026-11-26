@@ -193,7 +193,7 @@ scrolled so today is in view.
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
 
-**File → Settings…** (Ctrl+,): Appearance → Theme: Light (default) or Dark. I
+**File → Settings…** (Ctrl+,): Appearance → Theme: Light (default) or Dark.
 
 ## Building from source
 
