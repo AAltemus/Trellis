@@ -135,11 +135,9 @@ scrolled so today is in view.
   - *Sensitivity* (−40 … −80 dBFS): for low-gain inputs, slide right until picked notes register but the idle input
     doesn't.
 - **Recorder…** (Ctrl+R):
-  - *Takes*: record from your input, play back on a waveform (click to jump, drag to select a loop), loop an A–B region
-    seamlessly with an optional 4-click count-in, **Speed** 50–100 % without changing pitch (also while playing; the
-    loop and count-in follow), rename/delete takes. Attach a take to a practice item, day and (optionally) exercise;
-    Progress lists each day's takes with an **Open** button. Takes are WAV files in
-    `%LOCALAPPDATA%\GuitarPractice\recordings`.
+  - *Takes*: record from your input, play back, loop an A–B region
+    seamlessly, **Speed** 50–100 % without changing pitch. Attach a take to a practice item, day and (optionally) exercise;
+    Progress lists each day's takes with an **Open** button.
   - *Looper*: a loop of 1–16 bars at a tempo, with its own click and a one-bar count-in. **● Record layer** records the
     next whole pass as a layer (up to 8; press again while recording to record the layer after it too), or 2 or 4
     passes for a layer longer than the loop (a solo over a short chord loop: its passes play in turn). The bar before a
@@ -153,87 +151,49 @@ scrolled so today is in view.
 - **Ear Trainer…** (Ctrl+E): hear an interval or a chord, pick what it was, get scored. Choose the key (any of 12
   tonics, major or natural minor) and tick exactly what to practise: the 12 intervals (m2 … P8; ascending, descending,
   together or mixed; from the key's root or from any note of the key) or the key's diatonic chords (I … vii° triads
-  and Imaj7 … viiø7 sevenths). A chord question is just that chord: name it by degree and quality, e.g. in C
-  major "ii · Dm (minor)", the 2 chord, a minor chord (K plays the key chord if you want a reference). Intervals can
-  play the key chord first. Only the first answer to each question scores; after answering, click any answer to hear
-  it for comparison. Score, streak and
-  per-item results for the round, plus all-time accuracy per item (kept between sessions; chords per mode, so V7 in
-  any major key counts together). Keys: Enter/N next, Space/R replay, K key chord, 1–9/0 answer. Notes are a
-  synthesised plucked string, in tune to ±2 cents.
+  and Imaj7 … viiø7 sevenths).
   - More chord types built from the key's notes, offered only on the degrees where they're real chords: sus2, sus4,
     add9, 6th and 9th chords (e.g. in C major Vsus4 but no IVsus4).
   - Chords from outside the key: **borrowed** from the parallel key (in C major iv, ♭III, ♭VI, ♭VII and their
     sevenths; in minor I, IV, ♮vi …) and, in minor keys, the **harmonic minor**'s (V, V7, vii°, vii°7, III+, i(maj7)).
   - **Ask the ones I miss more often** (on by default) weights the questions by your all-time results: an item you
-    usually miss comes up 3–4 times as often as one you always get; none drops out.
+    usually miss comes up 3–4 times as often as one you always get.
   - *Melodies* (dictation): hear a 3–8 note melody in the key (after the key chord) and write it down with the degree
     buttons 1–8 (or keys 1–8, Backspace, M to hear yours); scored per note and per melody.
-  - **Log score** adds the round's result as a line in today's notes for an Ear Training block (chosen in a list).
-- **Rhythm Trainer…** (Ctrl+Y): read and play rhythms in 4/4, 3/4, 2/4, 6/8, 9/8, 12/8 and the odd meters 5/4, 7/4,
-  5/8 (3+2) and 7/8 (2+2+3). Each meter has built-in rhythms from level 1 (quarters, eighths) to 5 (dotted
-  notes, ties across the beat, rests, syncopation such as the Charleston, tresillo and sixteenth pushes, triplets, quintuplets, sextuplets, 32nds), shown as rhythm
-  notation with the beats numbered; a few span two bars (call and answer, the 3-2 son clave, a push tied into bar 2).
-  A take is a count-in bar, the rhythm played once for you as a muted power chord
-  (optional), then 1–8 bars for you (a whole number of times through a longer rhythm) over the click (on the beats: quarters in x/4, the 3+3 or 2+2+3 groups in x/8;
-  or **only on 2 and 4** after the count-in, in meters with an even number of beats)
-  and a kick/snare/hi-hat groove, each with its own volume. Tempo is the meter's note value (♩ in x/4, ♪ in x/8).
-  It plays through the Metronome's output, or one picked in **Output**.
+- **Rhythm Trainer…** (Ctrl+Y): read and play rhythms in multiple time signatures. Each meter has built-in rhythms from level 1  to 5, with any BPM, 
   - **New random** makes up a one-bar rhythm at a level (1–5) in the meter, from the same building blocks as the
     built-in ones; it stays in the list until the next one.
   - **Your own rhythms**: build one by clicking notes and rests (whole … 32nd), with **Dotted**, **Triplet** and
-    **Tie** for the next/last note, **Undo** and **Clear**. Notes that won't fit in what's left of the bar are greyed
-    out and a full bar starts the next one (up to 4), so the bars always add up; the notation and "Bar 2 of up to 4:
-    1.5 of 4 beats, 2.5 left" update as you click, and **Listen** plays it once after a count-in. The selected rhythm
+    **Tie** for the next/last note. Notes that won't fit in what's left of the bar are greyed
+    out and a full bar starts the next one (up to 4), so the bars always add up. **Listen** plays it once after a count-in. The selected rhythm
     is loaded to start from (keep a random one you like, or change a built-in one). Name it and **Add**: it's listed
-    with a ★ for that meter; **Delete** asks first. Under **Type it instead** is the same rhythm as text
+    with a ★ for that meter; **Type it instead** is the same rhythm as text
     (`w h q e s t`, `.` dot, `r` rest, `~` tie, `[3 e e e]` tuplets incl. 5, 6, 7, `|` between bars), which you can
     also type or paste.
   - **♪ Rhythm** on a Rhythm item of the week (or Ctrl+Shift+Y) opens the trainer for it: **Log score** goes to that
     item's notes for its day.
   - **Score my playing** records your input during your bars on the same stream as the click, compensating the
-    latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm: full marks within
-    20 ms of where it should be, less up to the window's edge (100 ms, narrower for fast rhythms), missed notes and
-    extra notes count against you. A note played past the window but within twice it (nothing else in between) counts
-    once, as missed "way off" (✕ −160), not as a miss plus an extra note. The notation colours each note (green on time,
-    amber off, red missed) with how many ms early or late it was on average, and the take gets a score, e.g. "92 %
-    (23/24 hit, avg 6 ms late, ±11 ms)". Short, muted notes are detected most reliably. **Save recording** writes the
-    take's WAV and a .txt with its rhythm, tempo and settings to the diagnostics folder.
-  - **Log score** adds the last take to today's notes of a Rhythm block (or Theory · Rhythm reading); odd meters pick
-    Rhythm · Odd meters by default.
-- **MIDI Player…** (Ctrl+I): play along with songs or routines from any MIDI file. **Import MIDI…** (or drop
-  .mid files on the window) copies them into Trellis's library (`%LOCALAPPDATA%\GuitarPractice\midi`) so they're there
+    latency measured by Recorder → Looper → Calibrate. Each note you play is matched to the rhythm.  folder.
+  - **Log score** adds the last take to today's notes of a Rhythm block (or Theory · Rhythm reading).
+- **MIDI Player…** (Ctrl+I): play along with songs or routines from any MIDI file. **Import MIDI…**  so they're there
   every time; rename or delete them there (your original is never touched). Sounds come from the bundled GeneralUser GS
   SoundFont (see `src/GuitarPractice.App/Assets/SoundFont/README.md`). Practice controls: **Speed** 25–150 % (pitch
   unchanged), **Mute** a track to play that part yourself or **Solo** one to learn it, **Loop bars** (or *Loop this
   bar*, or **All** for the whole song), a one-bar **Count-in** at the song's tempo (optionally before every loop
   pass), a **Click** on every beat that follows the song's tempo changes, time signatures and your speed (bar starts
-  accented; its own volume), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. Each song is
-  levelled when you open it (its first 30 seconds are measured in the background; "level +11 dB" next to the tempo),
-  so a one-instrument riff plays about as loud as a full band file. A bar panel shows the bar and beat
-  playing now and a map of the bars (loop tinted, click a bar to jump there). Each file remembers its speed, loop,
-  count-in, click, volumes and muted/soloed tracks. Keys: Space play/pause, Home back to the start (or loop start).
+  accented; its own volume), volume (0–200 %; a soft limiter keeps it clean) and a volume per track. 
   - **♫ Play along** (timer row; Tools → Play along with MIDI, Ctrl+Shift+I) opens the player for the selected practice
     item; press **Link** to attach the current file to it, so next time it opens straight away.
 - **Progress…** (Ctrl+P): per block: streak, recent rating, minutes practised; per exercise (name + note value): best
   and latest BPM and progress toward its target. Set your own targets per exercise, or a block target as the fallback.
   A BPM chart with a line per exercise (up to four) and dashed target lines, a minutes-per-day chart, and a day table
-  you can edit for any date. While it's open it follows the block you select in the week.
-  **Remove** (asks first) stops tracking an exercise: it leaves the list and the chart, but nothing is deleted; its
-  lines stay in the day table marked "(removed)" and it's listed under "Removed exercises (history kept)". Logging the
-  same name again starts it over from scratch (its own target, if set, stays).
-  **Rename** fixes an exercise's name; typing another exercise's name (same note value) merges the two.
+  you can edit for any date. 
   **What's tracked** (bottom left) leaves categories or single blocks out of tracking, e.g. Warmup or Theory; their
-  history is kept. The day table shows Recorder takes attached to each day (🎙 n).
+  history is kept. 
 
 The metronome, tuner and recorder each open their own audio stream, so they can run at the same time.
 
-**File → Settings…** (Ctrl+,): Appearance → Theme: Light (default) or Dark. It never follows the OS setting, so the app
-looks the same on every platform.
-It applies to every open window right away and is remembered.
-
-Every window reopens where you left it: the main window, Progress, Recorder and Ear Trainer at their last size and
-position (and maximized if they were); the Metronome and Tuner, which size themselves, at their last position. If a saved
-spot is no longer on any screen (e.g. a monitor was unplugged), the window opens centred, shrunk to fit if needed.
+**File → Settings…** (Ctrl+,): Appearance → Theme: Light (default) or Dark. I
 
 ## Building from source
 
