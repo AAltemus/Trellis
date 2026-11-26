@@ -6,8 +6,7 @@ A routine to grow your playing along. Trellis turns a weighted selection of prac
 times each session, with the tools you'd otherwise switch apps for in one place: metronome (clicks or drums), tuner and
 bend trainer, recorder with looping, ear trainer, rhythm trainer, progress tracking, and a MIDI player for playing along with backing
 tracks: import songs or routines from any MIDI file, slow them down without changing pitch, mute your
-part, loop the bars you're working on, and link a song to a practice item so it's one click away. Cross-platform
-desktop app (Windows / macOS / Linux); C# / .NET 10, Avalonia 12, EF Core + SQLite.
+part, loop the bars you're working on, and link a song to a practice item. 
 
 ## Install
 
@@ -67,7 +66,7 @@ Ear trainer: chords in a key, with the round's score (dark):
 - **Songs** is a category of kind `Songs`. Its subcategories are songs with artist, tuning and status
   (Learning / Polishing / Maintaining) and are weighted and scheduled like any drill.
 - 78 built-in subcategories across 11 exercise categories, each with practice notes and BPM ranges where relevant.
-  Hover a name in the app to see the notes. Add your own categories and subcategories from the library panel.
+  Add your own categories and subcategories from the library panel.
 - Any subcategory, built-in or your own, can be removed with its ✕ (asks first). Removing hides it from the library
   and the routine but deletes nothing: its practice time and progress stay, and the Progress window still lists it
   ("removed from library") while it has history. **Removed items** at the bottom of the library lists them with
@@ -84,13 +83,10 @@ scrolled so today is in view.
 - **Stop** finishes the item early: the time you played is kept and the rest comes off the day. Select it again
   later and **Resume** picks it up with the time it had left.
 - **Reset** clears the item's logged time.
-- The item and the day count down live; a ding (played through the same audio output as the metronome, so it works the
-  same on every OS) plays when an item's time is up and the next unfinished item is lined up.
-- Practised time is stored per (date, subcategory) in `PracticeLogs`, saved every 15 s while running, so it survives
-  reshuffles, weight changes, locking and restarts (loading a saved week into a week clears it, see below). The seed
-  is saved too, so the plan doesn't move between launches.
+- The item and the day count down live; a ding plays when an item's time is up and the next unfinished item is lined up.
+- Practised time is stored per (date, subcategory) in `PracticeLogs`
 - **Log for the day** (collapsible section under the timer): the exercises you played in the block, each with BPM and
-  note value (quarters, 8ths, triplets, 16ths, quintuplets, sextuplets, septuplets, 32nds; names you used before are suggested), plus a 1–5 rating and notes, with a one-line summary.
+  note value, plus a 1–5 rating and notes.
 - **♩ Metronome** (Tools → Practice with metronome, Ctrl+Shift+M): opens the metronome for the selected item and starts
   it. It picks the exercise (the first named line in the log, else the one you logged last), starts at the tempo typed
   on that line or your latest logged tempo for it (else the block's start BPM), uses its note value as the subdivision
@@ -110,52 +106,35 @@ scrolled so today is in view.
 - **Swap two items**: drag an item onto another (on any day, or the same day), or right-click it → **Swap with**. The
   exercises trade places and each slot keeps its minutes: 10 min Theory on Monday ↔ 15 min Legato on Tuesday gives 10
   min Legato on Monday and 15 min Theory on Tuesday, so every day's total stays the same. The first swap locks the week
-  (an unlocked week would regenerate and undo it). Warmups, items that already have practice time or a progress log on
-  their day, and the item in a running timer stay put; a swap that would put an exercise on a day twice is refused. The
-  line next to the week title says what happened, or why not.
+  , since an unlocked week would regenerate and undo it. Warmups, items that already have practice time or a progress log on
+  their day, and the item in a running timer stay put. 
 - **Reshuffle from today** (this week, locked or not): the days before today stay as they are; today to Sunday are
   planned again from the routine so the whole week still matches your weights. Something added mid-week (a new song)
   catches up on the days left, items that already had their share get less, and the items furthest behind get full
   sessions first (if not everything fits, the warning says how many were left out). Items you've already practised
   today, and the one in a running timer, stay put. The week is locked afterwards.
-- **Save week as…** (Ctrl+S) stores the displayed week under a name (same name replaces). Only the plan is saved,
-  never practised time.
-- **Load saved week** copies a saved week onto the displayed week, weekday for weekday, and locks it.
-  **Load saved week into next week** does the same for the coming week; a notice shows what's queued and
-  **Clear next week** removes it.
 - Overwrite protection: you can't load into a locked week (the menu says "unlock … first"). Unlock, then load.
-- **Delete saved week…** asks for confirmation first.
 - Loading starts the week fresh: practised time logged on that week's dates is cleared. Locking, unlocking, saving
   and deleting never touch practised time.
 
 ## Tools menu
 
-- **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar, quarter/eighth/triplet/sixteenth/quintuplet/sextuplet/septuplet/32nd subdivisions,
-  accent on beat 1, **only on 2 and 4** (backbeat, even beats per bar), volume. Clicks are scheduled by counting audio samples (no timer jitter, no drift).
-  - *Gap training*: play N bars, mute M bars; the beat lights keep going (hollow) so you can check your time.
-  - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat; the big
-    BPM number follows each step while it plays (with the start tempo under it).
-  - *Sound*: the beep click or **drums** (kick, snare, closed hi-hat, synthesised). In drum mode a step grid shows one
-    column per step of the bar (beats per bar × subdivision) with a row per drum: click cells to put each drum where you
-    want it; the step being played is outlined. Built-in patterns (Basic rock, Four on the floor, 16th hats, Shuffle,
-    Waltz, Just hats) are a starting point; name your grid and **Save** it (same name updates it; built-in names are
-    reserved), **Clear** starts from empty, **Delete** removes a saved pattern (asks first). Changing beats or
-    subdivision resizes the grid, keeping the hits that still line up; picking a pattern sets the meter. Gap training
-    and the tempo trainer work the same with drums; the accent option applies to the click only.
-  - Keys: Space start/stop, ↑/↓ ±1, PgUp/PgDn ±5, T tap (not while typing in a box). Settings, the sound and the
-    current grid are remembered; saved patterns live in the database.
-  - Opened with ♩ Metronome from the timer, a "Playing for: …" banner shows the linked item; ✕ unlinks it.
+- **Metronome…** (Ctrl+M): 20–300 BPM, tap tempo, 1–12 beats per bar,
+  accent on beat 1, **only on 2 and 4**, volume. 
+  - *Gap training*: play N bars, mute M bars.
+  - *Tempo trainer*: +X BPM every N bars up to a target, stepping exactly on the downbeat.
+  - *Sound*: the beep click or **drums**. Built-in patterns are included as a starting point.
+  - Keys: Space start/stop, ↑/↓ ±1, PgUp/PgDn ±5, T tap (not while typing in a box).
   - *Output*: pick the device, listed once per audio driver with that driver's latency; the lowest number starts the
-    click soonest (e.g. ~11 ms instead of ~110 ms on Windows' default driver). Remembered by name.
+    click soonest (e.g. ~11 ms instead of ~110 ms on Windows' default driver).
 - **Tuner…** (Ctrl+T): YIN pitch detection (±1 cent in tests), needle ±50 ¢, tunings from the library (Standard,
   Drop D, D Standard, Drop C, B Standard, 7-string) or chromatic, adjustable A4, input device/channel picker
-  (pick your interface's guitar input; the system default may be a webcam mic). Settings are remembered.
-  - *Bend trainer*: play a fretted note, bend it ½ / 1 / 1½ / 2 steps; the needle shows cents from the target and each
-    held bend is scored (average offset while held, glide in/out excluded).
-  - Level readout in dBFS and **Save last 20 s** (raw input as WAV, for troubleshooting).
+  (pick your interface's guitar input; the system default may be a webcam mic).
+  - *Bend trainer*: play a fretted note, bend it ½ / 1 / 1½ / 2 steps; the needle shows cents from the target.
+  - Level readout in dBFS and **Save last 20 s** is a raw input as WAV, used for troubleshooting.
   - *Sensitivity* (−40 … −80 dBFS): for low-gain inputs, slide right until picked notes register but the idle input
-    doesn't. *Strobe display*: striped bands under the needle drift right when sharp, left when flat, stand still in tune.
-- **Recorder…** (Ctrl+R), two tabs:
+    doesn't.
+- **Recorder…** (Ctrl+R):
   - *Takes*: record from your input, play back on a waveform (click to jump, drag to select a loop), loop an A–B region
     seamlessly with an optional 4-click count-in, **Speed** 50–100 % without changing pitch (also while playing; the
     loop and count-in follow), rename/delete takes. Attach a take to a practice item, day and (optionally) exercise;
@@ -283,49 +262,8 @@ recordings and `crash-….txt` reports: the newest 20 crashes, with the stack tr
 app and a build from source share it. If a newer version has already upgraded the database, an older one refuses to
 open it (with a message) instead of failing halfway.
 
-## Layout
-
-| Project | Role |
-|---|---|
-| `GuitarPractice.Domain` | Entities, the planner, the practice timer state machine. No package dependencies; warnings are errors. |
-| `GuitarPractice.Infrastructure` | `PracticeDbContext`, entity configs, seed data, migrations, stores (incl. the MIDI library), startup migration/backup. |
-| `GuitarPractice.Audio` | The audio engines behind small `IAudio*` interfaces: metronome engine, YIN tuner pipeline, bend tracker, recorder, time-stretch, overdub looper + latency calibration, rhythm trainer, MIDI reader + player (MeltySynth), notification ding. No audio backend. |
-| `GuitarPractice.Audio.PortAudio` | The desktop audio backend: PortAudio input/output/full-duplex. |
-| `GuitarPractice.UI` | Avalonia views and view models shared by every platform: the board (library/routine panel, week view, session timer + log), the tool views (metronome, tuner, recorder, ear trainer, rhythm trainer, MIDI player, progress, settings), custom controls, app-wide styles. |
-| `GuitarPractice.App` | The desktop app (`Trellis`): windows that host the shared views, menus and keyboard shortcuts, window placement, self-update (Velopack). |
-| `GuitarPractice.Domain.Tests` | xUnit + FsCheck: planner properties and examples, progress math, week cloning, timer. |
-| `GuitarPractice.Infrastructure.Tests` | xUnit on in-memory SQLite: stores, week rules, settings, MIDI library, migrations up/down. |
-| `GuitarPractice.Audio.Tests` | xUnit: metronome timing (sample positions, no drift, no allocation), YIN accuracy, tuner, bends, drums, MIDI reading and playback (incl. the real SoundFont). |
-
-## Planner
-
-`WeeklyPlanner.Generate(PlanRequest) → PlanResult` is a pure, deterministic function.
-
-1. **Day split.** Pinned tasks (warmup) are carved out of each day's budget, or added on top when
-   `PinnedTimeOnTopOfBudget` is set. Rest days (0 min) get nothing, not even warmup.
-2. **Weekly allocation.** Largest-remainder (Hamilton) apportionment of flexible quanta by weight, in exact
-   integer arithmetic, then rebalanced so every task reaches its `MinSessionMinutes` for the week.
-3. **Sessions and spacing.** Session count comes from `MaxSessionMinutes`. Preferred days are chosen on an
-   evenly spaced lattice with a seeded phase, so 3 sessions land Mon/Wed/Fri-ish.
-4. **Exact fill.** A convex min-cost transportation problem (successive shortest paths) fills every day to
-   the minute and balances session sizes.
-5. **Repair.** Cross swaps between task/day pairs keep every day total and task total intact while removing
-   under-min and over-max sessions, then reducing sessions on consecutive days.
-6. **Ordering.** Pinned-first, then flexible tasks by category `SortOrder`, then pinned-last.
-
-Property-tested invariants:
-- Day totals match the budget mode.
-- Weekly totals are within one quantum of the weighted ideal.
-- No task appears twice in a day.
-- Zero-weight tasks never appear.
-- The same seed produces the same plan.
-- Pinned tasks come first and last.
-
-Worst case is about 16 ms per plan (40 tasks, 4 h/day), so the preview can regenerate on every slider change.
-
 ## License
 
 Trellis is free software under the GNU Lesser General Public License, version 3 ([COPYING.LESSER](COPYING.LESSER)),
-which builds on the GNU General Public License, version 3 ([COPYING](COPYING)). Releases up to and including 1.0.3
-were published under the GPL-3.0. The bundled GeneralUser GS SoundFont has its own license
+which builds on the GNU General Public License, version 3 ([COPYING](COPYING)). The bundled GeneralUser GS SoundFont has its own license
 ([src/GuitarPractice.App/Assets/SoundFont/README.md](src/GuitarPractice.App/Assets/SoundFont/README.md)).
