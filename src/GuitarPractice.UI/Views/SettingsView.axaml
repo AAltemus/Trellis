@@ -12,5 +12,10 @@
     <RadioButton GroupName="theme" IsChecked="{Binding IsDark}" Content="Dark" />
     <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,4,0,0"
                Text="Applies to every window right away and is remembered next time." />
+
+    <TextBlock Text="Board" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
+    <CheckBox IsChecked="{Binding AutoAdvance}" Content="Move to the next item when one finishes" />
+    <TextBlock Classes="caption" TextWrapping="Wrap"
+               Text="When a timer reaches zero or you press Stop, the day's next unfinished item is selected (not started). Off: the finished item stays selected." />
   </StackPanel>
 </UserControl>

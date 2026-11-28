@@ -1,10 +1,10 @@
 #:property PublishAot=false
 #:property ManagePackageVersionsCentrally=false
-#:package Avalonia.Headless@12.1.4
-#:package Avalonia.Skia@12.1.4
-#:package Avalonia.Themes.Fluent@12.1.4
-#:package Avalonia.Fonts.Inter@12.1.4
-#:package Avalonia.HarfBuzz@12.1.4
+#:package Avalonia.Headless@12.1.6
+#:package Avalonia.Skia@12.1.6
+#:package Avalonia.Themes.Fluent@12.1.6
+#:package Avalonia.Fonts.Inter@12.1.6
+#:package Avalonia.HarfBuzz@12.1.6
 #:project ../src/GuitarPractice.App/GuitarPractice.App.csproj
 using System.Reflection;
 using Avalonia;
