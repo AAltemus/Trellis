@@ -9,7 +9,12 @@ namespace GuitarPractice.App.Views;
 
 public partial class MidiPlayerView : UserControl
 {
-    private static readonly FilePickerFileType MidiFiles = new("MIDI files") { Patterns = ["*.mid", "*.midi"] };
+    // Patterns for desktop pickers, MIME types for pickers that filter by type (phones).
+    private static readonly FilePickerFileType MidiFiles = new("MIDI files")
+    {
+        Patterns = ["*.mid", "*.midi"],
+        MimeTypes = ["audio/midi", "audio/x-midi", "audio/mid"],
+    };
 
     public MidiPlayerView()
     {
@@ -47,7 +52,37 @@ public partial class MidiPlayerView : UserControl
             AllowMultiple = true,
             FileTypeFilter = [MidiFiles, FilePickerFileTypes.All],
         });
-        vm.ImportFiles(files.Select(f => f.TryGetLocalPath()).OfType<string>());
+        var local = files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
+        var streamed = files.Where(f => f.TryGetLocalPath() is null).ToList();
+        if (streamed.Count == 0)
+        {
+            vm.ImportFiles(local);
+            return;
+        }
+
+        // Pickers that hand back content rather than a file path (phones): copy each into a temp folder under its own
+        // name, import from there, then remove the copies.
+        var temp = Directory.CreateTempSubdirectory("trellis-import-");
+        try
+        {
+            foreach (var file in streamed)
+            {
+                var target = Path.Combine(temp.FullName, Path.GetFileName(file.Name));
+                await using (var source = await file.OpenReadAsync())
+                await using (var copy = File.Create(target))
+                    await source.CopyToAsync(copy);
+                local.Add(target);
+            }
+            vm.ImportFiles(local);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            vm.LibraryStatus = $"Couldn't read the file: {ex.Message}";
+        }
+        finally
+        {
+            temp.Delete(recursive: true);
+        }
     }
 
     private static IEnumerable<string> DroppedMidiFiles(DragEventArgs e) =>

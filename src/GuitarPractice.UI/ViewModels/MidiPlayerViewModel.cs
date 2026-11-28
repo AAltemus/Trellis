@@ -77,7 +77,9 @@ public sealed partial class MidiBeatViewModel(int number) : ObservableObject
 /// </summary>
 public sealed partial class MidiPlayerViewModel : ObservableObject, IDisposable
 {
-    public static string SoundFontPath => Path.Combine(AppContext.BaseDirectory, "SoundFont", "GeneralUser-GS.sf2");
+    /// <summary>The bundled SoundFont: next to the exe on desktop. A head that can't ship loose files next to its code (a
+    /// phone app) copies it somewhere readable and points this there before the first MIDI Player opens.</summary>
+    public static string SoundFontPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "SoundFont", "GeneralUser-GS.sf2");
 
     private readonly IAudioOutput _output;
     private readonly MidiLibraryStore _library;
