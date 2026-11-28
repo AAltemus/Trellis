@@ -201,10 +201,14 @@ public sealed partial class MainWindowViewModel
         entry.Day.RefreshRemaining();
         if (ding) _sound.PlayDing();
 
-        // Line up the next unfinished item on the same day (not started automatically).
-        var entries = entry.Day.Entries;
-        var next = SessionOrder.NextUnfinished(entries, entries.IndexOf(entry), e => e.IsDone);
-        if (next >= 0) Current = entries[next];
+        // Line up the next unfinished item on the same day (not started automatically), unless Settings → Board says
+        // to stay on the finished one. Read here, so a change in Settings applies to the next finish.
+        if ((_settingsStore.Get<BoardSettings>(BoardSettings.SettingsKey) ?? new BoardSettings()).AutoAdvance)
+        {
+            var entries = entry.Day.Entries;
+            var next = SessionOrder.NextUnfinished(entries, entries.IndexOf(entry), e => e.IsDone);
+            if (next >= 0) Current = entries[next];
+        }
         RefreshTimer();
     }
 
